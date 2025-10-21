@@ -3,6 +3,7 @@
 """
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from procurement.models import BaseModel
 
 
@@ -93,9 +94,10 @@ class Payment(BaseModel):
         existing_payments = Payment.objects.filter(
             contract=self.contract
         ).order_by('payment_date', 'created_at')
-        
+
         # 计算当前付款在按日期排序后的序号
         sequence = 1
+        reference_created = self.created_at if self.pk else timezone.now()
         for payment in existing_payments:
             # 如果是更新操作且是当前记录，跳过
             if self.pk and payment.pk == self.pk:
@@ -103,10 +105,10 @@ class Payment(BaseModel):
             # 如果现有付款日期早于或等于当前付款日期，序号+1
             if payment.payment_date < self.payment_date:
                 sequence += 1
-            elif payment.payment_date == self.payment_date and payment.created_at < self.created_at:
+            elif payment.payment_date == self.payment_date and payment.created_at < reference_created:
                 # 同一天的付款，按创建时间排序
                 sequence += 1
-        
+
         return f"{contract_identifier}-FK-{sequence:03d}"
     
     def save(self, *args, **kwargs):

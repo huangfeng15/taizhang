@@ -63,9 +63,14 @@ class Command(BaseCommand):
         parser.add_argument(
             '--conflict-mode',
             type=str,
-            choices=['update', 'skip', 'error'],
+            choices=['update', 'skip', 'error', 'replace'],
             default='update',
             help='数据冲突处理模式：update=更新现有记录（默认），skip=跳过现有记录，error=报错停止'
+        )
+        parser.add_argument(
+            '--project-code',
+            type=str,
+            help='replace 模式下需要指定的项目编码，其关联数据会在导入前清空'
         )
 
     def handle(self, *args, **options):

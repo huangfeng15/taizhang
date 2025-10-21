@@ -1,9 +1,9 @@
 from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.db.models import Count, Sum, Q
-from django.core.serializers import serialize
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.admin.views.decorators import staff_member_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
 from io import StringIO
@@ -15,6 +15,15 @@ from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
+
+
+def _get_page_size(request, default=20, max_size=200):
+    """解析分页大小，限制范围避免异常输入。"""
+    try:
+        size = int(request.GET.get('page_size', default))
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(size, max_size))
 
 
 def dashboard(request):
@@ -63,7 +72,7 @@ def project_list(request):
     search_query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
     page = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 20)
+    page_size = _get_page_size(request, default=20)
     
     # 高级筛选参数
     project_code_filter = request.GET.get('project_code', '')
@@ -206,7 +215,7 @@ def contract_list(request):
     project_filter = request.GET.get('project', '')
     contract_type_filter = request.GET.get('contract_type', '')
     page = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 20)
+    page_size = _get_page_size(request, default=20)
     
     # 高级筛选参数
     contract_code_filter = request.GET.get('contract_code', '')
@@ -502,7 +511,7 @@ def procurement_list(request):
     search_query = request.GET.get('q', '')
     project_filter = request.GET.get('project', '')
     page = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 20)
+    page_size = _get_page_size(request, default=20)
     
     # 高级筛选参数
     procurement_code_filter = request.GET.get('procurement_code', '')
@@ -595,7 +604,7 @@ def payment_list(request):
     contract_filter = request.GET.get('contract', '')
     project_filter = request.GET.get('project', '')
     page = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 20)
+    page_size = _get_page_size(request, default=20)
     
     # 高级筛选参数
     payment_code_filter = request.GET.get('payment_code', '')
@@ -691,8 +700,8 @@ def payment_detail(request, payment_code):
 
 
 
+@staff_member_required
 @require_POST
-@csrf_exempt
 def batch_delete_contracts(request):
     """批量删除合同"""
     try:
@@ -714,8 +723,8 @@ def batch_delete_contracts(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
+@staff_member_required
 @require_POST
-@csrf_exempt
 def batch_delete_payments(request):
     """批量删除付款记录"""
     try:
@@ -737,8 +746,8 @@ def batch_delete_payments(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
+@staff_member_required
 @require_POST
-@csrf_exempt
 def batch_delete_procurements(request):
     """批量删除采购项目"""
     try:
@@ -760,8 +769,8 @@ def batch_delete_procurements(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
+@staff_member_required
 @require_POST
-@csrf_exempt
 def import_data(request):
     """通用数据导入接口"""
     try:
@@ -908,8 +917,8 @@ def import_data(request):
         })
 
 
+@staff_member_required
 @require_POST
-@csrf_exempt
 def batch_delete_projects(request):
     """批量删除项目"""
     try:
