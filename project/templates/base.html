@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}项目采购与成本管理系统{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block extra_head %}{% endblock %}
     <style>
         * {
             margin: 0;
@@ -225,19 +226,38 @@
         }
 
         .stat-card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: var(--shadow);
+            background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
             display: flex;
             align-items: center;
             gap: 16px;
-            transition: transform 0.3s;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
         }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 12px 32px rgba(24, 144, 255, 0.2);
+        }
+
+        .stat-card:hover::before {
+            transform: scaleX(1);
         }
 
         .stat-icon {
@@ -551,6 +571,101 @@
         .pagination-next {
             font-weight: 500;
         }
+        /* Advanced Search Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+        }
+
+        .column-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .column-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .column-item:hover {
+            background: var(--bg-color);
+        }
+
+        .column-item input[type="checkbox"] {
+            cursor: pointer;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -715,6 +830,384 @@
                 this.style.transform = 'scale(1)';
             });
         });
+
+        // 批量操作通用函数
+        window.BatchOperations = {
+            selectedIds: new Set(),
+            
+            // 初始化批量操作
+            init: function(tableSelector, idAttribute = 'data-id') {
+                const table = document.querySelector(tableSelector);
+                if (!table) return;
+                
+                // 添加全选复选框到表头
+                const thead = table.querySelector('thead tr');
+                const selectAllCell = document.createElement('th');
+                selectAllCell.innerHTML = '<input type="checkbox" id="selectAll" class="select-all-checkbox">';
+                thead.insertBefore(selectAllCell, thead.firstChild);
+                
+                // 为每行添加复选框
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const id = row.getAttribute(idAttribute);
+                    const selectCell = document.createElement('td');
+                    selectCell.innerHTML = `<input type="checkbox" class="row-checkbox" value="${id}">`;
+                    row.insertBefore(selectCell, row.firstChild);
+                });
+                
+                // 绑定事件
+                this.bindEvents();
+            },
+            
+            // 绑定事件
+            bindEvents: function() {
+                const self = this;
+                
+                // 全选/取消全选
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.addEventListener('change', function() {
+                        const checkboxes = document.querySelectorAll('.row-checkbox');
+                        checkboxes.forEach(cb => {
+                            cb.checked = this.checked;
+                            if (this.checked) {
+                                self.selectedIds.add(cb.value);
+                            } else {
+                                self.selectedIds.clear();
+                            }
+                        });
+                        self.updateBatchButtons();
+                    });
+                }
+                
+                // 单个复选框选择
+                document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        if (this.checked) {
+                            self.selectedIds.add(this.value);
+                        } else {
+                            self.selectedIds.delete(this.value);
+                            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                        }
+                        self.updateBatchButtons();
+                    });
+                });
+            },
+            
+            // 更新批量操作按钮状态
+            updateBatchButtons: function() {
+                const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+                if (batchDeleteBtn) {
+                    batchDeleteBtn.disabled = this.selectedIds.size === 0;
+                    const countSpan = document.getElementById('selectedCount');
+                    if (countSpan) {
+                        countSpan.textContent = this.selectedIds.size;
+                    }
+                }
+            },
+            
+            // 获取选中的ID列表
+            getSelectedIds: function() {
+                return Array.from(this.selectedIds);
+            },
+            
+            // 批量删除
+            batchDelete: function(apiUrl, confirmMessage) {
+                const ids = this.getSelectedIds();
+                if (ids.length === 0) {
+                    alert('请先选择要删除的项目');
+                    return;
+                }
+                
+                if (!confirm(confirmMessage || `确定要删除选中的 ${ids.length} 项吗？此操作不可恢复！`)) {
+                    return;
+                }
+                
+                // 显示加载状态
+                const deleteBtn = document.getElementById('batchDeleteBtn');
+                const originalText = deleteBtn.innerHTML;
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 删除中...';
+                deleteBtn.disabled = true;
+                
+                // 发送删除请求
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        // 刷新页面
+                        window.location.reload();
+                    } else {
+                        alert('删除失败: ' + data.message);
+                        deleteBtn.innerHTML = originalText;
+                        deleteBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    alert('删除失败: ' + error.message);
+                    deleteBtn.innerHTML = originalText;
+                    deleteBtn.disabled = false;
+                });
+            },
+            
+            // 清空选择
+            clearSelection: function() {
+                this.selectedIds.clear();
+                document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                this.updateBatchButtons();
+            }
+        };
+
+        // 高级筛选和字段选择组件
+        window.AdvancedFilter = {
+            // 显示高级筛选弹窗
+            showAdvancedFilter: function(fields, currentFilters = {}) {
+                const html = `
+                    <div id="advancedFilterModal" class="modal-overlay" onclick="AdvancedFilter.closeModal(event)">
+                        <div class="modal-content" onclick="event.stopPropagation()">
+                            <div class="modal-header">
+                                <h3 style="font-size: 20px; font-weight: 600;">高级筛选</h3>
+                                <button onclick="AdvancedFilter.closeModal()" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="advancedFilterForm">
+                                    ${fields.map(field => this.renderFilterField(field, currentFilters[field.name])).join('')}
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" onclick="AdvancedFilter.resetFilters()" class="btn btn-secondary">
+                                    <i class="fas fa-undo"></i> 重置
+                                </button>
+                                <button type="button" onclick="AdvancedFilter.closeModal()" class="btn btn-secondary">取消</button>
+                                <button type="button" onclick="AdvancedFilter.applyFilters()" class="btn btn-primary">
+                                    <i class="fas fa-filter"></i> 应用筛选
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', html);
+            },
+
+            // 渲染筛选字段
+            renderFilterField: function(field, currentValue) {
+                let inputHtml = '';
+                if (field.type === 'select') {
+                    inputHtml = `
+                        <select name="${field.name}" class="form-input">
+                            <option value="">全部</option>
+                            ${field.options.map(opt => `
+                                <option value="${opt.value}" ${currentValue === opt.value ? 'selected' : ''}>
+                                    ${opt.label}
+                                </option>
+                            `).join('')}
+                        </select>
+                    `;
+                } else if (field.type === 'date') {
+                    inputHtml = `<input type="date" name="${field.name}" class="form-input" value="${currentValue || ''}">`;
+                } else if (field.type === 'daterange') {
+                    inputHtml = `
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="date" name="${field.name}_start" class="form-input" placeholder="开始日期">
+                            <span>至</span>
+                            <input type="date" name="${field.name}_end" class="form-input" placeholder="结束日期">
+                        </div>
+                    `;
+                } else if (field.type === 'number') {
+                    inputHtml = `
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" name="${field.name}_min" class="form-input" placeholder="最小值" step="0.01">
+                            <span>至</span>
+                            <input type="number" name="${field.name}_max" class="form-input" placeholder="最大值" step="0.01">
+                        </div>
+                    `;
+                } else {
+                    inputHtml = `<input type="text" name="${field.name}" class="form-input" value="${currentValue || ''}" placeholder="${field.placeholder || ''}">`;
+                }
+
+                return `
+                    <div class="form-group">
+                        <label class="form-label">${field.label}</label>
+                        ${inputHtml}
+                    </div>
+                `;
+            },
+
+            // 应用筛选
+            applyFilters: function() {
+                const form = document.getElementById('advancedFilterForm');
+                if (!form) {
+                    console.error('找不到筛选表单');
+                    return;
+                }
+                
+                const formData = new FormData(form);
+                const url = new URL(window.location.href);
+                
+                // 清除旧的筛选参数（保留page参数）
+                const page = url.searchParams.get('page');
+                url.search = '';
+                if (page) url.searchParams.set('page', '1'); // 重置到第一页
+                
+                // 添加新的筛选参数
+                for (const [key, value] of formData.entries()) {
+                    if (value && value.trim() !== '') {
+                        url.searchParams.set(key, value);
+                    }
+                }
+                
+                // 关闭弹窗并跳转
+                this.closeModal();
+                window.location.href = url.toString();
+            },
+
+            // 重置筛选
+            resetFilters: function() {
+                const url = new URL(window.location.href);
+                url.search = '';
+                window.location.href = url.toString();
+            },
+
+            // 关闭弹窗
+            closeModal: function(event) {
+                if (event && event.target.id !== 'advancedFilterModal') return;
+                const modal = document.getElementById('advancedFilterModal');
+                if (modal) modal.remove();
+            }
+        };
+
+        // 字段选择组件
+        window.ColumnSelector = {
+            defaultColumns: [],
+            availableColumns: [],
+            storageKey: '',
+
+            // 初始化字段选择器
+            init: function(availableColumns, defaultColumns, storageKey) {
+                this.availableColumns = availableColumns;
+                this.defaultColumns = defaultColumns;
+                this.storageKey = storageKey;
+                this.loadColumnSettings();
+            },
+
+            // 显示字段选择弹窗
+            showColumnSelector: function() {
+                const selectedColumns = this.getSelectedColumns();
+                const html = `
+                    <div id="columnSelectorModal" class="modal-overlay" onclick="ColumnSelector.closeModal(event)">
+                        <div class="modal-content" onclick="event.stopPropagation()">
+                            <div class="modal-header">
+                                <h3 style="font-size: 20px; font-weight: 600;">选择显示字段</h3>
+                                <button onclick="ColumnSelector.closeModal()" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="column-selector">
+                                    ${this.availableColumns.map(col => `
+                                        <label class="column-item">
+                                            <input type="checkbox"
+                                                   value="${col.key}"
+                                                   ${selectedColumns.includes(col.key) ? 'checked' : ''}
+                                                   ${col.required ? 'disabled' : ''}>
+                                            <span>${col.label}${col.required ? ' (必选)' : ''}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" onclick="ColumnSelector.resetColumns()" class="btn btn-secondary">
+                                    <i class="fas fa-undo"></i> 恢复默认
+                                </button>
+                                <button type="button" onclick="ColumnSelector.closeModal()" class="btn btn-secondary">取消</button>
+                                <button type="button" onclick="ColumnSelector.applyColumns()" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> 确定
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', html);
+            },
+
+            // 获取选中的字段
+            getSelectedColumns: function() {
+                const saved = localStorage.getItem(this.storageKey);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+                return this.defaultColumns;
+            },
+
+            // 应用字段选择
+            applyColumns: function() {
+                const modal = document.getElementById('columnSelectorModal');
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]:not([disabled])');
+                const selected = Array.from(checkboxes)
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.value);
+                
+                // 添加必选字段
+                const requiredColumns = this.availableColumns
+                    .filter(col => col.required)
+                    .map(col => col.key);
+                const allSelected = [...new Set([...requiredColumns, ...selected])];
+                
+                localStorage.setItem(this.storageKey, JSON.stringify(allSelected));
+                this.closeModal();
+                window.location.reload();
+            },
+
+            // 重置为默认字段
+            resetColumns: function() {
+                localStorage.removeItem(this.storageKey);
+                this.closeModal();
+                window.location.reload();
+            },
+
+            // 加载字段设置并更新表格
+            loadColumnSettings: function() {
+                const selectedColumns = this.getSelectedColumns();
+                const table = document.querySelector('.data-table');
+                if (!table) return;
+
+                // 隐藏未选中的列（通过data-column属性匹配）
+                this.availableColumns.forEach(col => {
+                    if (!selectedColumns.includes(col.key)) {
+                        // 隐藏表头
+                        const th = table.querySelector(`thead th[data-column="${col.key}"]`);
+                        if (th) th.style.display = 'none';
+                        
+                        // 隐藏所有行的对应单元格
+                        table.querySelectorAll(`tbody td[data-column="${col.key}"]`).forEach(td => {
+                            td.style.display = 'none';
+                        });
+                    }
+                });
+            },
+
+            // 获取列索引
+            getColumnIndex: function(key) {
+                return this.availableColumns.findIndex(col => col.key === key);
+            },
+
+            // 关闭弹窗
+            closeModal: function(event) {
+                if (event && event.target.id !== 'columnSelectorModal') return;
+                const modal = document.getElementById('columnSelectorModal');
+                if (modal) modal.remove();
+            }
+        };
     </script>
     {% block extra_js %}{% endblock %}
 </body>

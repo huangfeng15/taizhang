@@ -4,44 +4,223 @@
         显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
     </span>
     
+    <!-- 每页显示条数选择 -->
+    <div class="page-size-selector">
+        <label for="pageSize">每页</label>
+        <select id="pageSize" onchange="changePageSize(this.value)">
+            <option value="10" {% if request.GET.page_size == '10' %}selected{% endif %}>10</option>
+            <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+            <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
+            <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
+        </select>
+        <label>条</label>
+    </div>
+    
+    <!-- 首页按钮 -->
     {% if page_obj.has_previous %}
-        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-prev">
-            <i class="fas fa-angle-double-left"></i>
+        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+            <i class="fas fa-angle-double-left"></i> 首页
         </a>
-        <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-prev">
-            <i class="fas fa-angle-left"></i>
+        <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+            <i class="fas fa-angle-left"></i> 上一页
         </a>
     {% else %}
-        <span class="disabled">
-            <i class="fas fa-angle-double-left"></i>
+        <span class="pagination-btn disabled">
+            <i class="fas fa-angle-double-left"></i> 首页
         </span>
-        <span class="disabled">
-            <i class="fas fa-angle-left"></i>
+        <span class="pagination-btn disabled">
+            <i class="fas fa-angle-left"></i> 上一页
         </span>
     {% endif %}
     
-    {% for num in page_obj.paginator.page_range %}
-        {% if page_obj.number == num %}
-            <span class="current">{{ num }}</span>
-        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
-        {% endif %}
-    {% endfor %}
+    <!-- 页码显示 -->
+    <div class="page-numbers">
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">{{ num }}</a>
+            {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">{{ num }}</a>
+            {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                <span class="ellipsis">...</span>
+            {% endif %}
+        {% endfor %}
+    </div>
     
+    <!-- 下一页和末页按钮 -->
     {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-next">
-            <i class="fas fa-angle-right"></i>
+        <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+            下一页 <i class="fas fa-angle-right"></i>
         </a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-next">
-            <i class="fas fa-angle-double-right"></i>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+            末页 <i class="fas fa-angle-double-right"></i>
         </a>
     {% else %}
-        <span class="disabled">
-            <i class="fas fa-angle-right"></i>
+        <span class="pagination-btn disabled">
+            下一页 <i class="fas fa-angle-right"></i>
         </span>
-        <span class="disabled">
-            <i class="fas fa-angle-double-right"></i>
+        <span class="pagination-btn disabled">
+            末页 <i class="fas fa-angle-double-right"></i>
         </span>
     {% endif %}
+    
+    <!-- 跳转到指定页 -->
+    <div class="page-jumper">
+        <label>跳转到</label>
+        <input type="number" 
+               id="jumpToPage" 
+               min="1" 
+               max="{{ page_obj.paginator.num_pages }}" 
+               value="{{ page_obj.number }}"
+               onkeypress="if(event.key==='Enter')jumpToPage()">
+        <button onclick="jumpToPage()" class="pagination-btn">GO</button>
+    </div>
 </div>
+
+<script>
+function changePageSize(size) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page_size', size);
+    url.searchParams.set('page', '1'); // 重置到第一页
+    window.location.href = url.toString();
+}
+
+function jumpToPage() {
+    const pageNum = document.getElementById('jumpToPage').value;
+    const maxPage = {{ page_obj.paginator.num_pages }};
+    
+    if (pageNum < 1 || pageNum > maxPage) {
+        alert('请输入有效的页码 (1-' + maxPage + ')');
+        return;
+    }
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageNum);
+    window.location.href = url.toString();
+}
+</script>
+
+<style>
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 15px;
+    flex-wrap: wrap;
+}
+
+.pagination-info {
+    color: #666;
+    font-size: 14px;
+    margin-right: 20px;
+}
+
+.page-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 20px;
+}
+
+.page-size-selector select {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.page-size-selector label {
+    font-size: 14px;
+    color: #666;
+}
+
+.pagination-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    text-decoration: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.pagination-btn:hover:not(.disabled) {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+}
+
+.pagination-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f5f5f5;
+}
+
+.page-numbers {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.page-numbers a,
+.page-numbers span {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+    min-width: 36px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.page-numbers a:hover {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+}
+
+.page-numbers span.current {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+    font-weight: bold;
+}
+
+.page-numbers span.ellipsis {
+    border: none;
+    cursor: default;
+}
+
+.page-jumper {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 20px;
+}
+
+.page-jumper label {
+    font-size: 14px;
+    color: #666;
+}
+
+.page-jumper input {
+    width: 60px;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.page-jumper button {
+    padding: 6px 16px;
+}
+</style>
 {% endif %}

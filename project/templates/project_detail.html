@@ -79,7 +79,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">采购项目</div>
-            <div class="stat-value">{{ procurements|length }}</div>
+            <div class="stat-value">{{ procurement_count }}</div>
         </div>
     </div>
     
@@ -89,27 +89,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">合同数量</div>
-            <div class="stat-value">{{ contracts|length }}</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon error">
-            <i class="fas fa-money-bill-wave"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">合同总额(万元)</div>
-            <div class="stat-value">{{ total_contract_amount|floatformat:0|stringformat:"d"|slice:":-4" }}{% if total_contract_amount %}万{% else %}0{% endif %}</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon info">
-            <i class="fas fa-hand-holding-usd"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">累计付款(万元)</div>
-            <div class="stat-value">{{ total_paid|floatformat:0|stringformat:"d"|slice:":-4" }}{% if total_paid %}万{% else %}0{% endif %}</div>
+            <div class="stat-value">{{ contract_count }}</div>
         </div>
     </div>
     
@@ -198,7 +178,7 @@
                         <td>{{ payment.payment_code }}</td>
                         <td>{{ payment.contract.contract_name }}</td>
                         <td>¥{{ payment.payment_amount|floatformat:2 }}</td>
-                        <td>{{ payment.payment_date }}</td>
+                        <td>{{ payment.payment_date|date:"Y-m" }}</td>
                         <td>
                             <a href="{% url 'payment_detail' payment.payment_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
                                 <i class="fas fa-eye"></i>
@@ -219,12 +199,17 @@
     <div class="card-header">
         <h2 class="card-title">
             <i class="fas fa-shopping-cart"></i>
-            关联采购项目
+            近期采购项目
         </h2>
-        <a href="/admin/procurement/procurement/add/?project={{ project.project_code }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i>
-            新增采购
-        </a>
+        <div>
+            <a href="{% url 'procurement_list' %}?project={{ project.project_code }}" class="btn btn-secondary" style="margin-right: 10px;">
+                查看全部
+            </a>
+            <a href="/admin/procurement/procurement/add/?project={{ project.project_code }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增采购
+            </a>
+        </div>
     </div>
     
     {% if procurements %}
@@ -288,12 +273,17 @@
     <div class="card-header">
         <h2 class="card-title">
             <i class="fas fa-file-contract"></i>
-            关联合同
+            近期签订合同
         </h2>
-        <a href="/admin/contract/contract/add/?project={{ project.project_code }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i>
-            新增合同
-        </a>
+        <div>
+            <a href="{% url 'contract_list' %}?project={{ project.project_code }}" class="btn btn-secondary" style="margin-right: 10px;">
+                查看全部
+            </a>
+            <a href="/admin/contract/contract/add/?project={{ project.project_code }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增合同
+            </a>
+        </div>
     </div>
     
     {% if contracts %}

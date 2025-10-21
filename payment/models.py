@@ -14,7 +14,8 @@ class Payment(BaseModel):
         '付款编号',
         max_length=50,
         primary_key=True,
-        help_text='例如: HT2025001-FK-001'
+        blank=True,
+        help_text='例如: HT2025001-FK-001，如果为空将自动生成'
     )
     
     # ===== 关联 =====
@@ -40,6 +41,22 @@ class Payment(BaseModel):
         db_index=True
     )
     
+    # ===== 结算信息 =====
+    settlement_amount = models.DecimalField(
+        '结算价(元)',
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='合同的结算价格，如果已办理结算则填写'
+    )
+    
+    is_settled = models.BooleanField(
+        '是否办理结算',
+        default=False,
+        help_text='标识该笔付款是否已办理结算'
+    )
+    
     class Meta:
         verbose_name = '付款信息'
         verbose_name_plural = '付款信息'
@@ -54,39 +71,48 @@ class Payment(BaseModel):
         return f"{self.payment_code} - {self.payment_amount}元"
     
     def clean(self):
-        """业务规则：累计付款不超过合同金额的120%"""
-        if not self.contract.contract_amount:
-            return
+        """数据验证"""
+        # 移除了120%上限的业务规则限制
+        pass
+    
+    def _generate_payment_code(self):
+        """
+        生成付款编号：合同序号-FK-序号
+        序号按付款日期排序，最早的付款为001，之后依次类推
+        """
+        if not self.contract:
+            raise ValidationError('生成付款编号需要关联合同')
         
-        from django.db.models import Sum
+        if not self.payment_date:
+            raise ValidationError('生成付款编号需要提供付款日期')
         
-        # 计算已有的累计付款
-        total_paid = Payment.objects.filter(
+        # 使用合同序号，如果没有则使用合同编号
+        contract_identifier = self.contract.contract_sequence or self.contract.contract_code
+        
+        # 查询该合同下所有付款记录，按付款日期排序
+        existing_payments = Payment.objects.filter(
             contract=self.contract
-        ).aggregate(total=Sum('payment_amount'))['total'] or 0
+        ).order_by('payment_date', 'created_at')
         
-        # 如果是更新，需要排除旧记录
-        if self.pk:
-            try:
-                old_amount = Payment.objects.get(pk=self.pk).payment_amount
-                total_paid -= old_amount
-            except Payment.DoesNotExist:
-                # 新建记录时不需要排除旧值
-                pass
+        # 计算当前付款在按日期排序后的序号
+        sequence = 1
+        for payment in existing_payments:
+            # 如果是更新操作且是当前记录，跳过
+            if self.pk and payment.pk == self.pk:
+                continue
+            # 如果现有付款日期早于或等于当前付款日期，序号+1
+            if payment.payment_date < self.payment_date:
+                sequence += 1
+            elif payment.payment_date == self.payment_date and payment.created_at < self.created_at:
+                # 同一天的付款，按创建时间排序
+                sequence += 1
         
-        # 加上新付款
-        total_paid += self.payment_amount
-        
-        # 验证不超过120%
-        from decimal import Decimal
-        max_allowed = self.contract.contract_amount * Decimal('1.2')
-        if total_paid > max_allowed:
-            raise ValidationError(
-                f'累计付款 {total_paid}元 超过合同金额 '
-                f'{self.contract.contract_amount}元 的120%上限 '
-                f'{max_allowed}元'
-            )
+        return f"{contract_identifier}-FK-{sequence:03d}"
     
     def save(self, *args, **kwargs):
+        # 如果付款编号为空，自动生成
+        if not self.payment_code:
+            self.payment_code = self._generate_payment_code()
+        
         self.full_clean()
         super().save(*args, **kwargs)

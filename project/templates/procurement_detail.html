@@ -162,6 +162,36 @@
     </div>
 </div>
 
+<!-- 时间管理 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-calendar-alt"></i>
+            时间管理
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>采购计划完成日期：</label>
+                <span>{{ procurement.planned_completion_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>采购需求书审批完成日期(OA)：</label>
+                <span>{{ procurement.requirement_approval_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>平台中标结果公示完成日期：</label>
+                <span>{{ procurement.platform_publicity_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>资料归档日期：</label>
+                <span>{{ procurement.archive_date|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 人员信息 -->
 <div class="card">
     <div class="card-header">
@@ -183,6 +213,86 @@
             <div class="detail-item" style="grid-column: 1 / -1;">
                 <label>需求部门经办人及联系方式：</label>
                 <span>{{ procurement.demand_contact|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评审委员会 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-users-cog"></i>
+            评审委员会
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+            <div class="detail-item">
+                <label>评标委员会成员：</label>
+                <span style="white-space: pre-wrap;">{{ procurement.evaluation_committee|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>定标委员会成员：</label>
+                <span style="white-space: pre-wrap;">{{ procurement.awarding_committee|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 担保信息 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-shield-alt"></i>
+            担保信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>投标担保形式及金额：</label>
+                <span>{{ procurement.bid_guarantee|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>中标单位投标担保退回日期：</label>
+                <span>{{ procurement.bid_guarantee_return_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>履约担保形式及金额：</label>
+                <span>{{ procurement.performance_guarantee|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 其他信息 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-info-circle"></i>
+            其他信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>全程有无投诉：</label>
+                <span>{{ procurement.has_complaint|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>招采费用：</label>
+                <span>
+                    {% if procurement.procurement_cost %}
+                        ¥{{ procurement.procurement_cost|floatformat:2 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>应招未招说明：</label>
+                <span style="white-space: pre-wrap;">{{ procurement.non_bidding_explanation|default:"-" }}</span>
             </div>
         </div>
     </div>

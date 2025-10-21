@@ -216,3 +216,72 @@ class Contract(BaseModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+    
+    def get_total_paid_amount(self):
+        """获取累计付款金额"""
+        from django.db.models import Sum
+        total = self.payments.aggregate(total=Sum('payment_amount'))['total'] or 0
+        return total
+    
+    def get_payment_count(self):
+        """获取付款笔数"""
+        return self.payments.count()
+    
+    def get_payment_ratio(self):
+        """
+        获取付款比例
+        规则：
+        - 如果有结算价，使用结算价作为分母
+        - 否则使用（合同价 + 补充协议金额）作为分母
+        """
+        from django.db.models import Sum
+        
+        total_paid = self.get_total_paid_amount()
+        
+        # 获取基准金额（分母）
+        base_amount = 0
+        
+        # 如果是主合同，检查是否有结算
+        if self.contract_type == '主合同':
+            try:
+                if hasattr(self, 'settlement') and self.settlement and self.settlement.final_amount:
+                    # 有结算价，使用结算价
+                    base_amount = self.settlement.final_amount
+                else:
+                    # 没有结算价，使用合同价 + 补充协议金额
+                    base_amount = self.contract_amount or 0
+                    supplements_total = self.supplements.aggregate(
+                        total=Sum('contract_amount')
+                    )['total'] or 0
+                    base_amount += supplements_total
+            except:
+                # 如果获取settlement失败，使用合同价 + 补充协议金额
+                base_amount = self.contract_amount or 0
+                supplements_total = self.supplements.aggregate(
+                    total=Sum('contract_amount')
+                )['total'] or 0
+                base_amount += supplements_total
+        else:
+            # 补充协议或解除协议，使用自身合同价
+            base_amount = self.contract_amount or 0
+        
+        # 计算比例
+        if base_amount > 0:
+            return (total_paid / base_amount) * 100
+        return 0
+    
+    def get_contract_with_supplements_amount(self):
+        """获取主合同+补充协议的总金额"""
+        from django.db.models import Sum
+        
+        if self.contract_type == '主合同':
+            total = self.contract_amount or 0
+            supplements_total = self.supplements.aggregate(
+                total=Sum('contract_amount')
+            )['total'] or 0
+            return total + supplements_total
+        else:
+            # 如果不是主合同，返回父合同的总金额
+            if self.parent_contract:
+                return self.parent_contract.get_contract_with_supplements_amount()
+            return self.contract_amount or 0

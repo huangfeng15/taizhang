@@ -27,6 +27,14 @@
                 <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
+        <button type="button" onclick="showAdvancedFilter()" class="btn btn-secondary">
+            <i class="fas fa-filter"></i>
+            高级筛选
+        </button>
+        <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
+            <i class="fas fa-columns"></i>
+            选择字段
+        </button>
         {% if search_query or status_filter %}
             <a href="?" class="filter-reset">
                 <i class="fas fa-times"></i>
@@ -43,7 +51,15 @@
             <i class="fas fa-folder-open"></i>
             全部项目
         </h2>
-        <div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button id="batchDeleteBtn" class="btn btn-secondary" style="background: #ff4d4f; color: white;" disabled onclick="batchDeleteProjects()">
+                <i class="fas fa-trash"></i>
+                批量删除 (<span id="selectedCount">0</span>)
+            </button>
+            <button onclick="showImportDialog()" class="btn btn-secondary">
+                <i class="fas fa-file-import"></i>
+                导入数据
+            </button>
             <a href="/admin/project/project/add/" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 新增项目
@@ -53,31 +69,33 @@
     
     {% if projects %}
     <div class="table-container">
-        <table class="data-table">
+        <table class="data-table" id="projectTable">
             <thead>
                 <tr>
-                    <th>项目编码</th>
-                    <th>项目名称</th>
-                    <th>项目负责人</th>
-                    <th>状态</th>
-                    <th>采购数量</th>
-                    <th>合同数量</th>
-                    <th>合同总额(元)</th>
-                    <th>创建时间</th>
-                    <th>操作</th>
+                    <th data-column="row_number">序号</th>
+                    <th data-column="project_code">项目编码</th>
+                    <th data-column="project_name">项目名称</th>
+                    <th data-column="project_manager">项目负责人</th>
+                    <th data-column="status">状态</th>
+                    <th data-column="procurement_count">采购数量</th>
+                    <th data-column="contract_count">合同数量</th>
+                    <th data-column="contract_total">合同总额(元)</th>
+                    <th data-column="created_at">创建时间</th>
+                    <th data-column="operations">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for project in projects %}
-                <tr>
-                    <td>{{ project.project_code }}</td>
-                    <td>
+                <tr data-id="{{ project.project_code }}">
+                    <td data-column="row_number">{{ forloop.counter }}</td>
+                    <td data-column="project_code">{{ project.project_code }}</td>
+                    <td data-column="project_name">
                         <a href="{% url 'project_detail' project.project_code %}" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
                             {{ project.project_name }}
                         </a>
                     </td>
-                    <td>{{ project.project_manager|default:"-" }}</td>
-                    <td>
+                    <td data-column="project_manager">{{ project.project_manager|default:"-" }}</td>
+                    <td data-column="status">
                         {% if project.status == '进行中' %}
                             <span class="badge badge-success">{{ project.status }}</span>
                         {% elif project.status == '已完成' %}
@@ -88,11 +106,11 @@
                             <span class="badge badge-error">{{ project.status }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ project.procurement_count }}</td>
-                    <td>{{ project.contract_count }}</td>
-                    <td>¥{{ project.contract_total|floatformat:2 }}</td>
-                    <td>{{ project.created_at|date:"Y-m-d" }}</td>
-                    <td>
+                    <td data-column="procurement_count">{{ project.procurement_count }}</td>
+                    <td data-column="contract_count">{{ project.contract_count }}</td>
+                    <td data-column="contract_total">¥{{ project.contract_total|floatformat:2 }}</td>
+                    <td data-column="created_at">{{ project.created_at|date:"Y-m-d" }}</td>
+                    <td data-column="operations">
                         <a href="{% url 'project_detail' project.project_code %}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-eye"></i>
                             详情
@@ -117,4 +135,339 @@
     <!-- 分页 -->
     {% include 'pagination.html' %}
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 可用字段配置
+    const availableColumns = [
+        { key: 'row_number', label: '序号', required: true },
+        { key: 'project_code', label: '项目编码', required: true },
+        { key: 'project_name', label: '项目名称', required: true },
+        { key: 'project_manager', label: '项目负责人', required: false },
+        { key: 'status', label: '状态', required: false },
+        { key: 'procurement_count', label: '采购数量', required: false },
+        { key: 'contract_count', label: '合同数量', required: false },
+        { key: 'contract_total', label: '合同总额', required: false },
+        { key: 'created_at', label: '创建时间', required: false },
+        { key: 'operations', label: '操作', required: true }
+    ];
+
+    // 默认显示的字段
+    const defaultColumns = ['row_number', 'project_code', 'project_name', 'project_manager', 'status', 'procurement_count', 'contract_count', 'contract_total', 'created_at', 'operations'];
+
+    // 高级筛选字段配置
+    const filterFields = [
+        { name: 'project_code', label: '项目编码', type: 'text', placeholder: '输入项目编码' },
+        { name: 'project_name', label: '项目名称', type: 'text', placeholder: '输入项目名称' },
+        { name: 'project_manager', label: '项目负责人', type: 'text', placeholder: '输入负责人姓名' },
+        { name: 'status', label: '状态', type: 'select', options: [
+            {% for value, label in status_choices %}
+            { value: '{{ value }}', label: '{{ label }}' },
+            {% endfor %}
+        ]},
+        { name: 'created_at', label: '创建日期', type: 'daterange' },
+        { name: 'contract_total', label: '合同总额', type: 'number' }
+    ];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if projects %}
+        // 初始化批量操作
+        BatchOperations.init('#projectTable', 'data-id');
+        
+        // 初始化字段选择器
+        ColumnSelector.init(availableColumns, defaultColumns, 'project_list_columns');
+        ColumnSelector.loadColumnSettings();
+        {% endif %}
+    });
+    
+    // 显示高级筛选
+    function showAdvancedFilter() {
+        const currentFilters = {
+            project_code: '{{ request.GET.project_code|default:"" }}',
+            project_name: '{{ request.GET.project_name|default:"" }}',
+            project_manager: '{{ request.GET.project_manager|default:"" }}',
+            status: '{{ request.GET.status|default:"" }}'
+        };
+        AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
+    }
+    
+    // 显示字段选择器
+    function showColumnSelector() {
+        ColumnSelector.showColumnSelector();
+    }
+    
+    function batchDeleteProjects() {
+        BatchOperations.batchDelete(
+            '{% url "batch_delete_projects" %}',
+            `确定要删除选中的 ${BatchOperations.getSelectedIds().length} 个项目吗？\n此操作将级联删除相关的采购、合同和付款记录，且不可恢复！`
+        );
+    }
+    
+    // 显示导入对话框
+    function showImportDialog() {
+        const html = `
+            <div id="importDialog" class="modal-overlay" onclick="closeImportDialog(event)">
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h3 style="font-size: 20px; font-weight: 600;">
+                            <i class="fas fa-file-import"></i>
+                            导入项目数据
+                        </h3>
+                        <button onclick="closeImportDialog()" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="form-label">导入说明</label>
+                            <div style="background: #f0f7ff; border: 1px solid #bae0ff; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+                                <p style="margin-bottom: 8px; color: #0958d9;">
+                                    <i class="fas fa-info-circle"></i>
+                                    项目导入支持以下功能：
+                                </p>
+                                <ul style="margin-left: 20px; color: #595959;">
+                                    <li>支持 CSV 和 Excel 文件格式</li>
+                                    <li>自动检测文件编码（UTF-8/GBK）</li>
+                                    <li>支持更新现有项目或创建新项目</li>
+                                    <li>详细的错误提示和导入报告</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">选择文件</label>
+                            <input type="file" id="importFile" accept=".csv,.xlsx,.xls" class="form-input"
+                                   style="padding: 8px;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">导入模式</label>
+                            <select id="conflictMode" class="form-input">
+                                <option value="update">增量模式 - 更新已有记录，添加新记录（推荐）</option>
+                                <option value="skip">仅新增模式 - 只添加新记录，跳过已存在的</option>
+                                <option value="replace">替换模式 - 清空项目旧数据，导入新数据</option>
+                            </select>
+                            <p style="font-size: 12px; color: #8c8c8c; margin-top: 8px;">
+                                <strong>增量模式</strong>：适合日常更新和补充数据<br>
+                                <strong>替换模式</strong>：清空指定项目的所有数据（含采购、合同、付款）后重新导入，谨慎使用！
+                            </p>
+                        </div>
+                        
+                        <div class="form-group" id="projectCodeGroup" style="display: none;">
+                            <label class="form-label">
+                                <i class="fas fa-exclamation-triangle" style="color: #ff4d4f;"></i>
+                                项目编码（替换模式必填）
+                            </label>
+                            <input type="text" id="projectCode" class="form-input" placeholder="输入要替换数据的项目编码，如: BHHY">
+                            <p style="font-size: 12px; color: #ff4d4f; margin-top: 4px;">
+                                警告：该项目及其关联的所有数据（采购、合同、付款）将被清空！
+                            </p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="dryRun" style="cursor: pointer;">
+                                <span>仅验证数据，不实际导入（预演模式）</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-download"></i>
+                                下载模板
+                            </label>
+                            <div style="display: flex; gap: 12px;">
+                                <a href="/static/templates/project_import_template.csv" download
+                                   class="btn btn-secondary" style="text-decoration: none;">
+                                    <i class="fas fa-file-csv"></i>
+                                    CSV 模板
+                                </a>
+                                <a href="https://github.com/your-repo/templates" target="_blank"
+                                   class="btn btn-secondary" style="text-decoration: none;">
+                                    <i class="fas fa-book"></i>
+                                    查看文档
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeImportDialog()" class="btn btn-secondary">
+                            取消
+                        </button>
+                        <button type="button" onclick="startImport()" class="btn btn-primary">
+                            <i class="fas fa-upload"></i>
+                            开始导入
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        
+        // 添加模式切换事件监听器
+        document.getElementById('conflictMode').addEventListener('change', function() {
+            const projectCodeGroup = document.getElementById('projectCodeGroup');
+            if (this.value === 'replace') {
+                projectCodeGroup.style.display = 'block';
+            } else {
+                projectCodeGroup.style.display = 'none';
+            }
+        });
+    }
+    
+    // 关闭导入对话框
+    function closeImportDialog(event) {
+        if (event && event.target.id !== 'importDialog') return;
+        const modal = document.getElementById('importDialog');
+        if (modal) modal.remove();
+    }
+    
+    // 开始导入
+    function startImport() {
+        const fileInput = document.getElementById('importFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert('请选择要导入的文件');
+            return;
+        }
+        
+        // 检查文件格式
+        const fileName = file.name.toLowerCase();
+        if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+            alert('仅支持 CSV 和 Excel 文件格式');
+            return;
+        }
+        
+        const conflictMode = document.getElementById('conflictMode').value;
+        const dryRun = document.getElementById('dryRun').checked;
+        
+        // 替换模式需要项目编码
+        if (conflictMode === 'replace') {
+            const projectCode = document.getElementById('projectCode').value.trim();
+            if (!projectCode) {
+                alert('替换模式必须填写项目编码！');
+                return;
+            }
+            
+            // 二次确认
+            const confirmMsg = dryRun
+                ? `确认要验证项目【${projectCode}】的数据替换吗？\n\n这将模拟清空该项目及其所有关联数据（采购、合同、付款）。`
+                : `⚠️ 警告：即将清空项目【${projectCode}】及其所有关联数据！\n\n包括该项目的采购、合同、付款记录\n此操作不可恢复，确定继续吗？`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+        }
+        
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('module', 'project');
+        formData.append('conflict_mode', conflictMode);
+        formData.append('dry_run', dryRun);
+        if (conflictMode === 'replace') {
+            formData.append('project_code', document.getElementById('projectCode').value.trim());
+        }
+        
+        // 显示上传进度
+        const modal = document.getElementById('importDialog');
+        const modalBody = modal.querySelector('.modal-body');
+        const originalContent = modalBody.innerHTML;
+        
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div class="spinner" style="margin: 0 auto 20px;"></div>
+                <p style="font-size: 16px; color: var(--text-primary);">
+                    ${dryRun ? '正在验证数据...' : '正在导入数据...'}
+                </p>
+                <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+                    请稍候，这可能需要几分钟时间
+                </p>
+            </div>
+        `;
+        
+        // 发送导入请求
+        fetch('/api/import/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 显示成功结果
+                modalBody.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-check-circle" style="font-size: 64px; color: var(--success-color); margin-bottom: 20px;"></i>
+                        <h3 style="font-size: 20px; margin-bottom: 16px;">
+                            ${dryRun ? '验证成功！' : '导入完成！'}
+                        </h3>
+                        <div style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                            <p style="margin-bottom: 8px;"><strong>导入统计：</strong></p>
+                            <p>总行数: ${data.stats.total}</p>
+                            <p style="color: var(--success-color);">成功: ${data.stats.success}</p>
+                            ${data.stats.failed > 0 ? `<p style="color: var(--error-color);">失败: ${data.stats.failed}</p>` : ''}
+                            ${data.stats.created > 0 ? `<p>新增: ${data.stats.created}</p>` : ''}
+                            ${data.stats.updated > 0 ? `<p>更新: ${data.stats.updated}</p>` : ''}
+                            ${data.stats.skipped > 0 ? `<p>跳过: ${data.stats.skipped}</p>` : ''}
+                        </div>
+                        ${data.errors && data.errors.length > 0 ? `
+                            <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left; max-height: 200px; overflow-y: auto;">
+                                <p style="margin-bottom: 8px; color: var(--error-color);"><strong>错误详情：</strong></p>
+                                ${data.errors.map(err => `<p style="font-size: 13px;">• ${err}</p>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${!dryRun ? `
+                            <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 16px;">
+                                <i class="fas fa-sync"></i>
+                                刷新页面查看结果
+                            </button>
+                        ` : `
+                            <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary" style="margin-top: 16px;">
+                                <i class="fas fa-upload"></i>
+                                开始正式导入
+                            </button>
+                        `}
+                    </div>
+                `;
+            } else {
+                // 显示错误
+                modalBody.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
+                        <h3 style="font-size: 20px; margin-bottom: 16px; color: var(--error-color);">导入失败</h3>
+                        <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                            <p style="color: var(--error-color);">${data.message || '未知错误'}</p>
+                            ${data.errors ? `<pre style="margin-top: 12px; font-size: 12px; overflow-x: auto;">${data.errors}</pre>` : ''}
+                        </div>
+                        <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary" style="margin-top: 16px;">
+                            <i class="fas fa-redo"></i>
+                            重新尝试
+                        </button>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
+                    <h3 style="font-size: 20px; margin-bottom: 16px; color: var(--error-color);">请求失败</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">${error.message}</p>
+                    <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                        <p style="font-size: 13px; color: var(--text-secondary);">
+                            提示：请确保后端服务器正在运行，并且导入接口 /api/import/ 已配置。
+                        </p>
+                    </div>
+                    <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary">
+                        <i class="fas fa-redo"></i>
+                        重新尝试
+                    </button>
+                </div>
+            `;
+        });
+    }
+</script>
 {% endblock %}

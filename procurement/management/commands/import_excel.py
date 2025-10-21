@@ -76,6 +76,23 @@ class Command(BaseCommand):
         skip_errors = options['skip_errors']
         dry_run = options['dry_run']
         conflict_mode = options['conflict_mode']
+        project_code = options.get('project_code')
+
+        # 验证replace模式必须提供project_code
+        if conflict_mode == 'replace':
+            if not project_code:
+                raise CommandError('replace模式必须指定--project-code参数')
+            
+            # 验证项目是否存在
+            try:
+                project = Project.objects.get(project_code=project_code)
+                self.stdout.write(self.style.WARNING(
+                    f'\n⚠️  警告：即将清空项目【{project.project_name}】({project_code})的所有{self._get_module_name(module)}数据！'
+                ))
+                if not dry_run:
+                    self.stdout.write(self.style.ERROR('此操作不可恢复！'))
+            except Project.DoesNotExist:
+                raise CommandError(f'项目不存在: {project_code}')
 
         # 验证文件存在
         if not os.path.exists(file_path):
@@ -94,6 +111,10 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING('*** 预演模式 - 不会实际写入数据库 ***'))
 
+        # 如果是replace模式，先清空项目数据
+        if conflict_mode == 'replace' and not dry_run:
+            self._clear_project_data(project_code, module)
+        
         try:
             if mode == 'long':
                 self._handle_long_table(file_path, module, encoding, skip_errors, dry_run, conflict_mode)
@@ -102,6 +123,63 @@ class Command(BaseCommand):
         except Exception as e:
             logger.exception(f'导入过程中发生错误: {str(e)}')
             raise CommandError(f'导入失败: {str(e)}')
+    
+    def _get_module_name(self, module):
+        """获取模块的中文名称"""
+        module_names = {
+            'project': '项目',
+            'procurement': '采购',
+            'contract': '合同',
+            'payment': '付款',
+            'evaluation': '供应商评价'
+        }
+        return module_names.get(module, module)
+    
+    def _clear_project_data(self, project_code, module):
+        """清空指定项目的数据"""
+        try:
+            project = Project.objects.get(project_code=project_code)
+        except Project.DoesNotExist:
+            raise CommandError(f'项目不存在: {project_code}')
+        
+        self.stdout.write(self.style.WARNING(f'\n>>> 开始清空项目【{project.project_name}】的{self._get_module_name(module)}数据...'))
+        
+        deleted_counts = {}
+        
+        if module == 'procurement':
+            # 清空采购数据
+            count = Procurement.objects.filter(project=project).count()
+            Procurement.objects.filter(project=project).delete()
+            deleted_counts['采购记录'] = count
+            
+        elif module == 'contract':
+            # 清空合同及相关付款数据
+            contracts = Contract.objects.filter(project=project)
+            payment_count = Payment.objects.filter(contract__in=contracts).count()
+            Payment.objects.filter(contract__in=contracts).delete()
+            deleted_counts['付款记录'] = payment_count
+            
+            contract_count = contracts.count()
+            contracts.delete()
+            deleted_counts['合同记录'] = contract_count
+            
+        elif module == 'payment':
+            # 清空付款数据（通过合同关联项目）
+            count = Payment.objects.filter(contract__project=project).count()
+            Payment.objects.filter(contract__project=project).delete()
+            deleted_counts['付款记录'] = count
+            
+        elif module == 'evaluation':
+            # 清空供应商评价数据
+            count = SupplierEvaluation.objects.filter(contract__project=project).count()
+            SupplierEvaluation.objects.filter(contract__project=project).delete()
+            deleted_counts['评价记录'] = count
+        
+        # 输出删除统计
+        self.stdout.write(self.style.SUCCESS('数据清空完成：'))
+        for name, count in deleted_counts.items():
+            self.stdout.write(f'  - {name}: {count} 条')
+        self.stdout.write('')
     
     def _detect_encoding(self, file_path):
         """自动检测文件编码"""
@@ -352,12 +430,18 @@ class Command(BaseCommand):
                 value_name='value'
             )
         else:
-            # 付款：第1列=合同编号
-            id_col = df.columns[0]
-            group_col = id_col
+            # 付款：第1列=合同编号，第2列=结算价，第3列=是否已结算
+            id_cols = [df.columns[0]]
+            # 检查是否有结算相关列
+            if len(df.columns) > 1 and '结算价' in df.columns[1]:
+                id_cols.append(df.columns[1])
+            if len(df.columns) > 2 and '是否' in df.columns[2]:
+                id_cols.append(df.columns[2])
+            
+            group_col = id_cols[0]
             df_long = pd.melt(
                 df,
-                id_vars=[id_col],
+                id_vars=id_cols,
                 value_vars=date_cols,
                 var_name='period',
                 value_name='value'
@@ -374,23 +458,28 @@ class Command(BaseCommand):
             'success_rows': 0,
             'error_rows': 0,
             'created': 0,
+            'updated': 0,
             'skipped': 0,
         }
         errors = []
 
-        # 按ID分组处理
+        # 按ID分组处理，但使用全局序号
+        global_seq = 0
         for group_id, group_df in df_long.groupby(group_col):
             for idx, (_, row) in enumerate(group_df.iterrows(), start=1):
+                global_seq += 1  # 全局序号
                 try:
                     if not dry_run:
                         with transaction.atomic():
-                            result = self._import_wide_row(row, module, idx, group_id, conflict_mode)
+                            result = self._import_wide_row(row, module, global_seq, group_id, conflict_mode)
                             if result == 'created':
                                 stats['created'] += 1
+                            elif result == 'updated':
+                                stats['updated'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
                     else:
-                        self._validate_wide_row(row, module, idx, group_id)
+                        self._validate_wide_row(row, module, global_seq, group_id)
                     
                     stats['success_rows'] += 1
                 
@@ -501,10 +590,8 @@ class Command(BaseCommand):
         if existing:
             if conflict_mode == 'skip':
                 return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'项目编码已存在: {project_code}')
         
-        if conflict_mode == 'update':
+        if conflict_mode in ['update', 'replace']:
             obj, created = Project.objects.update_or_create(
                 project_code=project_code,
                 defaults={
@@ -539,8 +626,6 @@ class Command(BaseCommand):
         if existing:
             if conflict_mode == 'skip':
                 return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'招采编号已存在: {procurement_code}')
         
         # 处理项目关联
         project = None
@@ -551,7 +636,7 @@ class Command(BaseCommand):
                 # 如果项目不存在，记录警告但继续导入
                 self.stdout.write(self.style.WARNING(f'项目编码不存在: {project_code}，将不关联项目'))
         
-        if conflict_mode == 'update':
+        if conflict_mode in ['update', 'replace']:
             obj, created = Procurement.objects.update_or_create(
                 procurement_code=procurement_code,
                 defaults={
@@ -611,8 +696,6 @@ class Command(BaseCommand):
         if existing:
             if conflict_mode == 'skip':
                 return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'合同编号已存在: {contract_code}')
         
         # 解析合同序号（保持为字符串，支持 BHHY-NH-014 格式）
         contract_sequence = row.get('合同序号', '').strip() or None
@@ -714,7 +797,7 @@ class Command(BaseCommand):
         # 获取支付方式
         payment_method = row.get('支付方式', '').strip()
         
-        if conflict_mode == 'update':
+        if conflict_mode in ['update', 'replace']:
             obj, created = Contract.objects.update_or_create(
                 contract_code=contract_code,
                 defaults={
@@ -747,8 +830,6 @@ class Command(BaseCommand):
         payment_code = row.get('付款编号', '').strip()
         contract_code = row.get('关联合同编号', '').strip()
         
-        if not payment_code:
-            raise ValueError('付款编号不能为空')
         if not contract_code:
             raise ValueError('关联合同编号不能为空')
         
@@ -757,14 +838,14 @@ class Command(BaseCommand):
         except Contract.DoesNotExist:
             raise ValueError(f'合同编号不存在: {contract_code}')
         
-        # 检查是否已存在
-        existing = Payment.objects.filter(payment_code=payment_code).first()
-        
-        if existing:
-            if conflict_mode == 'skip':
-                return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'付款编号已存在: {payment_code}')
+        # 如果付款编号为空，将在模型的save方法中自动生成
+        # 如果付款编号不为空，检查是否已存在
+        if payment_code:
+            existing = Payment.objects.filter(payment_code=payment_code).first()
+            
+            if existing:
+                if conflict_mode == 'skip':
+                    return 'skipped'
         
         payment_amount = self._parse_decimal(row.get('实付金额(元)'))
         if payment_amount is None:
@@ -774,36 +855,73 @@ class Command(BaseCommand):
         if payment_date is None:
             raise ValueError('付款日期不能为空')
         
-        if conflict_mode == 'update':
-            obj, created = Payment.objects.update_or_create(
-                payment_code=payment_code,
-                defaults={
-                    'contract': contract,
-                    'payment_amount': payment_amount,
-                    'payment_date': payment_date,
-                }
-            )
-            return 'created' if created else 'updated'
+        # 解析结算相关字段
+        settlement_amount = self._parse_decimal(row.get('结算价（元）'))
+        is_settled_str = row.get('是否办理结算', '').strip()
+        is_settled = is_settled_str in ['是', '已结算', 'True', 'true', '1', 'Y', 'y']
+        
+        if conflict_mode in ['update', 'replace']:
+            if payment_code:
+                # 如果提供了付款编号，使用update_or_create
+                obj, created = Payment.objects.update_or_create(
+                    payment_code=payment_code,
+                    defaults={
+                        'contract': contract,
+                        'payment_amount': payment_amount,
+                        'payment_date': payment_date,
+                        'settlement_amount': settlement_amount,
+                        'is_settled': is_settled,
+                    }
+                )
+                return 'created' if created else 'updated'
+            else:
+                # 如果没有提供付款编号，创建新记录（会自动生成编号）
+                obj = Payment.objects.create(
+                    contract=contract,
+                    payment_amount=payment_amount,
+                    payment_date=payment_date,
+                    settlement_amount=settlement_amount,
+                    is_settled=is_settled,
+                )
+                return 'created'
         else:
             # skip模式，不创建新记录
             return 'skipped'
 
     def _import_payment_wide(self, row, seq, group_id, conflict_mode='update'):
         """导入宽表转换的付款数据"""
-        contract_code = row[0]  # 第一列是合同编号
+        # 第一列：合同编号或合同序号
+        contract_identifier = str(row.iloc[0] if hasattr(row, 'iloc') else row[0]).strip()
+        
+        # 获取结算相关字段（从melt后的DataFrame中获取）
+        settlement_amount = None
+        is_settled = False
+        
+        # 检查是否有结算价列
+        if len(row) > 3:  # melt后会有: 合同编号, 结算价, 是否已结算, period, value
+            settlement_amount = self._parse_decimal(row.iloc[1])
+            is_settled_str = str(row.iloc[2]).strip() if len(row) > 2 else ''
+            is_settled = is_settled_str in ['是', '已结算', 'True', 'true', '1', 'Y', 'y']
+        
         period = row['period']  # 日期列标签
         amount = self._parse_decimal(row['value'])
         
         if amount is None or amount <= 0:
             return 'skipped'
         
+        # 尝试通过合同序号查找(优先),如果失败则通过合同编号查找
+        contract = None
         try:
-            contract = Contract.objects.get(contract_code=contract_code)
+            contract = Contract.objects.get(contract_sequence=contract_identifier)
         except Contract.DoesNotExist:
-            raise ValueError(f'合同编号不存在: {contract_code}')
+            try:
+                contract = Contract.objects.get(contract_code=contract_identifier)
+            except Contract.DoesNotExist:
+                raise ValueError(f'合同序号/编号不存在: {contract_identifier}')
         
         payment_date = self._parse_month_to_date(period)
-        payment_code = f"{contract_code}-FK-{seq:03d}"
+        # 使用合同的contract_code作为付款编号的前缀
+        payment_code = f"{contract.contract_code}-FK-{seq:03d}"
         
         # 检查是否已存在
         existing = Payment.objects.filter(payment_code=payment_code).first()
@@ -811,16 +929,16 @@ class Command(BaseCommand):
         if existing:
             if conflict_mode == 'skip':
                 return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'付款编号已存在: {payment_code}')
         
-        if conflict_mode == 'update':
+        if conflict_mode in ['update', 'replace']:
             obj, created = Payment.objects.update_or_create(
                 payment_code=payment_code,
                 defaults={
                     'contract': contract,
                     'payment_amount': amount,
                     'payment_date': payment_date,
+                    'settlement_amount': settlement_amount,
+                    'is_settled': is_settled,
                 }
             )
             return 'created' if created else 'updated'
@@ -854,8 +972,6 @@ class Command(BaseCommand):
         if existing:
             if conflict_mode == 'skip':
                 return 'skipped'
-            elif conflict_mode == 'error':
-                raise ValueError(f'评价编号已存在: {evaluation_code}')
         
         # 解析半年度期间
         try:
@@ -868,7 +984,7 @@ class Command(BaseCommand):
         is_last = '2025年下半年' in str(period)
         evaluation_type = '末次评价' if is_last else '履约过程评价'
         
-        if conflict_mode == 'update':
+        if conflict_mode in ['update', 'replace']:
             obj, created = SupplierEvaluation.objects.update_or_create(
                 evaluation_code=evaluation_code,
                 defaults={
@@ -899,8 +1015,14 @@ class Command(BaseCommand):
         if value is None or value == '':
             return None
         
+        # 处理pandas的NaN值
+        import math
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        
         value_str = str(value).strip().replace(',', '').replace('，', '')
-        if not value_str or value_str == '/':
+        # 明确处理常见的空值标记，包括字符串形式的NaN
+        if not value_str or value_str in ['/', '-', '—', '无', 'N/A', 'n/a', 'NaN', 'nan', 'None']:
             return None
         
         try:
@@ -914,7 +1036,8 @@ class Command(BaseCommand):
             return None
         
         value_str = str(value).strip()
-        if value_str == '/':
+        # 明确处理常见的空值标记
+        if value_str in ['/', '-', '—', '无', 'N/A', 'n/a']:
             return None
         
         # 尝试多种日期格式

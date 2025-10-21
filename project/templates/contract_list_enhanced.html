@@ -1,0 +1,730 @@
+{% extends 'base.html' %}
+
+{% block title %}合同管理 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_head %}
+<!-- Vue.js 3 CDN -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<!-- Day.js for date handling -->
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+<!-- SheetJS for Excel export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div id="contractApp" class="animate-fade-in">
+    <div class="content-header">
+        <h1 class="content-title">合同管理</h1>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">首页</a>
+            <span>/</span>
+            <span>合同管理</span>
+        </div>
+    </div>
+
+    <!-- 操作栏 -->
+    <div class="card">
+        <div class="filter-bar">
+            <!-- 基础搜索 -->
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    v-model="searchQuery" 
+                    @input="debounceSearch"
+                    placeholder="搜索合同编号、名称、乙方..."
+                >
+                <button @click="performSearch">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            
+            <!-- 高级搜索按钮 -->
+            <button @click="showAdvancedSearch = true" class="btn btn-secondary">
+                <i class="fas fa-filter"></i>
+                高级搜索
+            </button>
+            
+            <!-- 列配置按钮 -->
+            <button @click="showColumnSelector = true" class="btn btn-secondary">
+                <i class="fas fa-columns"></i>
+                显示列
+            </button>
+            
+            <!-- 导出按钮 -->
+            <div class="relative">
+                <button @click="showExportMenu = !showExportMenu" class="btn btn-secondary">
+                    <i class="fas fa-download"></i>
+                    导出数据
+                    <i class="fas fa-chevron-down ml-2"></i>
+                </button>
+                <div
+                    v-show="showExportMenu"
+                    @click.self="showExportMenu = false"
+                    class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                >
+                    <button @click="exportData('excel'); showExportMenu = false" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                        <i class="fas fa-file-excel text-green-600"></i>
+                        导出为Excel
+                    </button>
+                    <button @click="exportData('csv'); showExportMenu = false" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                        <i class="fas fa-file-csv text-blue-600"></i>
+                        导出为CSV
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 导入按钮 -->
+            <button @click="showImportDialog = true" class="btn btn-secondary">
+                <i class="fas fa-file-import"></i>
+                导入数据
+            </button>
+            
+            <!-- 新增按钮 -->
+            <a href="/admin/contract/contract/add/" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增合同
+            </a>
+        </div>
+    </div>
+
+    <!-- 合同列表 -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-file-contract"></i>
+                全部合同 <span class="text-sm text-gray-500">(共 ${filteredContracts.length} 条)</span>
+            </h2>
+        </div>
+        
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading">
+            <div class="spinner"></div>
+            <p class="mt-4 text-gray-600">加载中...</p>
+        </div>
+
+        <!-- 数据表格 -->
+        <div v-else-if="filteredContracts.length > 0" class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th v-for="col in visibleColumns" :key="col.key">
+                            <div class="flex items-center gap-2 cursor-pointer" @click="sortBy(col.key)">
+                                ${col.label}
+                                <i v-if="sortKey === col.key" 
+                                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                                   class="text-primary-500"></i>
+                            </div>
+                        </th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="contract in paginatedContracts" :key="contract.contract_code">
+                        <td v-if="isColumnVisible('contract_code')">${contract.contract_code}</td>
+                        <td v-if="isColumnVisible('contract_name')" style="max-width: 300px;">
+                            ${contract.contract_name}
+                        </td>
+                        <td v-if="isColumnVisible('project')">
+                            <a v-if="contract.project" 
+                               :href="`/project/${contract.project.project_code}/`"
+                               class="text-primary-500 hover:text-primary-600">
+                                ${contract.project.project_name}
+                            </a>
+                            <span v-else>-</span>
+                        </td>
+                        <td v-if="isColumnVisible('contract_type')">
+                            <span :class="getContractTypeClass(contract.contract_type)" class="badge">
+                                ${contract.contract_type}
+                            </span>
+                        </td>
+                        <td v-if="isColumnVisible('contract_source')">
+                            <span :class="contract.contract_source === '采购合同' ? 'badge-success' : 'badge-info'" class="badge">
+                                ${contract.contract_source}
+                            </span>
+                        </td>
+                        <td v-if="isColumnVisible('party_b')">${contract.party_b || '-'}</td>
+                        <td v-if="isColumnVisible('contract_amount')">
+                            <span v-if="contract.contract_amount">
+                                ¥${formatNumber(contract.contract_amount)}
+                            </span>
+                            <span v-else>-</span>
+                        </td>
+                        <td v-if="isColumnVisible('signing_date')">${contract.signing_date || '-'}</td>
+                        <td>
+                            <div class="flex gap-2">
+                                <a :href="`/contract/${contract.contract_code}/`" 
+                                   class="btn btn-primary" 
+                                   style="padding: 4px 12px; font-size: 12px;">
+                                    <i class="fas fa-eye"></i>
+                                    查看
+                                </a>
+                                <a :href="`/admin/contract/contract/${contract.contract_code}/change/`" 
+                                   class="btn btn-secondary" 
+                                   style="padding: 4px 12px; font-size: 12px;">
+                                    <i class="fas fa-edit"></i>
+                                    编辑
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="empty-state">
+            <i class="fas fa-file-contract"></i>
+            <p>暂无合同数据</p>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="filteredContracts.length > 0" class="pagination">
+            <span class="pagination-info">
+                显示 ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredContracts.length)} 
+                条，共 ${filteredContracts.length} 条
+            </span>
+            <button @click="currentPage = 1" :disabled="currentPage === 1" class="pagination-prev">
+                首页
+            </button>
+            <button @click="currentPage--" :disabled="currentPage === 1" class="pagination-prev">
+                上一页
+            </button>
+            <span class="current">${currentPage}</span>
+            <span>/</span>
+            <span>${totalPages}</span>
+            <button @click="currentPage++" :disabled="currentPage === totalPages" class="pagination-next">
+                下一页
+            </button>
+            <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="pagination-next">
+                末页
+            </button>
+        </div>
+    </div>
+
+    <!-- 高级搜索模态框 -->
+    <div v-if="showAdvancedSearch" class="modal-overlay" @click.self="showAdvancedSearch = false">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="text-xl font-semibold">高级搜索</h3>
+                <button @click="showAdvancedSearch = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">合同编号</label>
+                        <input v-model="advancedFilters.contract_code" class="form-input" placeholder="输入合同编号">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">合同名称</label>
+                        <input v-model="advancedFilters.contract_name" class="form-input" placeholder="输入合同名称">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">所属项目</label>
+                        <select v-model="advancedFilters.project" class="form-input">
+                            <option value="">全部项目</option>
+                            <option v-for="project in projects" :key="project.id" :value="project.project_code">
+                                ${project.project_name}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">合同类型</label>
+                        <select v-model="advancedFilters.contract_type" class="form-input">
+                            <option value="">全部类型</option>
+                            <option value="主合同">主合同</option>
+                            <option value="补充协议">补充协议</option>
+                            <option value="变更协议">变更协议</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">合同来源</label>
+                        <select v-model="advancedFilters.contract_source" class="form-input">
+                            <option value="">全部来源</option>
+                            <option value="采购合同">采购合同</option>
+                            <option value="直接委托">直接委托</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">乙方</label>
+                        <input v-model="advancedFilters.party_b" class="form-input" placeholder="输入乙方名称">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">签订日期开始</label>
+                        <input v-model="advancedFilters.signing_date_start" type="date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">签订日期结束</label>
+                        <input v-model="advancedFilters.signing_date_end" type="date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">合同金额最小值</label>
+                        <input v-model.number="advancedFilters.amount_min" type="number" class="form-input" placeholder="最小金额">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">合同金额最大值</label>
+                        <input v-model.number="advancedFilters.amount_max" type="number" class="form-input" placeholder="最大金额">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="resetAdvancedFilters" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i>
+                    重置
+                </button>
+                <button @click="applyAdvancedSearch" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                    搜索
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 列选择器模态框 -->
+    <div v-if="showColumnSelector" class="modal-overlay" @click.self="showColumnSelector = false">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="text-xl font-semibold">选择显示列</h3>
+                <button @click="showColumnSelector = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="column-selector">
+                    <label v-for="col in allColumns" :key="col.key" class="column-item">
+                        <input 
+                            type="checkbox" 
+                            v-model="selectedColumns"
+                            :value="col.key"
+                            class="w-4 h-4 text-primary-600"
+                        >
+                        <span>${col.label}</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="selectAllColumns" class="btn btn-secondary">
+                    <i class="fas fa-check-double"></i>
+                    全选
+                </button>
+                <button @click="saveColumnPreferences" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入模态框 -->
+    <div v-if="showImportDialog" class="modal-overlay" @click.self="showImportDialog = false">
+        <div class="modal-content" @click.stop>
+            <div class="modal-header">
+                <h3 style="font-size: 20px; font-weight: 600;">
+                    <i class="fas fa-file-import"></i>
+                    导入合同数据
+                </h3>
+                <button @click="showImportDialog = false" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div v-if="!importing && !importResult">
+                    <div class="form-group">
+                        <label class="form-label">导入说明</label>
+                        <div style="background: #f0f7ff; border: 1px solid #bae0ff; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin-bottom: 8px; color: #0958d9;">
+                                <i class="fas fa-info-circle"></i>
+                                合同导入支持以下功能：
+                            </p>
+                            <ul style="margin-left: 20px; color: #595959;">
+                                <li>支持 CSV 和 Excel 文件格式</li>
+                                <li>自动检测文件编码（UTF-8/GBK）</li>
+                                <li>支持更新现有合同或创建新合同</li>
+                                <li>自动关联项目和采购信息</li>
+                                <li>详细的错误提示和导入报告</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">选择文件</label>
+                        <input type="file" ref="importFile" accept=".csv,.xlsx,.xls" class="form-input"
+                               style="padding: 8px;" @change="handleFileSelect">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">冲突处理模式</label>
+                        <select v-model="conflictMode" class="form-input">
+                            <option value="update">更新模式 - 存在则更新，不存在则创建</option>
+                            <option value="skip">跳过模式 - 仅创建新记录，跳过已存在的</option>
+                            <option value="error">错误模式 - 遇到已存在记录则报错</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" v-model="dryRun" style="cursor: pointer;">
+                            <span>仅验证数据，不实际导入（预演模式）</span>
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-download"></i>
+                            下载模板
+                        </label>
+                        <div style="display: flex; gap: 12px;">
+                            <a href="/static/templates/contract_import_template.csv" download
+                               class="btn btn-secondary" style="text-decoration: none;">
+                                <i class="fas fa-file-csv"></i>
+                                CSV 模板
+                            </a>
+                            <a href="/docs/导入功能使用说明.md" target="_blank"
+                               class="btn btn-secondary" style="text-decoration: none;">
+                                <i class="fas fa-book"></i>
+                                查看文档
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="importing" style="text-align: center; padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto 20px;"></div>
+                    <p style="font-size: 16px; color: var(--text-primary);">
+                        ${dryRun ? '正在验证数据...' : '正在导入数据...'}
+                    </p>
+                    <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+                        请稍候，这可能需要几分钟时间
+                    </p>
+                </div>
+                
+                <div v-if="importResult" style="text-align: center; padding: 40px;">
+                    <i :class="importResult.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"
+                       :style="{fontSize: '64px', color: importResult.success ? 'var(--success-color)' : 'var(--error-color)', marginBottom: '20px'}"></i>
+                    <h3 style="font-size: 20px; margin-bottom: 16px;">
+                        ${importResult.success ? (dryRun ? '验证成功！' : '导入完成！') : '导入失败'}
+                    </h3>
+                    <div v-if="importResult.success && importResult.stats"
+                         style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                        <p style="margin-bottom: 8px;"><strong>导入统计：</strong></p>
+                        <p>总行数: ${importResult.stats.total}</p>
+                        <p style="color: var(--success-color);">成功: ${importResult.stats.success}</p>
+                        <p v-if="importResult.stats.failed > 0" style="color: var(--error-color);">失败: ${importResult.stats.failed}</p>
+                        <p v-if="importResult.stats.created > 0">新增: ${importResult.stats.created}</p>
+                        <p v-if="importResult.stats.updated > 0">更新: ${importResult.stats.updated}</p>
+                        <p v-if="importResult.stats.skipped > 0">跳过: ${importResult.stats.skipped}</p>
+                    </div>
+                    <div v-if="importResult.errors && importResult.errors.length > 0"
+                         style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left; max-height: 200px; overflow-y: auto;">
+                        <p style="margin-bottom: 8px; color: var(--error-color);"><strong>错误详情：</strong></p>
+                        <p v-for="err in importResult.errors" :key="err" style="font-size: 13px;">• ${err}</p>
+                    </div>
+                    <div v-if="!importResult.success"
+                         style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                        <p style="color: var(--error-color);">${importResult.message || '未知错误'}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button v-if="!importing && !importResult" @click="showImportDialog = false" class="btn btn-secondary">
+                    取消
+                </button>
+                <button v-if="!importing && !importResult" @click="performImport" class="btn btn-primary">
+                    <i class="fas fa-upload"></i>
+                    开始导入
+                </button>
+                <button v-if="importResult && importResult.success && !dryRun" @click="location.reload()" class="btn btn-primary">
+                    <i class="fas fa-sync"></i>
+                    刷新页面查看结果
+                </button>
+                <button v-if="importResult && importResult.success && dryRun" @click="resetImport" class="btn btn-primary">
+                    <i class="fas fa-upload"></i>
+                    开始正式导入
+                </button>
+                <button v-if="importResult && !importResult.success" @click="resetImport" class="btn btn-primary">
+                    <i class="fas fa-redo"></i>
+                    重新尝试
+                </button>
+                <button v-if="importResult" @click="closeImportDialog" class="btn btn-secondary">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+    delimiters: ['${', '}'],
+    data() {
+        return {
+            contracts: {{ contracts_json|safe }},
+            projects: {{ projects_json|safe }},
+            searchQuery: '',
+            showExportMenu: false,
+            loading: false,
+            showAdvancedSearch: false,
+            showColumnSelector: false,
+            showImportDialog: false,
+            importing: false,
+            importResult: null,
+            selectedFile: null,
+            conflictMode: 'update',
+            dryRun: false,
+            currentPage: 1,
+            pageSize: 20,
+            sortKey: '',
+            sortOrder: 'asc',
+            advancedFilters: {
+                contract_code: '',
+                contract_name: '',
+                project: '',
+                contract_type: '',
+                contract_source: '',
+                party_b: '',
+                signing_date_start: '',
+                signing_date_end: '',
+                amount_min: null,
+                amount_max: null
+            },
+            allColumns: [
+                { key: 'contract_code', label: '合同编号' },
+                { key: 'contract_name', label: '合同名称' },
+                { key: 'project', label: '所属项目' },
+                { key: 'contract_type', label: '合同类型' },
+                { key: 'contract_source', label: '合同来源' },
+                { key: 'party_b', label: '乙方' },
+                { key: 'contract_amount', label: '合同金额(元)' },
+                { key: 'signing_date', label: '签订日期' }
+            ],
+            selectedColumns: ['contract_code', 'contract_name', 'project', 'contract_type', 'contract_source', 'party_b', 'contract_amount', 'signing_date']
+        }
+    },
+    computed: {
+        filteredContracts() {
+            let result = this.contracts;
+
+            // 基础搜索
+            if (this.searchQuery) {
+                const query = this.searchQuery.toLowerCase();
+                result = result.filter(c => 
+                    c.contract_code?.toLowerCase().includes(query) ||
+                    c.contract_name?.toLowerCase().includes(query) ||
+                    c.party_b?.toLowerCase().includes(query)
+                );
+            }
+
+            // 高级搜索
+            if (this.advancedFilters.contract_code) {
+                result = result.filter(c => c.contract_code?.includes(this.advancedFilters.contract_code));
+            }
+            if (this.advancedFilters.contract_name) {
+                result = result.filter(c => c.contract_name?.toLowerCase().includes(this.advancedFilters.contract_name.toLowerCase()));
+            }
+            if (this.advancedFilters.project) {
+                result = result.filter(c => c.project?.project_code === this.advancedFilters.project);
+            }
+            if (this.advancedFilters.contract_type) {
+                result = result.filter(c => c.contract_type === this.advancedFilters.contract_type);
+            }
+            if (this.advancedFilters.contract_source) {
+                result = result.filter(c => c.contract_source === this.advancedFilters.contract_source);
+            }
+            if (this.advancedFilters.party_b) {
+                result = result.filter(c => c.party_b?.toLowerCase().includes(this.advancedFilters.party_b.toLowerCase()));
+            }
+            if (this.advancedFilters.signing_date_start) {
+                result = result.filter(c => c.signing_date >= this.advancedFilters.signing_date_start);
+            }
+            if (this.advancedFilters.signing_date_end) {
+                result = result.filter(c => c.signing_date <= this.advancedFilters.signing_date_end);
+            }
+            if (this.advancedFilters.amount_min !== null) {
+                result = result.filter(c => c.contract_amount >= this.advancedFilters.amount_min);
+            }
+            if (this.advancedFilters.amount_max !== null) {
+                result = result.filter(c => c.contract_amount <= this.advancedFilters.amount_max);
+            }
+
+            // 排序
+            if (this.sortKey) {
+                result.sort((a, b) => {
+                    const aVal = a[this.sortKey] || '';
+                    const bVal = b[this.sortKey] || '';
+                    return this.sortOrder === 'asc' 
+                        ? aVal > bVal ? 1 : -1
+                        : aVal < bVal ? 1 : -1;
+                });
+            }
+
+            return result;
+        },
+        paginatedContracts() {
+            const start = (this.currentPage - 1) * this.pageSize;
+            return this.filteredContracts.slice(start, start + this.pageSize);
+        },
+        totalPages() {
+            return Math.ceil(this.filteredContracts.length / this.pageSize);
+        },
+        visibleColumns() {
+            return this.allColumns.filter(col => this.selectedColumns.includes(col.key));
+        }
+    },
+    methods: {
+        debounceSearch() {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                this.performSearch();
+            }, 500);
+        },
+        performSearch() {
+            this.currentPage = 1;
+        },
+        sortBy(key) {
+            if (this.sortKey === key) {
+                this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortKey = key;
+                this.sortOrder = 'asc';
+            }
+        },
+        applyAdvancedSearch() {
+            this.showAdvancedSearch = false;
+            this.currentPage = 1;
+        },
+        resetAdvancedFilters() {
+            this.advancedFilters = {
+                contract_code: '',
+                contract_name: '',
+                project: '',
+                contract_type: '',
+                contract_source: '',
+                party_b: '',
+                signing_date_start: '',
+                signing_date_end: '',
+                amount_min: null,
+                amount_max: null
+            };
+        },
+        isColumnVisible(key) {
+            return this.selectedColumns.includes(key);
+        },
+        selectAllColumns() {
+            this.selectedColumns = this.allColumns.map(col => col.key);
+        },
+        saveColumnPreferences() {
+            localStorage.setItem('contract_columns', JSON.stringify(this.selectedColumns));
+            this.showColumnSelector = false;
+        },
+        exportData(format) {
+            const data = this.filteredContracts.map(c => {
+                const row = {};
+                this.visibleColumns.forEach(col => {
+                    if (col.key === 'project') {
+                        row[col.label] = c.project?.project_name || '-';
+                    } else {
+                        row[col.label] = c[col.key] || '-';
+                    }
+                });
+                return row;
+            });
+
+            if (format === 'excel') {
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '合同数据');
+                XLSX.writeFile(wb, `合同数据_${dayjs().format('YYYYMMDD')}.xlsx`);
+            } else if (format === 'csv') {
+                const ws = XLSX.utils.json_to_sheet(data);
+                const csv = XLSX.utils.sheet_to_csv(ws);
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `合同数据_${dayjs().format('YYYYMMDD')}.csv`;
+                link.click();
+            }
+        },
+        formatNumber(num) {
+            return new Intl.NumberFormat('zh-CN', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            }).format(num);
+        },
+        getContractTypeClass(type) {
+            const map = {
+                '主合同': 'badge-success',
+                '补充协议': 'badge-info',
+                '变更协议': 'badge-error'
+            };
+            return map[type] || 'badge-info';
+        },
+        handleFileSelect(event) {
+            this.selectedFile = event.target.files[0];
+        },
+        performImport() {
+            if (!this.selectedFile) {
+                alert('请选择要导入的文件');
+                return;
+            }
+            
+            // 检查文件格式
+            const fileName = this.selectedFile.name.toLowerCase();
+            if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+                alert('仅支持 CSV 和 Excel 文件格式');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+            formData.append('module', 'contract');
+            formData.append('conflict_mode', this.conflictMode);
+            formData.append('dry_run', this.dryRun);
+            
+            this.importing = true;
+            this.importResult = null;
+            
+            fetch('/api/import/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.importing = false;
+                this.importResult = data;
+            })
+            .catch(error => {
+                this.importing = false;
+                this.importResult = {
+                    success: false,
+                    message: `网络错误: ${error.message}`
+                };
+            });
+        },
+        resetImport() {
+            this.importing = false;
+            this.importResult = null;
+            this.selectedFile = null;
+            this.dryRun = false;
+        },
+        closeImportDialog() {
+            this.showImportDialog = false;
+            this.importing = false;
+            this.importResult = null;
+            this.selectedFile = null;
+            this.conflictMode = 'update';
+            this.dryRun = false;
+        }
+    },
+    mounted() {
+        // 加载保存的列配置
+        const saved = localStorage.getItem('contract_columns');
+        if (saved) {
+            this.selectedColumns = JSON.parse(saved);
+        }
+    }
+}).mount('#contractApp');
+</script>
+{% endblock %}

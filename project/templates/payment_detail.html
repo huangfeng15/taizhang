@@ -16,19 +16,20 @@
 
 <!-- 操作按钮 -->
 <div class="card" style="margin-bottom: 20px;">
-    <div style="display: flex; gap: 10px; padding: 16px;">
+    <div style="display: flex; gap: 10px; padding: 16px; align-items: center;">
         <a href="{% url 'payment_list' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i>
             返回列表
         </a>
-        <a href="/admin/payment/payment/{{ payment.payment_code }}/change/" class="btn btn-primary">
-            <i class="fas fa-edit"></i>
-            编辑付款
+        <a href="{% url 'contract_detail' contract.contract_code %}" class="btn btn-info">
+            <i class="fas fa-file-contract"></i>
+            查看合同
         </a>
-        <a href="/admin/payment/payment/{{ payment.payment_code }}/delete/" class="btn btn-error">
-            <i class="fas fa-trash"></i>
-            删除付款
-        </a>
+        <!-- 提示：编辑和删除功能暂通过管理后台操作 -->
+        <span style="margin-left: auto; color: #666; font-size: 14px;">
+            <i class="fas fa-info-circle"></i>
+            如需编辑或删除付款记录，请联系系统管理员
+        </span>
     </div>
 </div>
 
@@ -48,7 +49,7 @@
             </div>
             <div class="detail-item">
                 <label>付款日期：</label>
-                <span>{{ payment.payment_date }}</span>
+                <span>{{ payment.payment_date|date:"Y-m" }}</span>
             </div>
             <div class="detail-item" style="grid-column: 1 / -1;">
                 <label>付款金额：</label>
