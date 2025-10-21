@@ -920,8 +920,19 @@ class Command(BaseCommand):
                 raise ValueError(f'合同序号/编号不存在: {contract_identifier}')
         
         payment_date = self._parse_month_to_date(period)
-        # 使用合同的contract_code作为付款编号的前缀
-        payment_code = f"{contract.contract_code}-FK-{seq:03d}"
+        
+        # 不再在这里生成付款编号，让Payment模型的save方法自动生成
+        # 这样可以使用新的按付款日期排序的逻辑
+        # 先创建一个临时的Payment对象来生成编号
+        temp_payment = Payment(
+            contract=contract,
+            payment_amount=amount,
+            payment_date=payment_date,
+            settlement_amount=settlement_amount,
+            is_settled=is_settled,
+        )
+        # 调用生成方法获取编号
+        payment_code = temp_payment._generate_payment_code()
         
         # 检查是否已存在
         existing = Payment.objects.filter(payment_code=payment_code).first()

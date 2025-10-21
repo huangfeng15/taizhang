@@ -1,4 +1,3 @@
-{% if page_obj.has_other_pages %}
 <div class="pagination">
     <span class="pagination-info">
         显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
@@ -7,15 +6,43 @@
     <!-- 每页显示条数选择 -->
     <div class="page-size-selector">
         <label for="pageSize">每页</label>
+        {% if module_type == 'payment' %}
         <select id="pageSize" onchange="changePageSize(this.value)">
             <option value="10" {% if request.GET.page_size == '10' %}selected{% endif %}>10</option>
             <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
             <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
             <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
+            <option value="500" {% if request.GET.page_size == '500' %}selected{% endif %}>500</option>
+            <option value="1000" {% if request.GET.page_size == '1000' %}selected{% endif %}>1000</option>
+            <option value="custom" {% if request.GET.page_size and request.GET.page_size not in '10,20,50,100,500,1000' %}selected{% endif %}>自定义</option>
         </select>
+        {% else %}
+        <select id="pageSize" onchange="changePageSize(this.value)">
+            <option value="10" {% if request.GET.page_size == '10' %}selected{% endif %}>10</option>
+            <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+            <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
+            <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
+            <option value="custom" {% if request.GET.page_size and request.GET.page_size not in '10,20,50,100' %}selected{% endif %}>自定义</option>
+        </select>
+        {% endif %}
+        <input type="number"
+               id="customPageSize"
+               min="1"
+               max="10000"
+               placeholder="输入条数"
+               style="display: none; width: 80px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-left: 5px;"
+               value="{% if request.GET.page_size and request.GET.page_size not in '10,20,50,100,500,1000' %}{{ request.GET.page_size }}{% endif %}"
+               onkeypress="if(event.key==='Enter')applyCustomPageSize()">
+        <button id="applyCustomBtn"
+                onclick="applyCustomPageSize()"
+                style="display: none; padding: 5px 12px; margin-left: 5px;"
+                class="pagination-btn">
+            确定
+        </button>
         <label>条</label>
     </div>
     
+    {% if page_obj.has_other_pages %}
     <!-- 首页按钮 -->
     {% if page_obj.has_previous %}
         <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
@@ -76,19 +103,64 @@
                onkeypress="if(event.key==='Enter')jumpToPage()">
         <button onclick="jumpToPage()" class="pagination-btn">GO</button>
     </div>
+    {% endif %}
 </div>
 
 <script>
+// 页面加载时检查是否显示自定义输入框
+document.addEventListener('DOMContentLoaded', function() {
+    const pageSize = document.getElementById('pageSize');
+    const customInput = document.getElementById('customPageSize');
+    const applyBtn = document.getElementById('applyCustomBtn');
+    
+    if (pageSize.value === 'custom') {
+        customInput.style.display = 'inline-block';
+        applyBtn.style.display = 'inline-block';
+    }
+    
+    // 监听下拉框变化
+    pageSize.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customInput.style.display = 'inline-block';
+            applyBtn.style.display = 'inline-block';
+            customInput.focus();
+        } else {
+            customInput.style.display = 'none';
+            applyBtn.style.display = 'none';
+            changePageSize(this.value);
+        }
+    });
+});
+
 function changePageSize(size) {
+    if (size === 'custom') {
+        return; // 等待用户输入自定义值
+    }
     const url = new URL(window.location.href);
     url.searchParams.set('page_size', size);
     url.searchParams.set('page', '1'); // 重置到第一页
     window.location.href = url.toString();
 }
 
+function applyCustomPageSize() {
+    const customSize = document.getElementById('customPageSize').value;
+    if (!customSize || customSize < 1) {
+        alert('请输入有效的条数（大于0）');
+        return;
+    }
+    if (customSize > 10000) {
+        alert('单页最多显示10000条数据');
+        return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('page_size', customSize);
+    url.searchParams.set('page', '1'); // 重置到第一页
+    window.location.href = url.toString();
+}
+
 function jumpToPage() {
     const pageNum = document.getElementById('jumpToPage').value;
-    const maxPage = {{ page_obj.paginator.num_pages }};
+    const maxPage = parseInt('{{ page_obj.paginator.num_pages }}');
     
     if (pageNum < 1 || pageNum > maxPage) {
         alert('请输入有效的页码 (1-' + maxPage + ')');
@@ -223,4 +295,3 @@ function jumpToPage() {
     padding: 6px 16px;
 }
 </style>
-{% endif %}
