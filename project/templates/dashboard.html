@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}数据概览 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">数据概览</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>数据概览</span>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-folder-open"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">项目总数</div>
+            <div class="stat-value">{{ stats.project_count }}</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-shopping-cart"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">采购项目</div>
+            <div class="stat-value">{{ stats.procurement_count }}</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-file-contract"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">合同总数</div>
+            <div class="stat-value">{{ stats.contract_count }}</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon error">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">合同总金额</div>
+            <div class="stat-value">{{ stats.total_amount|floatformat:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 项目列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-folder-open"></i>
+            项目列表
+        </h2>
+        <div>
+            <a href="/admin/project/project/add/" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增项目
+            </a>
+        </div>
+    </div>
+    
+    {% if projects %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>项目编码</th>
+                    <th>项目名称</th>
+                    <th>项目负责人</th>
+                    <th>状态</th>
+                    <th>采购数量</th>
+                    <th>合同数量</th>
+                    <th>合同总额</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for project in projects %}
+                <tr>
+                    <td>{{ project.project_code }}</td>
+                    <td>
+                        <a href="{% url 'project_detail' project.project_code %}" style="color: var(--primary-color); text-decoration: none;">
+                            {{ project.project_name }}
+                        </a>
+                    </td>
+                    <td>{{ project.project_manager|default:"-" }}</td>
+                    <td>
+                        {% if project.status == '进行中' %}
+                            <span class="badge badge-success">{{ project.status }}</span>
+                        {% elif project.status == '已完成' %}
+                            <span class="badge badge-info">{{ project.status }}</span>
+                        {% elif project.status == '已暂停' %}
+                            <span class="badge badge-warning">{{ project.status }}</span>
+                        {% else %}
+                            <span class="badge badge-error">{{ project.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ project.procurement_count }}</td>
+                    <td>{{ project.contract_count }}</td>
+                    <td>¥{{ project.contract_total|floatformat:2 }}</td>
+                    <td>
+                        <a href="{% url 'project_detail' project.project_code %}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-eye"></i>
+                            查看详情
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p>暂无项目数据</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 最近采购 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-shopping-cart"></i>
+            最近采购项目
+        </h2>
+        <a href="{% url 'procurement_list' %}" class="btn btn-secondary">
+            查看全部
+            <i class="fas fa-arrow-right"></i>
+        </a>
+    </div>
+    
+    {% if recent_procurements %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>招采编号</th>
+                    <th>采购名称</th>
+                    <th>所属项目</th>
+                    <th>中标人</th>
+                    <th>中标价(元)</th>
+                    <th>开标日期</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proc in recent_procurements %}
+                <tr>
+                    <td>{{ proc.procurement_code }}</td>
+                    <td>{{ proc.project_name }}</td>
+                    <td>
+                        {% if proc.project %}
+                            <a href="{% url 'project_detail' proc.project.project_code %}" style="color: var(--primary-color); text-decoration: none;">
+                                {{ proc.project.project_name }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ proc.winning_bidder|default:"-" }}</td>
+                    <td>{{ proc.winning_amount|floatformat:2|default:"-" }}</td>
+                    <td>{{ proc.bid_opening_date|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-shopping-cart"></i>
+        <p>暂无采购数据</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # 业务应用
+    'project.apps.ProjectConfig',
     'procurement.apps.ProcurementConfig',
     'contract.apps.ContractConfig',
     'payment.apps.PaymentConfig',
@@ -48,7 +49,9 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR / 'project' / 'templates',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

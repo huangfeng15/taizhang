@@ -17,6 +17,17 @@ class Contract(BaseModel):
         help_text='例如: HT2025001'
     )
     
+    # ===== 项目关联 =====
+    project = models.ForeignKey(
+        'project.Project',
+        on_delete=models.PROTECT,
+        verbose_name='关联项目',
+        null=True,
+        blank=True,
+        related_name='contracts',
+        help_text='该合同所属的项目'
+    )
+    
     # ===== 必填字段 =====
     contract_name = models.CharField(
         '合同名称',
@@ -72,6 +83,15 @@ class Contract(BaseModel):
         help_text='当合同来源为"采购合同"时必填；当来源为"直接签订"时可为空'
     )
     
+    # ===== 合同序号 =====
+    contract_sequence = models.CharField(
+        '合同序号',
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='合同的序号，用于排序和关联（支持字符串格式如 BHHY-NH-001）'
+    )
+    
     # ===== 合同方信息 =====
     party_a = models.CharField(
         '甲方',
@@ -85,6 +105,20 @@ class Contract(BaseModel):
         max_length=200,
         blank=True,
         help_text='合同乙方（供应商）'
+    )
+    
+    party_b_contact = models.CharField(
+        '乙方负责人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='例如: 李经理 13900139000'
+    )
+    
+    party_b_contact_in_contract = models.CharField(
+        '合同文本内乙方联系人及方式',
+        max_length=200,
+        blank=True,
+        help_text='合同文本中记录的乙方联系方式'
     )
     
     # ===== 金额与时间 =====
@@ -123,6 +157,13 @@ class Contract(BaseModel):
         '支付方式',
         blank=True,
         help_text='例如: 预付30%、完工后验收支付70%'
+    )
+    
+    performance_guarantee_return_date = models.DateField(
+        '履约担保退回时间',
+        null=True,
+        blank=True,
+        help_text='履约担保退回的日期'
     )
     
     class Meta:

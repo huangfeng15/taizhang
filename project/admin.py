@@ -1,28 +1,32 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.http import HttpResponseRedirect
-from .models import Payment
+from .models import Project
 
 
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+@admin.register(Project)
+class ProjectAdmin(admin.ModelAdmin):
     list_display = [
-        'payment_code', 'contract', 'payment_amount', 'payment_date'
+        'project_code', 'project_name', 'project_manager',
+        'status', 'created_at'
     ]
     search_fields = [
-        'payment_code', 'contract__contract_code', 'contract__contract_name'
+        'project_code', 'project_name', 'project_manager', 'description'
     ]
-    list_filter = ['payment_date', 'created_at']
-    autocomplete_fields = ['contract']
-    date_hierarchy = 'payment_date'
+    list_filter = ['status', 'created_at']
+    date_hierarchy = 'created_at'
     list_per_page = 50
-
+    
     fieldsets = (
         ('基本信息', {
-            'fields': ('payment_code', 'contract')
+            'fields': ('project_code', 'project_name', 'description')
         }),
-        ('付款详情', {
-            'fields': ('payment_amount', 'payment_date')
+        ('项目详情', {
+            'fields': ('project_manager', 'status')
+        }),
+        ('其他信息', {
+            'fields': ('remarks',),
+            'classes': ('collapse',)
         }),
         ('审计信息', {
             'fields': ('created_at', 'updated_at'),
@@ -34,15 +38,15 @@ class PaymentAdmin(admin.ModelAdmin):
     def response_add(self, request, obj, post_url_continue=None):
         """新增后返回前端列表页"""
         if '_continue' not in request.POST and '_addanother' not in request.POST:
-            return HttpResponseRedirect(reverse('payment_list'))
+            return HttpResponseRedirect(reverse('project_list'))
         return super().response_add(request, obj, post_url_continue)
     
     def response_change(self, request, obj):
-        """修改后返回前端列表页"""
+        """修改后返回前端项目详情页"""
         if '_continue' not in request.POST and '_addanother' not in request.POST:
-            return HttpResponseRedirect(reverse('payment_list'))
+            return HttpResponseRedirect(reverse('project_detail', args=[obj.project_code]))
         return super().response_change(request, obj)
     
     def response_delete(self, request, obj_display, obj_id):
         """删除后返回前端列表页"""
-        return HttpResponseRedirect(reverse('payment_list'))
+        return HttpResponseRedirect(reverse('project_list'))

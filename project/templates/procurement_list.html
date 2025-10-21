@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}采购管理 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">采购管理</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>采购管理</span>
+    </div>
+</div>
+
+<!-- 搜索和过滤 -->
+<div class="card">
+    <form method="get" action="" class="filter-bar">
+        <div class="search-box">
+            <input type="text" name="q" placeholder="搜索招采编号、采购名称、中标人..." value="{{ search_query }}">
+            <button type="submit">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+        <select name="project" class="filter-select" onchange="this.form.submit()">
+            <option value="">所有项目</option>
+            {% for project in projects %}
+                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
+                    {{ project.project_name }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if search_query or project_filter %}
+            <a href="?" class="filter-reset">
+                <i class="fas fa-times"></i>
+                清除筛选
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- 采购列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-shopping-cart"></i>
+            全部采购项目
+        </h2>
+        <div>
+            <a href="/admin/procurement/procurement/add/" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增采购
+            </a>
+        </div>
+    </div>
+    
+    {% if procurements %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>招采编号</th>
+                    <th>采购名称</th>
+                    <th>所属项目</th>
+                    <th>采购单位</th>
+                    <th>中标人</th>
+                    <th>预算金额(元)</th>
+                    <th>中标价(元)</th>
+                    <th>开标日期</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proc in procurements %}
+                <tr>
+                    <td>{{ proc.procurement_code }}</td>
+                    <td style="max-width: 300px;">{{ proc.project_name }}</td>
+                    <td>
+                        {% if proc.project %}
+                            <a href="{% url 'project_detail' proc.project.project_code %}" style="color: var(--primary-color); text-decoration: none;">
+                                {{ proc.project.project_name }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ proc.procurement_unit|default:"-" }}</td>
+                    <td>{{ proc.winning_bidder|default:"-" }}</td>
+                    <td>
+                        {% if proc.budget_amount %}
+                            ¥{{ proc.budget_amount|floatformat:2 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if proc.winning_amount %}
+                            ¥{{ proc.winning_amount|floatformat:2 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ proc.bid_opening_date|default:"-" }}</td>
+                    <td>
+                        <a href="{% url 'procurement_detail' proc.procurement_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
+                            <i class="fas fa-eye"></i>
+                            查看
+                        </a>
+                        <a href="/admin/procurement/procurement/{{ proc.procurement_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-edit"></i>
+                            编辑
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-shopping-cart"></i>
+        <p>暂无采购数据</p>
+        <a href="/admin/procurement/procurement/add/" class="btn btn-primary" style="margin-top: 16px;">
+            <i class="fas fa-plus"></i>
+            创建第一个采购项目
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% include 'pagination.html' %}
+</div>
+{% endblock %}

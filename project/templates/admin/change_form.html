@@ -1,0 +1,510 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}{{ block.super }}
+<script src="{% url 'admin:jsi18n' %}"></script>
+{{ media }}
+{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
+<style>
+    /* 页面标题区域 */
+    #content h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 3px solid var(--secondary-color);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    #content h1:before {
+        content: "\f15c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        color: var(--secondary-color);
+        font-size: 24px;
+    }
+    
+    /* 表单容器 */
+    form#content {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 0;
+        margin-top: 20px;
+    }
+    
+    /* 字段集标题 */
+    .module h2,
+    fieldset.module h2 {
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+        color: #fff;
+        padding: 15px 25px;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .module h2:before {
+        content: "\f02d";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        font-size: 16px;
+    }
+    
+    /* 字段集描述 */
+    .module .description {
+        padding: 15px 25px;
+        background: #e8f4f8;
+        border-left: 4px solid var(--secondary-color);
+        margin: 0;
+        font-size: 13px;
+        color: #555;
+        line-height: 1.6;
+    }
+    
+    .module .description:before {
+        content: "\f05a";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        color: var(--secondary-color);
+        margin-right: 8px;
+    }
+    
+    /* 表单行样式 */
+    .form-row {
+        padding: 20px 25px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .form-row:hover {
+        background: #f8f9fa;
+    }
+    
+    .form-row:last-child {
+        border-bottom: none;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    /* 必填字段标记 */
+    .form-row.required label:after {
+        content: " *";
+        color: var(--error-color);
+        font-weight: bold;
+    }
+    
+    /* 标签样式 */
+    .form-row > label,
+    .form-row label {
+        font-weight: 600;
+        color: #2c3e50;
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    /* 帮助文本 */
+    .form-row .help,
+    .help {
+        color: #7f8c8d;
+        font-size: 12px;
+        margin-top: 6px;
+        display: block;
+        line-height: 1.5;
+        font-style: italic;
+    }
+    
+    .form-row .help:before {
+        content: "\f059";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 400;
+        margin-right: 5px;
+        color: var(--secondary-color);
+    }
+    
+    /* 输入框增强样式 */
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="url"],
+    input[type="password"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"],
+    select,
+    textarea {
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 12px 15px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        width: 100%;
+        max-width: 600px;
+        background: #fff;
+    }
+    
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="email"]:focus,
+    input[type="url"]:focus,
+    input[type="password"]:focus,
+    input[type="date"]:focus,
+    input[type="datetime-local"]:focus,
+    input[type="time"]:focus,
+    select:focus,
+    textarea:focus {
+        outline: none;
+        border-color: var(--secondary-color);
+        box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        background: #fff;
+    }
+    
+    textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    
+    /* Select2 下拉框美化 */
+    .select2-container--admin-autocomplete .select2-selection--single {
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        height: 44px;
+        padding: 8px 15px;
+    }
+    
+    .select2-container--admin-autocomplete.select2-container--focus .select2-selection--single {
+        border-color: var(--secondary-color);
+        box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+    }
+    
+    /* 错误提示增强 */
+    .errorlist {
+        background: #fee;
+        border-left: 4px solid var(--error-color);
+        border-radius: 4px;
+        padding: 12px 15px;
+        margin: 10px 0;
+        color: var(--error-color);
+        list-style: none;
+        box-shadow: 0 2px 4px rgba(231, 76, 60, 0.1);
+    }
+    
+    .errorlist li {
+        margin: 5px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .errorlist li:before {
+        content: "\f06a";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+    }
+    
+    .errornote {
+        background: var(--error-color);
+        color: #fff;
+        padding: 15px 25px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    }
+    
+    .errornote:before {
+        content: "\f071";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        font-size: 18px;
+    }
+    
+    /* 提交按钮区域 */
+    .submit-row {
+        background: #fff;
+        padding: 20px 25px;
+        border-top: 2px solid #e0e0e0;
+        text-align: right;
+        border-radius: 0 0 8px 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    /* 按钮样式增强 */
+    .submit-row input[type="submit"],
+    .submit-row button,
+    .submit-row .button {
+        background: linear-gradient(135deg, var(--secondary-color) 0%, #2980b9 100%);
+        color: #fff;
+        border: none;
+        padding: 12px 28px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .submit-row input[type="submit"]:before {
+        content: "\f00c";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+    }
+    
+    .submit-row input[type="submit"]:hover,
+    .submit-row button:hover,
+    .submit-row .button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+    }
+    
+    .submit-row input[type="submit"]:active {
+        transform: translateY(0);
+    }
+    
+    .submit-row .default {
+        background: linear-gradient(135deg, var(--success-color) 0%, #229954 100%);
+        box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    }
+    
+    .submit-row .default:hover {
+        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+    }
+    
+    .submit-row .deletelink {
+        background: linear-gradient(135deg, var(--error-color) 0%, #c0392b 100%);
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    }
+    
+    .submit-row .deletelink:before {
+        content: "\f2ed";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+    }
+    
+    .submit-row .deletelink:hover {
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+    }
+    
+    /* 内联表单样式 */
+    .inline-group {
+        background: #fff;
+        border-radius: 8px;
+        padding: 0;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .inline-group .tabular {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .inline-group thead th {
+        background: var(--primary-color);
+        color: #fff;
+        padding: 12px 15px;
+        font-weight: 600;
+    }
+    
+    .inline-group tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .inline-group tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .inline-group tbody td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    /* 添加内联对象按钮 */
+    .add-row a {
+        background: var(--success-color);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 6px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        transition: all 0.3s;
+        margin-top: 10px;
+    }
+    
+    .add-row a:before {
+        content: "\f067";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+    }
+    
+    .add-row a:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+    }
+    
+    /* 日期时间选择器 */
+    .datetimeshortcuts {
+        padding-left: 10px;
+    }
+    
+    .datetimeshortcuts a {
+        color: var(--secondary-color);
+        text-decoration: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    
+    .datetimeshortcuts a:hover {
+        background: #e8f4f8;
+    }
+    
+    /* 只读字段 */
+    .readonly {
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        color: #555;
+        display: inline-block;
+        max-width: 600px;
+    }
+    
+    /* 折叠的字段集 */
+    fieldset.collapsed {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    fieldset.collapsed h2 {
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    fieldset.collapsed h2:hover {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        #content {
+            padding: 15px;
+        }
+        
+        .form-row {
+            padding: 15px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        input[type="email"],
+        input[type="url"],
+        input[type="password"],
+        input[type="date"],
+        input[type="datetime-local"],
+        input[type="time"],
+        select,
+        textarea {
+            max-width: 100%;
+        }
+        
+        .submit-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .submit-row input[type="submit"],
+        .submit-row button,
+        .submit-row .button {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    {% block object-tools %}
+        {% if change %}{% if not is_popup %}
+        <ul class="object-tools">
+            {% block object-tools-items %}
+                {% change_form_object_tools %}
+            {% endblock %}
+        </ul>
+        {% endif %}{% endif %}
+    {% endblock %}
+    
+    <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}{% if form_url %}action="{{ form_url }}" {% endif %}method="post" id="{{ opts.model_name }}_form" novalidate>
+        {% csrf_token %}{% block form_top %}{% endblock %}
+        <div>
+            {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+            {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
+            {% if save_on_top %}{% block submit_buttons_top %}{% submit_row %}{% endblock %}{% endif %}
+            {% if errors %}
+                <p class="errornote">
+                    {% if errors|length == 1 %}{% translate "Please correct the error below." %}{% else %}{% translate "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ adminform.form.non_field_errors }}
+            {% endif %}
+
+            {% block field_sets %}
+                {% for fieldset in adminform %}
+                    {% include "admin/includes/fieldset.html" %}
+                {% endfor %}
+            {% endblock %}
+
+            {% block after_field_sets %}{% endblock %}
+
+            {% block inline_field_sets %}
+                {% for inline_admin_formset in inline_admin_formsets %}
+                    {% include inline_admin_formset.opts.template %}
+                {% endfor %}
+            {% endblock %}
+
+            {% block after_related_objects %}{% endblock %}
+
+            {% block submit_buttons_bottom %}{% submit_row %}{% endblock %}
+
+            {% block admin_change_form_document_ready %}
+                <script id="django-admin-form-add-constants"
+                        src="{% static 'admin/js/change_form.js' %}"
+                        {% if adminform and add %}
+                            data-model-name="{{ opts.model_name }}"
+                        {% endif %}
+                        async>
+                </script>
+            {% endblock %}
+
+            {# JavaScript for prepopulated fields #}
+            {% prepopulated_fields_js %}
+        </div>
+    </form>
+</div>
+{% endblock %}

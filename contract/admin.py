@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.http import HttpResponseRedirect
 from django.core.exceptions import ValidationError
 from django.db.models import Q, Count, Sum
 from .models import Contract
@@ -26,8 +28,9 @@ class HasProcurementFilter(admin.SimpleListFilter):
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
     list_display = [
-        'contract_code', 'contract_name', 'contract_type', 'contract_source',
-        'party_b', 'contract_amount', 'signing_date', 'get_procurement_display'
+        'contract_sequence', 'contract_code', 'contract_name', 'contract_type',
+        'contract_source', 'party_a', 'party_b', 'party_b_contact',
+        'contract_amount', 'signing_date', 'get_procurement_display'
     ]
     search_fields = [
         'contract_code', 'contract_name', 'party_a', 'party_b',
@@ -58,7 +61,7 @@ class ContractAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('基本信息', {
-            'fields': ('contract_code', 'contract_name', 'contract_type', 'contract_source')
+            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'contract_type', 'contract_source')
         }),
         ('关联信息', {
             'fields': ('parent_contract', 'procurement'),
@@ -80,3 +83,19 @@ class ContractAdmin(admin.ModelAdmin):
         }),
     )
     readonly_fields = ['created_at', 'updated_at']
+    
+    def response_add(self, request, obj, post_url_continue=None):
+        """新增后返回前端列表页"""
+        if '_continue' not in request.POST and '_addanother' not in request.POST:
+            return HttpResponseRedirect(reverse('contract_list'))
+        return super().response_add(request, obj, post_url_continue)
+    
+    def response_change(self, request, obj):
+        """修改后返回前端列表页"""
+        if '_continue' not in request.POST and '_addanother' not in request.POST:
+            return HttpResponseRedirect(reverse('contract_list'))
+        return super().response_change(request, obj)
+    
+    def response_delete(self, request, obj_display, obj_id):
+        """删除后返回前端列表页"""
+        return HttpResponseRedirect(reverse('contract_list'))

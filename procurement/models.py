@@ -52,9 +52,20 @@ class Procurement(BaseModel):
         help_text='例如: GC2025001'
     )
     
+    # ===== 项目关联 =====
+    project = models.ForeignKey(
+        'project.Project',
+        on_delete=models.PROTECT,
+        verbose_name='关联项目',
+        null=True,
+        blank=True,
+        related_name='procurements',
+        help_text='该采购所属的项目'
+    )
+    
     # ===== 必填字段 =====
     project_name = models.CharField(
-        '采购项目名称',
+        '采购名称',
         max_length=200,
         blank=False,
         help_text='采购项目的正式名称'
@@ -68,87 +79,23 @@ class Procurement(BaseModel):
         help_text='发起采购的部门或单位'
     )
     
-    winning_unit = models.CharField(
-        '中标单位',
-        max_length=200,
-        blank=True,
-        help_text='最终确定的中标供应商'
-    )
-    
-    winning_contact = models.CharField(
-        '中标单位联系人及方式',
-        max_length=200,
-        blank=True,
-        help_text='例如: 张三 13800138000'
-    )
-    
-    # ===== 采购方式与类别 =====
-    procurement_method = models.CharField(
-        '采购方式',
-        max_length=50,
-        blank=True,
-        help_text='例如: 竞争性谈判、招标、询价等'
-    )
-    
-    CATEGORY_CHOICES = [
-        ('工程', '工程'),
-        ('货物', '货物'),
-        ('服务', '服务'),
-    ]
-    procurement_category = models.CharField(
-        '采购类别',
-        max_length=20,
-        choices=CATEGORY_CHOICES,
-        blank=True,
-        help_text='采购标的类型'
-    )
-    
-    # ===== 金额信息 =====
-    budget_amount = models.DecimalField(
-        '采购预算金额(元)',
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='项目预算金额'
-    )
-    
-    control_price = models.DecimalField(
-        '采购控制价(元)',
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='采购控制价上限'
-    )
-    
-    winning_amount = models.DecimalField(
-        '中标金额(元)',
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='最终中标价格'
-    )
-    
-    # ===== 时间信息 =====
-    planned_end_date = models.DateField(
-        '计划结束采购时间',
+    planned_completion_date = models.DateField(
+        '采购计划完成日期',
         null=True,
         blank=True,
         help_text='计划采购完成日期'
     )
     
-    notice_issue_date = models.DateField(
-        '中标通知书发放日期',
+    requirement_approval_date = models.DateField(
+        '采购需求书审批完成日期（OA）',
         null=True,
         blank=True,
-        help_text='发放中标通知书的日期'
+        help_text='OA系统中需求书审批完成的日期'
     )
     
     # ===== 人员信息 =====
     procurement_officer = models.CharField(
-        '采购经办人',
+        '招采经办人',
         max_length=50,
         blank=True,
         help_text='负责该采购的经办人名称'
@@ -161,13 +108,180 @@ class Procurement(BaseModel):
         help_text='需求方部门名称'
     )
     
+    demand_contact = models.CharField(
+        '需求部门经办人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='例如: 张三 13800138000'
+    )
+    
+    # ===== 金额信息 =====
+    budget_amount = models.DecimalField(
+        '预算金额（元）',
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='项目预算金额'
+    )
+    
+    control_price = models.DecimalField(
+        '采购控制价（元）',
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='采购控制价上限'
+    )
+    
+    winning_amount = models.DecimalField(
+        '中标价（元）',
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='最终中标价格'
+    )
+    
+    # ===== 采购平台与方式 =====
+    procurement_platform = models.CharField(
+        '采购平台',
+        max_length=100,
+        blank=True,
+        help_text='例如: 深圳市阳光采购平台'
+    )
+    
+    procurement_method = models.CharField(
+        '采购方式',
+        max_length=50,
+        blank=True,
+        help_text='例如: 竞争性谈判、招标、询价等'
+    )
+    
+    bid_evaluation_method = models.CharField(
+        '评标方法',
+        max_length=50,
+        blank=True,
+        help_text='例如: 综合评分法、最低价法'
+    )
+    
+    bid_awarding_method = models.CharField(
+        '定标方法',
+        max_length=50,
+        blank=True,
+        help_text='例如: 委员会评审法、最低价法'
+    )
+    
+    # ===== 时间信息 =====
+    bid_opening_date = models.DateField(
+        '开标日期',
+        null=True,
+        blank=True,
+        help_text='开标的日期'
+    )
+    
+    platform_publicity_date = models.DateField(
+        '平台中标结果公示完成日期（阳光采购平台）',
+        null=True,
+        blank=True,
+        help_text='在阳光采购平台完成公示的日期'
+    )
+    
+    notice_issue_date = models.DateField(
+        '中标通知书发放日期',
+        null=True,
+        blank=True,
+        help_text='发放中标通知书的日期'
+    )
+    
+    # ===== 评审委员会 =====
+    evaluation_committee = models.TextField(
+        '评标委员会成员',
+        blank=True,
+        help_text='评标委员会成员名单，多个成员用逗号分隔'
+    )
+    
+    awarding_committee = models.TextField(
+        '定标委员会成员',
+        blank=True,
+        help_text='定标委员会成员名单，多个成员用逗号分隔'
+    )
+    
+    # ===== 中标信息 =====
+    winning_bidder = models.CharField(
+        '中标人',
+        max_length=200,
+        blank=True,
+        help_text='最终确定的中标供应商'
+    )
+    
+    winning_contact = models.CharField(
+        '中标人联系人及方式',
+        max_length=200,
+        blank=True,
+        help_text='例如: 李经理 13900139000'
+    )
+    
+    # ===== 担保信息 =====
+    bid_guarantee = models.CharField(
+        '投标担保形式及金额（元）',
+        max_length=200,
+        blank=True,
+        help_text='例如: 银行保函 500000.00 或 保证金 48000.00'
+    )
+    
+    bid_guarantee_return_date = models.DateField(
+        '中标单位投标担保退回日期',
+        null=True,
+        blank=True,
+        help_text='退还投标担保的日期'
+    )
+    
+    performance_guarantee = models.CharField(
+        '履约担保形式及金额（元）',
+        max_length=200,
+        blank=True,
+        help_text='例如: 银行保函 450000.00'
+    )
+    
+    # ===== 其他信息 =====
+    has_complaint = models.CharField(
+        '全程有无投诉',
+        max_length=50,
+        blank=True,
+        help_text='例如: 无、有'
+    )
+    
+    non_bidding_explanation = models.TextField(
+        '应招未招说明',
+        blank=True,
+        help_text='如果应该招标但未招标，需要说明原因'
+    )
+    
+    procurement_cost = models.DecimalField(
+        '招采费用（元）',
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='招标采购产生的费用'
+    )
+    
+    archive_date = models.DateField(
+        '资料归档日期',
+        null=True,
+        blank=True,
+        help_text='相关资料归档的日期'
+    )
+    
     class Meta:
         verbose_name = '采购信息'
         verbose_name_plural = '采购信息'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['procurement_code']),
-            models.Index(fields=['winning_unit']),
+            models.Index(fields=['winning_bidder']),
+            models.Index(fields=['bid_opening_date']),
             models.Index(fields=['created_at']),
         ]
     

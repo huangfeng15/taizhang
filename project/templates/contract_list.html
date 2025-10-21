@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}合同管理 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">合同管理</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>合同管理</span>
+    </div>
+</div>
+
+<!-- 搜索和过滤 -->
+<div class="card">
+    <form method="get" action="" class="filter-bar">
+        <div class="search-box">
+            <input type="text" name="q" placeholder="搜索合同编号、名称、乙方..." value="{{ search_query }}">
+            <button type="submit">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+        <select name="project" class="filter-select" onchange="this.form.submit()">
+            <option value="">所有项目</option>
+            {% for project in projects %}
+                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
+                    {{ project.project_name }}
+                </option>
+            {% endfor %}
+        </select>
+        <select name="contract_type" class="filter-select" onchange="this.form.submit()">
+            <option value="">所有类型</option>
+            {% for value, label in contract_types %}
+                <option value="{{ value }}" {% if contract_type_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        {% if search_query or project_filter or contract_type_filter %}
+            <a href="?" class="filter-reset">
+                <i class="fas fa-times"></i>
+                清除筛选
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- 合同列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-file-contract"></i>
+            全部合同
+        </h2>
+        <div>
+            <a href="/admin/contract/contract/add/" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增合同
+            </a>
+        </div>
+    </div>
+    
+    {% if contracts %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>合同编号</th>
+                    <th>合同名称</th>
+                    <th>所属项目</th>
+                    <th>合同类型</th>
+                    <th>合同来源</th>
+                    <th>乙方</th>
+                    <th>合同金额(元)</th>
+                    <th>签订日期</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts %}
+                <tr>
+                    <td>{{ contract.contract_code }}</td>
+                    <td style="max-width: 300px;">{{ contract.contract_name }}</td>
+                    <td>
+                        {% if contract.project %}
+                            <a href="{% url 'project_detail' contract.project.project_code %}" style="color: var(--primary-color); text-decoration: none;">
+                                {{ contract.project.project_name }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contract.contract_type == '主合同' %}
+                            <span class="badge badge-success">{{ contract.contract_type }}</span>
+                        {% elif contract.contract_type == '补充协议' %}
+                            <span class="badge badge-info">{{ contract.contract_type }}</span>
+                        {% else %}
+                            <span class="badge badge-error">{{ contract.contract_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contract.contract_source == '采购合同' %}
+                            <span class="badge badge-success">{{ contract.contract_source }}</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ contract.contract_source }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ contract.party_b|default:"-" }}</td>
+                    <td>
+                        {% if contract.contract_amount %}
+                            ¥{{ contract.contract_amount|floatformat:2 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ contract.signing_date|default:"-" }}</td>
+                    <td>
+                        <a href="{% url 'contract_detail' contract.contract_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;">
+                            <i class="fas fa-eye"></i>
+                            查看
+                        </a>
+                        <a href="/admin/contract/contract/{{ contract.contract_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-edit"></i>
+                            编辑
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-file-contract"></i>
+        <p>暂无合同数据</p>
+        <a href="/admin/contract/contract/add/" class="btn btn-primary" style="margin-top: 16px;">
+            <i class="fas fa-plus"></i>
+            创建第一个合同
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% include 'pagination.html' %}
+</div>
+{% endblock %}

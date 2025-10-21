@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+
+{% block title %}合同详情 - {{ contract.contract_name }} - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">合同详情</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <a href="{% url 'contract_list' %}">合同管理</a>
+        <span>/</span>
+        <span>{{ contract.contract_code }}</span>
+    </div>
+</div>
+
+<!-- 操作按钮 -->
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 10px; padding: 16px;">
+        <a href="{% url 'contract_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            返回列表
+        </a>
+        <a href="/admin/contract/contract/{{ contract.contract_code }}/change/" class="btn btn-primary">
+            <i class="fas fa-edit"></i>
+            编辑合同
+        </a>
+        <a href="/admin/contract/contract/{{ contract.contract_code }}/delete/" class="btn btn-error">
+            <i class="fas fa-trash"></i>
+            删除合同
+        </a>
+    </div>
+</div>
+
+<!-- 基本信息 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-file-contract"></i>
+            基本信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>合同编号：</label>
+                <span>{{ contract.contract_code }}</span>
+            </div>
+            <div class="detail-item">
+                <label>合同序号：</label>
+                <span>{{ contract.contract_sequence|default:"-" }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>合同名称：</label>
+                <span>{{ contract.contract_name }}</span>
+            </div>
+            <div class="detail-item">
+                <label>合同类型：</label>
+                <span>
+                    {% if contract.contract_type == '主合同' %}
+                        <span class="badge badge-success">{{ contract.contract_type }}</span>
+                    {% elif contract.contract_type == '补充协议' %}
+                        <span class="badge badge-info">{{ contract.contract_type }}</span>
+                    {% else %}
+                        <span class="badge badge-error">{{ contract.contract_type }}</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>合同来源：</label>
+                <span>
+                    {% if contract.contract_source == '采购合同' %}
+                        <span class="badge badge-success">{{ contract.contract_source }}</span>
+                    {% else %}
+                        <span class="badge badge-info">{{ contract.contract_source }}</span>
+                    {% endif %}
+                </span>
+            </div>
+            {% if contract.parent_contract %}
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>关联主合同：</label>
+                <span>
+                    <a href="{% url 'contract_detail' contract.parent_contract.contract_code %}" style="color: var(--primary-color);">
+                        {{ contract.parent_contract.contract_code }} - {{ contract.parent_contract.contract_name }}
+                    </a>
+                </span>
+            </div>
+            {% endif %}
+            {% if contract.project %}
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>所属项目：</label>
+                <span>
+                    <a href="{% url 'project_detail' contract.project.project_code %}" style="color: var(--primary-color);">
+                        {{ contract.project.project_name }}
+                    </a>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 合同方信息 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-users"></i>
+            合同方信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>甲方：</label>
+                <span>{{ contract.party_a|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>乙方：</label>
+                <span>{{ contract.party_b|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>乙方负责人及联系方式：</label>
+                <span>{{ contract.party_b_contact|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>合同文本内乙方联系人：</label>
+                <span>{{ contract.party_b_contact_in_contract|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 金额与时间 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-dollar-sign"></i>
+            金额与时间
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>合同金额：</label>
+                <span style="font-size: 18px; font-weight: bold; color: var(--primary-color);">
+                    {% if contract.contract_amount %}
+                        ¥{{ contract.contract_amount|floatformat:2 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>签订日期：</label>
+                <span>{{ contract.signing_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>合同工期/服务期限：</label>
+                <span>{{ contract.duration|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>签订经办人：</label>
+                <span>{{ contract.contract_officer|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>履约担保退回时间：</label>
+                <span>{{ contract.performance_guarantee_return_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>支付方式：</label>
+                <span>{{ contract.payment_method|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 关联采购信息 -->
+{% if procurement %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-shopping-cart"></i>
+            关联采购信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>采购编号：</label>
+                <span>{{ procurement.procurement_code }}</span>
+            </div>
+            <div class="detail-item">
+                <label>采购名称：</label>
+                <span>{{ procurement.project_name }}</span>
+            </div>
+            <div class="detail-item">
+                <label>采购单位：</label>
+                <span>{{ procurement.procurement_unit|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>中标单位：</label>
+                <span>{{ procurement.winning_bidder|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>中标金额：</label>
+                <span>
+                    {% if procurement.winning_amount %}
+                        ¥{{ procurement.winning_amount|floatformat:2 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>中标日期：</label>
+                <span>{{ procurement.winning_date|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 付款记录 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-money-bill-wave"></i>
+            付款记录
+        </h2>
+        <div>
+            <a href="/admin/payment/payment/add/?contract={{ contract.contract_code }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增付款
+            </a>
+        </div>
+    </div>
+    <div style="padding: 20px;">
+        <div class="detail-item" style="margin-bottom: 20px;">
+            <label>累计付款金额：</label>
+            <span style="font-size: 18px; font-weight: bold; color: var(--success-color);">
+                ¥{{ total_paid|floatformat:2 }}
+            </span>
+            {% if contract.contract_amount %}
+            <span style="margin-left: 10px; color: #666;">
+                (付款进度: {{ payment_progress|floatformat:1 }}%)
+            </span>
+            {% endif %}
+        </div>
+        
+        {% if payments %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>付款编号</th>
+                        <th>付款金额(元)</th>
+                        <th>付款日期</th>
+                        <th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.payment_code }}</td>
+                        <td>¥{{ payment.payment_amount|floatformat:2 }}</td>
+                        <td>{{ payment.payment_date }}</td>
+                        <td>{{ payment.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-money-bill-wave"></i>
+            <p>暂无付款记录</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 结算信息 -->
+{% if settlement %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-calculator"></i>
+            结算信息
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="detail-item">
+                <label>结算编号：</label>
+                <span>{{ settlement.settlement_code }}</span>
+            </div>
+            <div class="detail-item">
+                <label>最终结算金额：</label>
+                <span style="font-size: 18px; font-weight: bold; color: var(--primary-color);">
+                    ¥{{ settlement.final_amount|floatformat:2 }}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>完成日期：</label>
+                <span>{{ settlement.completion_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <label>结算备注：</label>
+                <span>{{ settlement.remarks|default:"-" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 履约评价 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-star"></i>
+            履约评价
+        </h2>
+        <div>
+            <a href="/admin/supplier_eval/supplierevaluation/add/?contract={{ contract.contract_code }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增评价
+            </a>
+        </div>
+    </div>
+    <div style="padding: 20px;">
+        {% if evaluations %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>评价编号</th>
+                        <th>供应商名称</th>
+                        <th>评价类型</th>
+                        <th>评分</th>
+                        <th>评价日期区间</th>
+                        <th>评价人员</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for eval in evaluations %}
+                    <tr>
+                        <td>{{ eval.evaluation_code }}</td>
+                        <td>{{ eval.supplier_name }}</td>
+                        <td>
+                            <span class="badge badge-info">{{ eval.evaluation_type|default:"-" }}</span>
+                        </td>
+                        <td>
+                            {% if eval.score %}
+                                <span style="font-weight: bold; color: var(--primary-color);">{{ eval.score }}分</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ eval.evaluation_period|default:"-" }}</td>
+                        <td>{{ eval.evaluator|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-star"></i>
+            <p>暂无履约评价记录</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 补充协议（如果是主合同） -->
+{% if supplements %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-file-signature"></i>
+            补充协议
+        </h2>
+    </div>
+    <div style="padding: 20px;">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>合同编号</th>
+                        <th>合同名称</th>
+                        <th>合同类型</th>
+                        <th>合同金额(元)</th>
+                        <th>签订日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplement in supplements %}
+                    <tr>
+                        <td>{{ supplement.contract_code }}</td>
+                        <td style="max-width: 300px;">{{ supplement.contract_name }}</td>
+                        <td>
+                            <span class="badge badge-info">{{ supplement.contract_type }}</span>
+                        </td>
+                        <td>
+                            {% if supplement.contract_amount %}
+                                ¥{{ supplement.contract_amount|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ supplement.signing_date|default:"-" }}</td>
+                        <td>
+                            <a href="{% url 'contract_detail' supplement.contract_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
+                                <i class="fas fa-eye"></i>
+                                查看
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.detail-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.detail-item label {
+    display: inline-block;
+    min-width: 180px;
+    font-weight: bold;
+    color: #666;
+}
+
+.detail-item span {
+    color: #333;
+}
+</style>
+{% endblock %}

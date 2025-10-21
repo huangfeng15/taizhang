@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}付款管理 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">付款管理</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>付款管理</span>
+    </div>
+</div>
+
+<!-- 搜索和过滤 -->
+<div class="card">
+    <form method="get" action="" class="filter-bar">
+        <div class="search-box">
+            <input type="text" name="q" placeholder="搜索付款编号、合同名称..." value="{{ search_query }}">
+            <button type="submit">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+        <select name="project" class="filter-select" onchange="this.form.submit()">
+            <option value="">所有项目</option>
+            {% for project in projects %}
+                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
+                    {{ project.project_name }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if search_query or project_filter %}
+            <a href="?" class="filter-reset">
+                <i class="fas fa-times"></i>
+                清除筛选
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- 付款列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-money-bill-wave"></i>
+            全部付款记录
+        </h2>
+        <div>
+            <a href="/admin/payment/payment/add/" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                新增付款
+            </a>
+        </div>
+    </div>
+    
+    {% if payments %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>付款编号</th>
+                    <th>关联合同</th>
+                    <th>所属项目</th>
+                    <th>付款金额(元)</th>
+                    <th>付款日期</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td>{{ payment.payment_code }}</td>
+                    <td>
+                        {% if payment.contract %}
+                            {{ payment.contract.contract_name }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if payment.contract and payment.contract.project %}
+                            <a href="{% url 'project_detail' payment.contract.project.project_code %}" style="color: var(--primary-color); text-decoration: none;">
+                                {{ payment.contract.project.project_name }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if payment.payment_amount %}
+                            ¥{{ payment.payment_amount|floatformat:2 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ payment.payment_date|default:"-" }}</td>
+                    <td>
+                        <a href="{% url 'payment_detail' payment.payment_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
+                            <i class="fas fa-eye"></i>
+                            查看
+                        </a>
+                        <a href="/admin/payment/payment/{{ payment.payment_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-edit"></i>
+                            编辑
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-money-bill-wave"></i>
+        <p>暂无付款数据</p>
+        <a href="/admin/payment/payment/add/" class="btn btn-primary" style="margin-top: 16px;">
+            <i class="fas fa-plus"></i>
+            创建第一个付款记录
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% include 'pagination.html' %}
+</div>
+{% endblock %}
