@@ -1,3 +1,4 @@
+{# VSCode 语法检查提示：此文件包含 Django 模板语法，CSS/JS 检查器的错误可以忽略 #}
 {% extends 'base.html' %}
 
 {% block title %}合同管理 - 项目采购与成本管理系统{% endblock %}
@@ -171,12 +172,34 @@
                     </td>
                     <td data-column="payment_ratio">
                         {% if contract_info.payment_ratio > 0 %}
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                                    <div style="height: 100%; background: {% if contract_info.payment_ratio >= 90 %}#52c41a{% elif contract_info.payment_ratio >= 70 %}#faad14{% else %}#1890ff{% endif %}; width: {{ contract_info.payment_ratio }}%;"></div>
-                                </div>
-                                <span style="font-weight: bold; color: {% if contract_info.payment_ratio >= 90 %}var(--success-color){% elif contract_info.payment_ratio >= 70 %}var(--warning-color){% else %}var(--primary-color){% endif %};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
-                            </div>
+                            {% if contract_info.payment_ratio >= 90 %}
+                                {% with bar_color="#52c41a" text_color="var(--success-color)" %}
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                        </div>
+                                        <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
+                                    </div>
+                                {% endwith %}
+                            {% elif contract_info.payment_ratio >= 70 %}
+                                {% with bar_color="#faad14" text_color="var(--warning-color)" %}
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                        </div>
+                                        <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
+                                    </div>
+                                {% endwith %}
+                            {% else %}
+                                {% with bar_color="#1890ff" text_color="var(--primary-color)" %}
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                        </div>
+                                        <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
+                                    </div>
+                                {% endwith %}
+                            {% endif %}
                         {% else %}
                             0%
                         {% endif %}
@@ -261,7 +284,7 @@
         { name: 'contract_officer', label: '合同签订经办人', type: 'text', placeholder: '输入经办人姓名' },
         { name: 'contract_type', label: '合同类型', type: 'select', options: [
             {% for value, label in contract_types %}
-            { value: '{{ value }}', label: '{{ label }}' },
+            { value: '{{ value }}', label: '{{ label }}' }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ]},
         { name: 'contract_source', label: '合同来源', type: 'select', options: [
@@ -307,7 +330,13 @@
             contract_type: '{{ request.GET.contract_type|default:"" }}',
             contract_source: '{{ request.GET.contract_source|default:"" }}',
             has_settlement: '{{ request.GET.has_settlement|default:"" }}',
-            payment_ratio_range: '{{ request.GET.payment_ratio_range|default:"" }}'
+            payment_ratio_range: '{{ request.GET.payment_ratio_range|default:"" }}',
+            signing_date_start: '{{ request.GET.signing_date_start|default:"" }}',
+            signing_date_end: '{{ request.GET.signing_date_end|default:"" }}',
+            performance_guarantee_return_date_start: '{{ request.GET.performance_guarantee_return_date_start|default:"" }}',
+            performance_guarantee_return_date_end: '{{ request.GET.performance_guarantee_return_date_end|default:"" }}',
+            contract_amount_min: '{{ request.GET.contract_amount_min|default:"" }}',
+            contract_amount_max: '{{ request.GET.contract_amount_max|default:"" }}'
         };
         AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
     }

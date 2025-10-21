@@ -1001,6 +1001,9 @@
 
             // 渲染筛选字段
             renderFilterField: function(field, currentValue) {
+                // 获取URL参数用于回显
+                const urlParams = new URLSearchParams(window.location.search);
+                
                 let inputHtml = '';
                 if (field.type === 'select') {
                     inputHtml = `
@@ -1016,19 +1019,25 @@
                 } else if (field.type === 'date') {
                     inputHtml = `<input type="date" name="${field.name}" class="form-input" value="${currentValue || ''}">`;
                 } else if (field.type === 'daterange') {
+                    // 从URL获取日期范围的开始和结束值
+                    const startValue = urlParams.get(`${field.name}_start`) || '';
+                    const endValue = urlParams.get(`${field.name}_end`) || '';
                     inputHtml = `
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="date" name="${field.name}_start" class="form-input" placeholder="开始日期">
+                            <input type="date" name="${field.name}_start" class="form-input" placeholder="开始日期" value="${startValue}">
                             <span>至</span>
-                            <input type="date" name="${field.name}_end" class="form-input" placeholder="结束日期">
+                            <input type="date" name="${field.name}_end" class="form-input" placeholder="结束日期" value="${endValue}">
                         </div>
                     `;
                 } else if (field.type === 'number') {
+                    // 从URL获取数字范围的最小和最大值
+                    const minValue = urlParams.get(`${field.name}_min`) || '';
+                    const maxValue = urlParams.get(`${field.name}_max`) || '';
                     inputHtml = `
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="number" name="${field.name}_min" class="form-input" placeholder="最小值" step="0.01">
+                            <input type="number" name="${field.name}_min" class="form-input" placeholder="最小值" step="0.01" value="${minValue}">
                             <span>至</span>
-                            <input type="number" name="${field.name}_max" class="form-input" placeholder="最大值" step="0.01">
+                            <input type="number" name="${field.name}_max" class="form-input" placeholder="最大值" step="0.01" value="${maxValue}">
                         </div>
                     `;
                 } else {
@@ -1054,14 +1063,29 @@
                 const formData = new FormData(form);
                 const url = new URL(window.location.href);
                 
-                // 清除旧的筛选参数（保留page参数）
-                const page = url.searchParams.get('page');
-                url.search = '';
-                if (page) url.searchParams.set('page', '1'); // 重置到第一页
+                // 保留现有的q和project等基础筛选参数
+                const baseParams = ['q', 'project', 'status', 'contract', 'contract_type'];
+                const preservedParams = {};
+                baseParams.forEach(param => {
+                    const value = url.searchParams.get(param);
+                    if (value) preservedParams[param] = value;
+                });
                 
-                // 添加新的筛选参数
+                // 清除所有参数
+                url.search = '';
+                
+                // 重置到第一页
+                url.searchParams.set('page', '1');
+                
+                // 恢复基础筛选参数
+                Object.keys(preservedParams).forEach(key => {
+                    url.searchParams.set(key, preservedParams[key]);
+                });
+                
+                // 添加新的高级筛选参数
                 for (const [key, value] of formData.entries()) {
-                    if (value && value.trim() !== '') {
+                    // 正确处理空值：检查是否为空字符串或仅包含空格
+                    if (value !== null && value !== undefined && String(value).trim() !== '') {
                         url.searchParams.set(key, value);
                     }
                 }

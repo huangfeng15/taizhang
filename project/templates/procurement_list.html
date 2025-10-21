@@ -196,7 +196,13 @@
             procurement_code: '{{ request.GET.procurement_code|default:"" }}',
             project_name: '{{ request.GET.project_name|default:"" }}',
             procurement_unit: '{{ request.GET.procurement_unit|default:"" }}',
-            winning_bidder: '{{ request.GET.winning_bidder|default:"" }}'
+            winning_bidder: '{{ request.GET.winning_bidder|default:"" }}',
+            bid_opening_date_start: '{{ request.GET.bid_opening_date_start|default:"" }}',
+            bid_opening_date_end: '{{ request.GET.bid_opening_date_end|default:"" }}',
+            budget_amount_min: '{{ request.GET.budget_amount_min|default:"" }}',
+            budget_amount_max: '{{ request.GET.budget_amount_max|default:"" }}',
+            winning_amount_min: '{{ request.GET.winning_amount_min|default:"" }}',
+            winning_amount_max: '{{ request.GET.winning_amount_max|default:"" }}'
         };
         AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
     }

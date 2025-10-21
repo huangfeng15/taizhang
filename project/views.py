@@ -661,6 +661,7 @@ def payment_list(request):
         'contracts': contracts,
         'search_query': search_query,
         'contract_filter': contract_filter,
+        'project_filter': project_filter,  # 添加项目筛选参数
     }
     return render(request, 'payment_list.html', context)
 

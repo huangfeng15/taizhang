@@ -207,6 +207,10 @@
         const currentFilters = {
             payment_code: '{{ request.GET.payment_code|default:"" }}',
             contract_name: '{{ request.GET.contract_name|default:"" }}',
+            payment_date_start: '{{ request.GET.payment_date_start|default:"" }}',
+            payment_date_end: '{{ request.GET.payment_date_end|default:"" }}',
+            payment_amount_min: '{{ request.GET.payment_amount_min|default:"" }}',
+            payment_amount_max: '{{ request.GET.payment_amount_max|default:"" }}',
             is_settled: '{{ request.GET.is_settled|default:"" }}'
         };
         AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);

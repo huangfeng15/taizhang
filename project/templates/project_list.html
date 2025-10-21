@@ -188,7 +188,11 @@
             project_code: '{{ request.GET.project_code|default:"" }}',
             project_name: '{{ request.GET.project_name|default:"" }}',
             project_manager: '{{ request.GET.project_manager|default:"" }}',
-            status: '{{ request.GET.status|default:"" }}'
+            status: '{{ request.GET.status|default:"" }}',
+            created_at_start: '{{ request.GET.created_at_start|default:"" }}',
+            created_at_end: '{{ request.GET.created_at_end|default:"" }}',
+            contract_total_min: '{{ request.GET.contract_total_min|default:"" }}',
+            contract_total_max: '{{ request.GET.contract_total_max|default:"" }}'
         };
         AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
     }
