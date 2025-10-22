@@ -3,6 +3,7 @@
 """
 from django.db import models
 from django.core.exceptions import ValidationError
+from project.validators import validate_code_field, clean_whitespace
 
 
 class BaseModel(models.Model):
@@ -49,7 +50,8 @@ class Procurement(BaseModel):
         '招采编号',
         max_length=50,
         primary_key=True,
-        help_text='例如: GC2025001'
+        validators=[validate_code_field],
+        help_text='招采编号不能包含 / \\ ? # 等URL特殊字符，例如: GC2025001'
     )
     
     # ===== 项目关联 =====
@@ -284,6 +286,20 @@ class Procurement(BaseModel):
             models.Index(fields=['bid_opening_date']),
             models.Index(fields=['created_at']),
         ]
+    
+    def clean(self):
+        """业务规则验证"""
+        super().clean()
+        
+        # 验证和清理编号字段
+        if self.procurement_code:
+            self.procurement_code = clean_whitespace(self.procurement_code)
+            validate_code_field(self.procurement_code)
+    
+    def save(self, *args, **kwargs):
+        """保存前执行完整验证"""
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.procurement_code} - {self.project_name}"

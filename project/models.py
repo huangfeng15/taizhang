@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+from project.validators import validate_code_field, clean_whitespace
 
 
 class Project(models.Model):
@@ -9,7 +11,8 @@ class Project(models.Model):
         '项目编码',
         max_length=50,
         primary_key=True,
-        help_text='项目唯一编码，例如: PRJ2025001'
+        validators=[validate_code_field],
+        help_text='项目编码不能包含 / \\ ? # 等URL特殊字符，例如: PRJ2025001'
     )
     
     # ===== 必填字段 =====
@@ -75,6 +78,18 @@ class Project(models.Model):
             models.Index(fields=['project_name']),
             models.Index(fields=['status']),
         ]
+    
+    def clean(self):
+        """数据验证"""
+        # 验证和清理编号字段
+        if self.project_code:
+            self.project_code = clean_whitespace(self.project_code)
+            validate_code_field(self.project_code)
+    
+    def save(self, *args, **kwargs):
+        """保存前执行完整验证"""
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.project_code} - {self.project_name}"

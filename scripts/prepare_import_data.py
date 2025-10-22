@@ -3,11 +3,61 @@
 """
 import pandas as pd
 import os
+import re
+import sys
+
+# 添加项目根目录到路径，以便导入Django模块
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# URL不安全字符模式
+URL_UNSAFE_CHARS_PATTERN = r'[/\\?#\[\]@!$&\'()*+,;=<>{}|^`"%]'
+
+def validate_code_format(value, field_name='编号'):
+    """
+    验证编号字段格式
+    检查是否包含URL不安全字符
+    返回: (is_valid, error_message, cleaned_value)
+    """
+    if pd.isna(value) or str(value).strip() == '':
+        return True, None, None
+    
+    value_str = str(value).strip()
+    
+    # 检查是否包含URL不安全字符
+    unsafe_matches = re.findall(URL_UNSAFE_CHARS_PATTERN, value_str)
+    if unsafe_matches:
+        unsafe_chars = sorted(set(unsafe_matches))
+        error_msg = f'{field_name}包含URL不安全字符: {" ".join(unsafe_chars)}'
+        return False, error_msg, None
+    
+    # 清理空白字符
+    cleaned = ' '.join(value_str.split())
+    return True, None, cleaned
 
 def clean_procurement_csv():
     """清理采购CSV文件"""
     print('正在处理采购数据...')
     df = pd.read_csv('data/imports/采购.csv', skiprows=1, encoding='utf-8-sig')
+    
+    # 验证招采编号
+    print('  验证招采编号格式...')
+    invalid_codes = []
+    for idx, row in df.iterrows():
+        code = row.get('招采编号', '')
+        is_valid, error_msg, cleaned = validate_code_format(code, '招采编号')
+        if not is_valid:
+            invalid_codes.append(f'第{idx+2}行: {error_msg} (值: {code})')
+        elif cleaned and cleaned != str(code).strip():
+            df.at[idx, '招采编号'] = cleaned
+    
+    if invalid_codes:
+        print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的招采编号:')
+        for error in invalid_codes[:10]:  # 只显示前10个
+            print(f'    {error}')
+        if len(invalid_codes) > 10:
+            print(f'    ... 还有 {len(invalid_codes) - 10} 个错误')
+        print('\n请修正这些错误后再导入。URL不安全字符包括: / \\ ? # [ ] @ ! $ & \' ( ) * + , ; = < > { } | ^ ` " %')
+        return None
     
     # 重命名列以匹配导入脚本期望的列名
     column_mapping = {
@@ -43,6 +93,26 @@ def clean_contract_csv():
     """清理合同CSV文件"""
     print('\n正在处理合同数据...')
     df = pd.read_csv('data/imports/合同.csv', skiprows=1, encoding='utf-8-sig')
+    
+    # 验证合同编号
+    print('  验证合同编号格式...')
+    invalid_codes = []
+    for idx, row in df.iterrows():
+        code = row.get('合同编号', '')
+        is_valid, error_msg, cleaned = validate_code_format(code, '合同编号')
+        if not is_valid:
+            invalid_codes.append(f'第{idx+2}行: {error_msg} (值: {code})')
+        elif cleaned and cleaned != str(code).strip():
+            df.at[idx, '合同编号'] = cleaned
+    
+    if invalid_codes:
+        print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的合同编号:')
+        for error in invalid_codes[:10]:
+            print(f'    {error}')
+        if len(invalid_codes) > 10:
+            print(f'    ... 还有 {len(invalid_codes) - 10} 个错误')
+        print('\n请修正这些错误后再导入。URL不安全字符包括: / \\ ? # [ ] @ ! $ & \' ( ) * + , ; = < > { } | ^ ` " %')
+        return None
     
     # 重命名列
     column_mapping = {
@@ -100,6 +170,25 @@ def clean_payment_csv():
     contract_col = df.columns[1]  # 第二列是合同编号
     print(f'合同编号列: {contract_col}')
     
+    # 验证合同编号格式
+    print('  验证合同编号格式...')
+    invalid_codes = []
+    for idx, row in df.iterrows():
+        code = row[contract_col]
+        if pd.notna(code) and str(code).strip() and str(code).strip() != 'nan':
+            is_valid, error_msg, cleaned = validate_code_format(code, '合同编号')
+            if not is_valid:
+                invalid_codes.append(f'第{idx+4}行: {error_msg} (值: {code})')
+    
+    if invalid_codes:
+        print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的合同编号:')
+        for error in invalid_codes[:10]:
+            print(f'    {error}')
+        if len(invalid_codes) > 10:
+            print(f'    ... 还有 {len(invalid_codes) - 10} 个错误')
+        print('\n请修正这些错误后再导入。URL不安全字符包括: / \\ ? # [ ] @ ! $ & \' ( ) * + , ; = < > { } | ^ ` " %')
+        return None
+    
     # 找出所有包含金额的月份列(从第44列开始的12个月)
     # 根据实际文件结构,付款金额在特定列
     amount_cols = df.columns[44:56]  # 2025年1-12月的付款列
@@ -143,9 +232,16 @@ if __name__ == '__main__':
     print('=' * 60)
     
     try:
-        clean_procurement_csv()
-        clean_contract_csv()
-        clean_payment_csv()
+        procurement_result = clean_procurement_csv()
+        contract_result = clean_contract_csv()
+        payment_result = clean_payment_csv()
+        
+        # 检查是否有任何步骤失败
+        if procurement_result is None or contract_result is None or payment_result is None:
+            print('\n' + '=' * 60)
+            print('[失败] 数据清理未完成，请修正上述错误后重试')
+            print('=' * 60)
+            sys.exit(1)
         
         print('\n' + '=' * 60)
         print('数据清理完成!')
@@ -154,3 +250,4 @@ if __name__ == '__main__':
         print(f'\n[ERROR] 清理失败: {str(e)}')
         import traceback
         traceback.print_exc()
+        sys.exit(1)

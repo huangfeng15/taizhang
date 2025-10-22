@@ -4,6 +4,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
+from project.validators import validate_code_field, clean_whitespace
 
 
 class Contract(BaseModel):
@@ -14,7 +15,8 @@ class Contract(BaseModel):
         '合同编号',
         max_length=50,
         primary_key=True,
-        help_text='例如: HT2025001'
+        validators=[validate_code_field],
+        help_text='合同编号不能包含 / \\ ? # 等URL特殊字符，例如: HT2025001'
     )
     
     # ===== 项目关联 =====
@@ -89,7 +91,8 @@ class Contract(BaseModel):
         max_length=50,
         null=True,
         blank=True,
-        help_text='合同的序号，用于排序和关联（支持字符串格式如 BHHY-NH-001）'
+        validators=[validate_code_field],
+        help_text='合同的序号，不能包含URL特殊字符，支持字符串格式如 BHHY-NH-001'
     )
     
     # ===== 合同方信息 =====
@@ -182,6 +185,21 @@ class Contract(BaseModel):
     def clean(self):
         """业务规则验证"""
         errors = {}
+        
+        # 验证和清理编号字段
+        if self.contract_code:
+            try:
+                self.contract_code = clean_whitespace(self.contract_code)
+                validate_code_field(self.contract_code)
+            except ValidationError as e:
+                errors['contract_code'] = e.message
+        
+        if self.contract_sequence:
+            try:
+                self.contract_sequence = clean_whitespace(self.contract_sequence)
+                validate_code_field(self.contract_sequence)
+            except ValidationError as e:
+                errors['contract_sequence'] = e.message
         
         # 规则1: 补充协议必须关联主合同
         if self.contract_type == '补充协议' and not self.parent_contract:

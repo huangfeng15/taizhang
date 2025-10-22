@@ -12,6 +12,7 @@ from bisect import bisect_left, bisect_right, insort
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -21,6 +22,7 @@ from contract.models import Contract
 from payment.models import Payment
 from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
+from project.validators import validate_code_field, check_url_safe_string
 
 logger = logging.getLogger(__name__)
 
@@ -614,7 +616,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(error_msg))
                 continue
 
-            records_by_contract[contract.id].append({
+            records_by_contract[contract.pk].append({
                 'contract': contract,
                 'payment_amount': amount,
                 'payment_date': payment_date,
@@ -636,33 +638,40 @@ class Command(BaseCommand):
                 stats['skipped'] += len(recs)
             return stats, errors
 
-        contract_ids = list(records_by_contract.keys())
-        existing_payments = Payment.objects.filter(contract_id__in=contract_ids).select_related('contract')
+        contract_pks = list(records_by_contract.keys())
+        existing_payments = Payment.objects.filter(contract__contract_code__in=contract_pks).select_related('contract')
         existing_by_contract = defaultdict(list)
         existing_by_code = {}
         for payment in existing_payments:
-            existing_by_contract[payment.contract_id].append(payment)
+            existing_by_contract[payment.contract.pk].append(payment)
             existing_by_code[payment.payment_code] = payment
 
         prepared_entries = []
-        for contract_id, recs in records_by_contract.items():
+        for contract_pk, recs in records_by_contract.items():
             contract = recs[0]['contract']
             base_identifier = recs[0]['base_identifier']
+            # 按付款日期和来源索引排序（保证顺序一致性）
             recs.sort(key=lambda item: (item['payment_date'], item['source_index']))
 
-            existing_list = existing_by_contract.get(contract_id, [])
+            # 获取该合同的现有付款记录，按日期排序
+            existing_list = existing_by_contract.get(contract_pk, [])
             existing_list.sort(key=lambda item: (item.payment_date, item.created_at, item.payment_code))
-            existing_dates = [item.payment_date for item in existing_list]
-            assigned_dates = []
-
+            
+            # 合并现有付款和新付款的日期列表，用于计算正确的序号
+            # 对于每笔新付款，计算它在整个时间线中的位置
             for record in recs:
                 payment_date = record['payment_date']
-                existing_before = bisect_left(existing_dates, payment_date)
-                existing_same = bisect_right(existing_dates, payment_date) - existing_before
-                new_before = bisect_left(assigned_dates, payment_date)
-                new_same = bisect_right(assigned_dates, payment_date) - new_before
-                seq = existing_before + existing_same + new_same + 1
-                insort(assigned_dates, payment_date)
+                
+                # 计算有多少现有付款的日期早于或等于当前付款日期
+                earlier_existing = sum(1 for p in existing_list if p.payment_date < payment_date)
+                same_date_existing = sum(1 for p in existing_list if p.payment_date == payment_date)
+                
+                # 计算有多少本批次的付款日期早于当前付款日期
+                earlier_new = sum(1 for r in prepared_entries if r['payment_date'] < payment_date)
+                same_date_new = sum(1 for r in prepared_entries if r['payment_date'] == payment_date)
+                
+                # 序号 = 所有早于该日期的付款 + 该日期的现有付款 + 该日期的新付款 + 1
+                seq = earlier_existing + earlier_new + same_date_existing + same_date_new + 1
                 payment_code = f"{base_identifier}-FK-{seq:03d}"
 
                 prepared_entries.append({
@@ -693,7 +702,8 @@ class Command(BaseCommand):
                 to_update.append(existing)
                 stats['updated'] += 1
             else:
-                to_create.append(Payment(
+                # 创建付款对象，确保 payment_code 已经正确生成
+                payment_obj = Payment(
                     payment_code=entry['payment_code'],
                     contract=entry['contract'],
                     payment_amount=entry['payment_amount'],
@@ -702,7 +712,8 @@ class Command(BaseCommand):
                     is_settled=entry['is_settled'],
                     created_at=now,
                     updated_at=now,
-                ))
+                )
+                to_create.append(payment_obj)
                 stats['created'] += 1
 
         if to_update:
@@ -712,7 +723,22 @@ class Command(BaseCommand):
             )
 
         if to_create:
-            Payment.objects.bulk_create(to_create, batch_size=500)
+            # 使用 bulk_create 前，确保所有 payment_code 都已设置
+            # bulk_create 不会调用 save() 方法，因此需要提前验证
+            codes_to_create = set(p.payment_code for p in to_create)
+            existing_codes = set(Payment.objects.filter(payment_code__in=codes_to_create).values_list('payment_code', flat=True))
+            
+            # 过滤掉已存在的记录
+            if existing_codes:
+                self.stdout.write(self.style.WARNING(
+                    f'检测到 {len(existing_codes)} 个已存在的付款编号，将跳过这些记录'
+                ))
+                to_create = [p for p in to_create if p.payment_code not in existing_codes]
+                stats['skipped'] += len(existing_codes)
+                stats['created'] -= len(existing_codes)
+            
+            if to_create:
+                Payment.objects.bulk_create(to_create, batch_size=500)
 
         return stats, errors
 
@@ -847,6 +873,12 @@ class Command(BaseCommand):
         if not project_name:
             raise ValueError('项目名称不能为空')
         
+        # 验证项目编码格式（不包含URL不安全字符）
+        try:
+            validate_code_field(project_code)
+        except ValidationError as e:
+            raise ValueError(f'项目编码格式错误: {e.message}')
+        
         # 检查是否已存在
         existing = Project.objects.filter(project_code=project_code).first()
         
@@ -882,6 +914,12 @@ class Command(BaseCommand):
             raise ValueError('招采编号不能为空')
         if not project_name:
             raise ValueError('采购名称不能为空')
+        
+        # 验证采购编号格式（不包含URL不安全字符）
+        try:
+            validate_code_field(procurement_code)
+        except ValidationError as e:
+            raise ValueError(f'招采编号格式错误: {e.message}')
         
         # 检查是否已存在
         existing = Procurement.objects.filter(procurement_code=procurement_code).first()
@@ -953,6 +991,12 @@ class Command(BaseCommand):
         if not contract_name:
             raise ValueError('合同名称不能为空')
         
+        # 验证合同编号格式（不包含URL不安全字符）
+        try:
+            validate_code_field(contract_code)
+        except ValidationError as e:
+            raise ValueError(f'合同编号格式错误: {e.message}')
+        
         # 检查是否已存在
         existing = Contract.objects.filter(contract_code=contract_code).first()
         
@@ -962,6 +1006,13 @@ class Command(BaseCommand):
         
         # 解析合同序号（保持为字符串，支持 BHHY-NH-014 格式）
         contract_sequence = row.get('合同序号', '').strip() or None
+        
+        # 验证合同序号格式（如果提供了的话）
+        if contract_sequence:
+            try:
+                validate_code_field(contract_sequence)
+            except ValidationError as e:
+                raise ValueError(f'合同序号格式错误: {e.message}')
         
         # 处理项目关联
         project = None
@@ -1095,6 +1146,13 @@ class Command(BaseCommand):
         
         if not contract_code:
             raise ValueError('关联合同编号不能为空')
+        
+        # 验证付款编号格式（如果提供了的话）
+        if payment_code:
+            try:
+                validate_code_field(payment_code)
+            except ValidationError as e:
+                raise ValueError(f'付款编号格式错误: {e.message}')
         
         try:
             contract = Contract.objects.get(contract_code=contract_code)

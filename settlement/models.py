@@ -4,6 +4,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
+from project.validators import validate_code_field, clean_whitespace
 
 
 class Settlement(BaseModel):
@@ -14,7 +15,8 @@ class Settlement(BaseModel):
         '结算编号',
         max_length=50,
         primary_key=True,
-        help_text='例如: JS2025001'
+        validators=[validate_code_field],
+        help_text='结算编号不能包含 / \\ ? # 等URL特殊字符，例如: JS2025001'
     )
     
     # ===== 关联 =====
@@ -61,7 +63,13 @@ class Settlement(BaseModel):
         return f"{self.settlement_code} - {self.final_amount}元"
     
     def clean(self):
-        """业务规则：只能关联主合同"""
+        """业务规则验证"""
+        # 验证和清理编号字段
+        if self.settlement_code:
+            self.settlement_code = clean_whitespace(self.settlement_code)
+            validate_code_field(self.settlement_code)
+        
+        # 业务规则：只能关联主合同
         if self.main_contract and self.main_contract.contract_type != '主合同':
             raise ValidationError('结算记录只能关联主合同，不能关联补充协议或解除协议')
     

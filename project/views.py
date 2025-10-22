@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, timezone as dt_timezone
 from io import StringIO
 from pathlib import Path
@@ -887,6 +888,7 @@ def batch_delete_procurements(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
+@csrf_exempt
 @staff_member_required
 @require_POST
 def import_data(request):

@@ -22,7 +22,7 @@
                 <i class="fas fa-search"></i>
             </button>
         </div>
-        <select name="project" class="filter-select" onchange="this.form.submit()">
+        <select name="project" class="filter-select" onchange="this.form.submit()" style="max-width: 200px;">
             <option value="">所有项目</option>
             {% for project in projects %}
                 <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
@@ -30,7 +30,7 @@
                 </option>
             {% endfor %}
         </select>
-        <select name="contract_type" class="filter-select" onchange="this.form.submit()">
+        <select name="contract_type" class="filter-select" onchange="this.form.submit()" style="max-width: 150px;">
             <option value="">所有类型</option>
             {% for value, label in contract_types %}
                 <option value="{{ value }}" {% if contract_type_filter == value %}selected{% endif %}>{{ label }}</option>

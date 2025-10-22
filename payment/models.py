@@ -5,6 +5,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from procurement.models import BaseModel
+from project.validators import validate_code_field, clean_whitespace
 
 
 class Payment(BaseModel):
@@ -16,7 +17,8 @@ class Payment(BaseModel):
         max_length=50,
         primary_key=True,
         blank=True,
-        help_text='例如: HT2025001-FK-001，如果为空将自动生成'
+        validators=[validate_code_field],
+        help_text='付款编号不能包含 / \\ ? # 等URL特殊字符，例如: HT2025001-FK-001，如果为空将自动生成'
     )
     
     # ===== 关联 =====
@@ -73,8 +75,10 @@ class Payment(BaseModel):
     
     def clean(self):
         """数据验证"""
-        # 移除了120%上限的业务规则限制
-        pass
+        # 验证和清理编号字段
+        if self.payment_code:
+            self.payment_code = clean_whitespace(self.payment_code)
+            validate_code_field(self.payment_code)
     
     def _generate_payment_code(self):
         """
