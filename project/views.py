@@ -5,13 +5,14 @@ from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db import connections
 from django.db.models import Count, Sum, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, timezone as dt_timezone
 from io import StringIO
+import csv
 from pathlib import Path
 import json
 import os
@@ -22,6 +23,170 @@ from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
+
+
+IMPORT_TEMPLATE_DEFINITIONS = {
+    'project': {
+        'long': {
+            'filename': 'project_import_template_long.csv',
+            'headers': [
+                '项目编码',
+                '项目名称',
+                '项目描述',
+                '项目负责人',
+                '项目状态',
+                '备注',
+                '模板说明',
+            ],
+            'notes': [
+                '项目编码仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止 / 等特殊字符；本行保留或删除均不会影响导入。',
+                '项目状态可填写：进行中、已完成、已暂停、已取消；留空时系统默认为进行中。',
+            ],
+        },
+    },
+    'procurement': {
+        'long': {
+            'filename': 'procurement_import_template_long.csv',
+            'headers': [
+                '招采编号',
+                '采购名称',
+                '项目编码',
+                '采购单位',
+                '采购计划完成日期',
+                '采购需求书审批完成日期（OA）',
+                '招采经办人',
+                '需求部门',
+                '需求部门经办人及联系方式',
+                '预算金额（元）',
+                '采购控制价（元）',
+                '中标价（元）',
+                '采购平台',
+                '采购方式',
+                '评标方法',
+                '定标方法',
+                '开标日期',
+                '评标委员会成员',
+                '定标委员会成员',
+                '平台中标结果公示完成日期（阳光采购平台）',
+                '中标通知书发放日期',
+                '中标人',
+                '中标人联系人及方式',
+                '投标担保形式及金额（元）',
+                '中标单位投标担保退回日期',
+                '履约担保形式及金额（元）',
+                '全程有无投诉',
+                '应招未招说明',
+                '招采费用（元）',
+                '资料归档日期',
+                '模板说明',
+            ],
+            'notes': [
+                '招采编号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止 / 等特殊字符；本行保留或删除均不会影响导入。',
+                '涉及日期的列请使用 YYYY-MM-DD 或 YYYY年M月 等常规格式，金额字段仅填写数字（可带小数）。',
+            ],
+        },
+    },
+    'contract': {
+        'long': {
+            'filename': 'contract_import_template_long.csv',
+            'headers': [
+                '合同编号',
+                '合同名称',
+                '项目编码',
+                '关联采购编号',
+                '合同类型',
+                '合同来源',
+                '关联主合同编号',
+                '合同序号',
+                '合同签订经办人',
+                '甲方',
+                '乙方',
+                '乙方负责人及联系方式',
+                '合同文本内乙方联系人及方式',
+                '含税签约合同价（元）',
+                '合同签订日期',
+                '合同工期/服务期限',
+                '支付方式',
+                '履约担保退回时间',
+                '模板说明',
+            ],
+            'notes': [
+                '合同编号与合同序号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止 / 等特殊字符；本行保留或删除均不会影响导入。',
+                '合同类型仅支持：主合同、补充协议、解除协议；补充/解除协议需填写关联主合同编号或序号。',
+            ],
+        },
+    },
+    'payment': {
+        'long': {
+            'filename': 'payment_import_template_long.csv',
+            'headers': [
+                '付款编号',
+                '关联合同编号',
+                '实付金额(元)',
+                '付款日期',
+                '结算价（元）',
+                '是否办理结算',
+                '模板说明',
+            ],
+            'notes': [
+                '付款编号可留空由系统自动生成；如填写需遵守编号格式限制（禁止 / 等特殊字符），本行保留或删除均不会影响导入。',
+                '关联合同编号必须已存在；付款日期请使用 YYYY-MM-DD 格式，金额字段仅填写数字（可带小数）。',
+            ],
+        },
+        'wide': {
+            'filename': 'payment_import_template_wide.csv',
+            'headers': [
+                '合同编号或序号',
+                '结算价（元）',
+                '是否办理结算',
+                '2024年1月',
+                '2024年2月',
+                '2024年3月',
+                '2024年4月',
+                '2024年5月',
+                '2024年6月',
+                '模板说明',
+            ],
+            'notes': [
+                '第1列填写合同编号或合同序号，后续月份列填写当期付款金额；可按需新增或修改月份列名称。',
+                '如结算价或是否办理结算暂不需填写，可留空；模板说明行保留或删除均不会影响导入。',
+            ],
+        },
+    },
+    'evaluation': {
+        'long': {
+            'filename': 'supplier_evaluation_import_template_long.csv',
+            'headers': [
+                '评价编号',
+                '关联合同编号',
+                '供应商名称',
+                '评价日期区间',
+                '评价人员',
+                '评分',
+                '评价类型',
+                '模板说明',
+            ],
+            'notes': [
+                '评价编号须遵守编号格式限制（禁止 / 等特殊字符），推荐示例：HT2024-001-PJ01；本行保留或删除均不会影响导入。',
+                '关联合同编号需已存在；评价类型建议填写：履约过程评价 或 末次评价；评分范围为 0-100，可留空。',
+            ],
+        },
+        'wide': {
+            'filename': 'supplier_evaluation_import_template_wide.csv',
+            'headers': [
+                '关联合同编号',
+                '供应商名称',
+                '2024年上半年',
+                '2024年下半年',
+                '模板说明',
+            ],
+            'notes': [
+                '第1列填写合同编号，第2列填写供应商名称；后续列可为“2024年上半年”等区间，按需新增更多列。',
+                '模板说明行保留或删除均不会影响导入，填写成绩时可保留一位或两位小数。',
+            ],
+        },
+    },
+}
 
 
 def _get_page_size(request, default=20, max_size=200):
@@ -1089,6 +1254,40 @@ def database_management(request):
     }
     return render(request, 'database_management.html', context)
 
+
+@require_http_methods(['GET'])
+def download_import_template(request):
+    """下载各模块导入模板（包含字段限制说明）。"""
+    module = request.GET.get('module', 'project')
+    mode = request.GET.get('mode', 'long')
+
+    module_config = IMPORT_TEMPLATE_DEFINITIONS.get(module)
+    if not module_config:
+        return HttpResponse('不支持的导入模块', status=400)
+
+    template_config = module_config.get(mode)
+    if not template_config:
+        return HttpResponse('当前模块暂不支持该模板类型', status=400)
+
+    headers = template_config['headers']
+    note_column = template_config.get('note_column', '模板说明')
+
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+
+    for note in template_config.get('notes', []):
+        note_text = str(note).strip()
+        row = []
+        for header in headers:
+            row.append(note_text if header == note_column else '')
+        writer.writerow(row)
+
+    csv_bytes = buffer.getvalue().encode('utf-8-sig')
+    response = HttpResponse(csv_bytes, content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{template_config["filename"]}"'
+    response['Content-Length'] = str(len(csv_bytes))
+    return response
 
 
 @staff_member_required

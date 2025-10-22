@@ -295,13 +295,15 @@
         /* 表格样式 */
         .table-container {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .data-table {
             width: 100%;
+            min-width: 720px;
             border-collapse: collapse;
             font-size: 14px;
-            table-layout: fixed;
+            table-layout: auto;
         }
 
         .data-table th {
@@ -314,6 +316,7 @@
             white-space: normal;
             word-wrap: break-word;
             word-break: break-word;
+            vertical-align: top;
         }
 
         .data-table td {
@@ -322,6 +325,13 @@
             white-space: normal;
             word-wrap: break-word;
             word-break: break-word;
+            vertical-align: top;
+        }
+
+        .data-table th[data-column="row_number"],
+        .data-table td[data-column="row_number"] {
+            width: clamp(56px, 5vw, 80px);
+            text-align: center;
         }
 
         .data-table tr:hover {

@@ -362,10 +362,10 @@
                                 下载模板
                             </label>
                             <div style="display: flex; gap: 12px;">
-                                <a href="/static/templates/contract_import_template.csv" download
+                                <a href="{% url 'download_import_template' %}?module=contract&mode=long" download
                                    class="btn btn-secondary" style="text-decoration: none;">
                                     <i class="fas fa-file-csv"></i>
-                                    CSV 模板
+                                    CSV 长表模板
                                 </a>
                                 <a href="/docs/导入功能使用说明.md" target="_blank"
                                    class="btn btn-secondary" style="text-decoration: none;">

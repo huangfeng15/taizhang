@@ -1,6 +1,5 @@
 from django.db import models
-from django.core.exceptions import ValidationError
-from project.validators import validate_code_field, clean_whitespace
+from project.validators import validate_code_field, validate_and_clean_code
 
 
 class Project(models.Model):
@@ -83,8 +82,10 @@ class Project(models.Model):
         """数据验证"""
         # 验证和清理编号字段
         if self.project_code:
-            self.project_code = clean_whitespace(self.project_code)
-            validate_code_field(self.project_code)
+            self.project_code = validate_and_clean_code(
+                self.project_code,
+                '项目编码'
+            )
     
     def save(self, *args, **kwargs):
         """保存前执行完整验证"""

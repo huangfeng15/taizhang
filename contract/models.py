@@ -4,7 +4,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
-from project.validators import validate_code_field, clean_whitespace
+from project.validators import validate_code_field, validate_and_clean_code
 
 
 class Contract(BaseModel):
@@ -189,15 +189,19 @@ class Contract(BaseModel):
         # 验证和清理编号字段
         if self.contract_code:
             try:
-                self.contract_code = clean_whitespace(self.contract_code)
-                validate_code_field(self.contract_code)
+                self.contract_code = validate_and_clean_code(
+                    self.contract_code,
+                    '合同编号'
+                )
             except ValidationError as e:
                 errors['contract_code'] = e.message
         
         if self.contract_sequence:
             try:
-                self.contract_sequence = clean_whitespace(self.contract_sequence)
-                validate_code_field(self.contract_sequence)
+                self.contract_sequence = validate_and_clean_code(
+                    self.contract_sequence,
+                    '合同序号'
+                )
             except ValidationError as e:
                 errors['contract_sequence'] = e.message
         
@@ -231,9 +235,6 @@ class Contract(BaseModel):
         if errors:
             raise ValidationError(errors)
     
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
     
     def get_total_paid_amount(self):
         """获取累计付款金额"""
@@ -248,15 +249,15 @@ class Contract(BaseModel):
     def get_payment_ratio(self):
         """
         获取付款比例
-        规则：
-        - 如果有结算价，使用结算价作为分母
-        - 否则使用（合同价 + 补充协议金额）作为分母
+        规则:
+        - 如果有结算价, 使用结算价作为分母
+        - 否则使用(合同价 + 补充协议金额)作为分母
         """
         from django.db.models import Sum
         
         total_paid = self.get_total_paid_amount()
         
-        # 获取基准金额（分母）
+        # 获取基准金额(分母)
         base_amount = 0
         
         # 如果是主合同，检查是否有结算

@@ -263,11 +263,16 @@
                                 <i class="fas fa-download"></i>
                                 下载模板
                             </label>
-                            <div style="display: flex; gap: 12px;">
-                                <a href="/static/templates/payment_import_template.csv" download
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                <a href="{% url 'download_import_template' %}?module=payment&mode=long" download
                                    class="btn btn-secondary" style="text-decoration: none;">
                                     <i class="fas fa-file-csv"></i>
-                                    CSV 模板
+                                    CSV 长表模板
+                                </a>
+                                <a href="{% url 'download_import_template' %}?module=payment&mode=wide" download
+                                   class="btn btn-secondary" style="text-decoration: none;">
+                                    <i class="fas fa-table"></i>
+                                    CSV 宽表模板
                                 </a>
                                 <a href="/docs/导入功能使用说明.md" target="_blank"
                                    class="btn btn-secondary" style="text-decoration: none;">

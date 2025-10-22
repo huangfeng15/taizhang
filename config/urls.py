@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/projects/batch-delete/', views.batch_delete_projects, name='batch_delete_projects'),
     
     # 数据导入API
+    path('api/import/template/', views.download_import_template, name='download_import_template'),
     path('api/import/', views.import_data, name='import_data'),
 ]
 

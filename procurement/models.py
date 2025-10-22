@@ -2,8 +2,7 @@
 采购管理模块 - 数据模型
 """
 from django.db import models
-from django.core.exceptions import ValidationError
-from project.validators import validate_code_field, clean_whitespace
+from project.validators import validate_code_field, validate_and_clean_code
 
 
 class BaseModel(models.Model):
@@ -40,6 +39,11 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        """保存前统一执行完整验证"""
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Procurement(BaseModel):
@@ -293,13 +297,11 @@ class Procurement(BaseModel):
         
         # 验证和清理编号字段
         if self.procurement_code:
-            self.procurement_code = clean_whitespace(self.procurement_code)
-            validate_code_field(self.procurement_code)
+            self.procurement_code = validate_and_clean_code(
+                self.procurement_code,
+                '招采编号'
+            )
     
-    def save(self, *args, **kwargs):
-        """保存前执行完整验证"""
-        self.full_clean()
-        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.procurement_code} - {self.project_name}"

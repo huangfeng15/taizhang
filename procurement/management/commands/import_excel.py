@@ -229,6 +229,15 @@ class Command(BaseCommand):
             ))
             return 'utf-8-sig'
 
+    def _is_template_note_row(self, row):
+        """判断是否为模板说明行（可保留或删除的注释行）"""
+        if not isinstance(row, dict):
+            return False
+        note = row.get('模板说明')
+        if note is None:
+            return False
+        return bool(str(note).strip())
+
     def _handle_long_table(self, file_path, module, encoding, skip_errors, dry_run, conflict_mode):
         """处理长表格式导入"""
         # 如果是合同模块，使用两遍导入策略
@@ -255,6 +264,8 @@ class Command(BaseCommand):
             for row_num, row in enumerate(reader, start=2):  # 从第2行开始计数(第1行是表头)
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
+                    continue
+                if self._is_template_note_row(row):
                     continue
                 
                 stats['total_rows'] += 1
@@ -320,6 +331,8 @@ class Command(BaseCommand):
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
                     continue
+                if self._is_template_note_row(row):
+                    continue
                 
                 # 获取合同类型
                 contract_type = row.get('合同类型', '主合同').strip()
@@ -372,6 +385,8 @@ class Command(BaseCommand):
             for row_num, row in enumerate(reader, start=2):
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
+                    continue
+                if self._is_template_note_row(row):
                     continue
                 
                 # 获取合同类型
@@ -429,6 +444,16 @@ class Command(BaseCommand):
         )
         
         self.stdout.write(f'原始数据: {len(df)} 行')
+
+        note_column = '模板说明'
+        if note_column in df.columns:
+            original_rows = len(df)
+            df[note_column] = df[note_column].fillna('').astype(str).str.strip()
+            df = df[df[note_column] == ''].copy()
+            df[note_column] = ''
+            removed = original_rows - len(df)
+            if removed > 0:
+                self.stdout.write(self.style.WARNING(f'已忽略 {removed} 条模板说明行'))
         
         # 识别日期列
         date_cols = self._identify_date_columns(df.columns)
@@ -441,6 +466,8 @@ class Command(BaseCommand):
         if module == 'evaluation':
             # 供应商评价：第1列=合同编号，第2列=供应商名称
             id_cols = [df.columns[0], df.columns[1]]
+            if note_column in df.columns and note_column not in id_cols:
+                id_cols.append(note_column)
             group_col = id_cols[0]  # 按合同编号分组
             df_long = pd.melt(
                 df,
@@ -457,6 +484,8 @@ class Command(BaseCommand):
                 id_cols.append(df.columns[1])
             if len(df.columns) > 2 and '是否' in df.columns[2]:
                 id_cols.append(df.columns[2])
+            if note_column in df.columns and note_column not in id_cols:
+                id_cols.append(note_column)
             
             group_col = id_cols[0]
             df_long = pd.melt(
@@ -851,6 +880,8 @@ class Command(BaseCommand):
             return self._import_contract_long(row, conflict_mode)
         elif module == 'payment':
             return self._import_payment_long(row, conflict_mode)
+        elif module == 'evaluation':
+            return self._import_evaluation_long(row, conflict_mode)
         else:
             raise ValueError(f'不支持的模块: {module}')
 
@@ -1207,6 +1238,64 @@ class Command(BaseCommand):
                 return 'created'
         else:
             # skip模式，不创建新记录
+            return 'skipped'
+
+    def _import_evaluation_long(self, row, conflict_mode='update'):
+        """导入供应商评价长表数据"""
+        evaluation_code = row.get('评价编号', '').strip()
+        contract_identifier = row.get('关联合同编号', '').strip()
+        supplier_name = row.get('供应商名称', '').strip()
+
+        if not evaluation_code:
+            raise ValueError('评价编号不能为空')
+        try:
+            validate_code_field(evaluation_code)
+        except ValidationError as e:
+            raise ValueError(f'评价编号格式错误: {e.message}')
+
+        if not contract_identifier:
+            raise ValueError('关联合同编号不能为空')
+
+        # 支持使用合同编号或合同序号定位合同
+        contract = Contract.objects.filter(contract_code=contract_identifier).first()
+        if not contract:
+            contract = Contract.objects.filter(contract_sequence=contract_identifier).first()
+        if not contract:
+            raise ValueError(f'合同编号不存在: {contract_identifier}')
+
+        if not supplier_name:
+            raise ValueError('供应商名称不能为空')
+
+        existing = SupplierEvaluation.objects.filter(evaluation_code=evaluation_code).first()
+        if existing and conflict_mode == 'skip':
+            return 'skipped'
+
+        evaluation_type = row.get('评价类型', '').strip()
+        valid_types = [choice[0] for choice in SupplierEvaluation.EVAL_TYPE_CHOICES]
+        if evaluation_type not in valid_types:
+            evaluation_type = '履约过程评价'
+
+        score = self._parse_decimal(row.get('评分'))
+        if score is not None and (score < 0 or score > 100):
+            raise ValueError('评分必须在0-100之间')
+
+        defaults = {
+            'contract': contract,
+            'supplier_name': supplier_name,
+            'evaluation_period': row.get('评价日期区间', '').strip(),
+            'evaluator': row.get('评价人员', '').strip(),
+            'score': score,
+            'evaluation_type': evaluation_type,
+        }
+
+        if conflict_mode in ['update', 'replace']:
+            obj, created = SupplierEvaluation.objects.update_or_create(
+                evaluation_code=evaluation_code,
+                defaults=defaults
+            )
+            return 'created' if created else 'updated'
+        else:
+            # skip模式下不创建新记录
             return 'skipped'
 
     def _import_payment_wide(self, row, seq, group_id, conflict_mode='update'):

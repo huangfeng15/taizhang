@@ -5,7 +5,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from procurement.models import BaseModel
-from project.validators import validate_code_field, clean_whitespace
+from project.validators import validate_code_field, validate_and_clean_code
 
 
 class Payment(BaseModel):
@@ -77,13 +77,15 @@ class Payment(BaseModel):
         """数据验证"""
         # 验证和清理编号字段
         if self.payment_code:
-            self.payment_code = clean_whitespace(self.payment_code)
-            validate_code_field(self.payment_code)
+            self.payment_code = validate_and_clean_code(
+                self.payment_code,
+                '付款编号'
+            )
     
     def _generate_payment_code(self):
         """
-        生成付款编号：合同序号-FK-序号
-        序号按付款日期排序，最早的付款为001，之后依次类推
+        生成付款编号: 合同序号-FK-序号
+        序号按付款日期排序, 最早的付款为001, 之后依次类推
         """
         if not self.contract:
             raise ValidationError('生成付款编号需要关联合同')
@@ -119,6 +121,5 @@ class Payment(BaseModel):
         # 如果付款编号为空，自动生成
         if not self.payment_code:
             self.payment_code = self._generate_payment_code()
-        
-        self.full_clean()
+
         super().save(*args, **kwargs)

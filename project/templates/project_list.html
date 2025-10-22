@@ -309,10 +309,10 @@
                                 下载模板
                             </label>
                             <div style="display: flex; gap: 12px;">
-                                <a href="/static/templates/project_import_template.csv" download
+                                <a href="{% url 'download_import_template' %}?module=project&mode=long" download
                                    class="btn btn-secondary" style="text-decoration: none;">
                                     <i class="fas fa-file-csv"></i>
-                                    CSV 模板
+                                    CSV 长表模板
                                 </a>
                                 <a href="https://github.com/your-repo/templates" target="_blank"
                                    class="btn btn-secondary" style="text-decoration: none;">
