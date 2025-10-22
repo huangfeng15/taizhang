@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}数据库管理 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-list {
+        margin-bottom: 20px;
+        list-style: none;
+        padding: 0;
+    }
+
+    .message-item {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+
+    .message-success {
+        background: #f6ffed;
+        color: #237804;
+        border: 1px solid #b7eb8f;
+    }
+
+    .message-error {
+        background: #fff1f0;
+        color: #a8071a;
+        border: 1px solid #ffa39e;
+    }
+
+    .message-info {
+        background: #e6f7ff;
+        color: #0050b3;
+        border: 1px solid #91d5ff;
+    }
+
+    .db-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .db-stat-item {
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid var(--border-color);
+    }
+
+    .db-stat-label {
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
+
+    .db-stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        margin-top: 6px;
+        word-break: break-all;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .backup-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .backup-table th,
+    .backup-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+        text-align: left;
+    }
+
+    .backup-table th {
+        background: var(--bg-color);
+        font-weight: 600;
+    }
+
+    .empty-row {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 24px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">数据库管理</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>数据库管理</span>
+    </div>
+</div>
+
+{% if messages %}
+    <ul class="message-list">
+        {% for message in messages %}
+            {% if message.tags == 'error' %}
+                <li class="message-item message-error">{{ message }}</li>
+            {% elif message.tags == 'success' %}
+                <li class="message-item message-success">{{ message }}</li>
+            {% else %}
+                <li class="message-item message-info">{{ message }}</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">基础信息</span>
+    </div>
+    <div>
+        <div class="db-grid">
+            <div class="db-stat-item">
+                <div class="db-stat-label">数据库引擎</div>
+                <div class="db-stat-value">{{ engine|default:'-' }}</div>
+            </div>
+            <div class="db-stat-item">
+                <div class="db-stat-label">文件路径</div>
+                <div class="db-stat-value">
+                    {% if db_stat %}
+                        {{ db_stat.path }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="db-stat-item">
+                <div class="db-stat-label">文件大小</div>
+                <div class="db-stat-value">
+                    {% if db_stat %}
+                        {{ db_stat.size_display }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="db-stat-item">
+                <div class="db-stat-label">最后更新</div>
+                <div class="db-stat-value">
+                    {% if db_stat %}
+                        {{ db_stat.modified_display }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 12px;">
+            提醒：所有操作将作用于主数据库，请在执行前确认已完成必要的数据导出或备份。
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">快速操作</span>
+    </div>
+    <div>
+        <div class="action-group">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="backup">
+                <button type="submit" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %}>
+                    <i class="fas fa-database"></i> 手动备份
+                </button>
+            </form>
+
+            <form method="post" onsubmit="return confirm('确定要清除所有数据并重新初始化数据库吗？此操作不可撤销！');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear">
+                <button type="submit" class="btn btn-secondary">
+                    <i class="fas fa-trash-alt"></i> 一键清除
+                </button>
+            </form>
+        </div>
+        {% if not supports_file_ops %}
+            <p style="color: var(--warning-color); margin-top: 16px;">
+                当前数据库引擎不支持文件级备份与恢复，仅提供数据清空功能。
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">备份文件</span>
+        {% if backups %}
+            <form method="post" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="restore">
+                <select name="file_name" class="filter-select" {% if not supports_file_ops %}disabled{% endif %}>
+                    <option value="">选择备份文件</option>
+                    {% for backup in backups %}
+                        <option value="{{ backup.name }}">{{ backup.name }} ｜ {{ backup.size_display }} ｜ {{ backup.modified_display }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="return confirm('确定要恢复该备份吗？当前数据库将被覆盖。');">
+                    <i class="fas fa-undo"></i> 恢复数据库
+                </button>
+            </form>
+        {% endif %}
+    </div>
+    <div class="table-container">
+        <table class="backup-table">
+            <thead>
+                <tr>
+                    <th>文件名</th>
+                    <th>大小</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if backups %}
+                    {% for backup in backups %}
+                        <tr>
+                            <td>{{ backup.name }}</td>
+                            <td>{{ backup.size_display }}</td>
+                            <td>{{ backup.modified_display }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3" class="empty-row">暂无备份记录</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

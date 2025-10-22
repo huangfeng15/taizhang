@@ -19,6 +19,7 @@ urlpatterns = [
     path('contract/<str:contract_code>/', views.contract_detail, name='contract_detail'),
     path('payments/', views.payment_list, name='payment_list'),
     path('payment/<str:payment_code>/', views.payment_detail, name='payment_detail'),
+    path('database/management/', views.database_management, name='database_management'),
     
     # 批量操作API
     path('api/contracts/batch-delete/', views.batch_delete_contracts, name='batch_delete_contracts'),

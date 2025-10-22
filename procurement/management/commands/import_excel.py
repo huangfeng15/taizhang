@@ -7,10 +7,14 @@ import csv
 import re
 import logging
 import chardet
+from collections import defaultdict
+from bisect import bisect_left, bisect_right, insort
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from project.models import Project
 from procurement.models import Procurement
 from contract.models import Contract
@@ -259,17 +263,20 @@ class Command(BaseCommand):
                             result = self._import_long_row(row, module, conflict_mode)
                             if result == 'created':
                                 stats['created'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'updated':
                                 stats['updated'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
+                                # 跳过的记录不计入成功行数
                     else:
                         self._validate_long_row(row, module)
+                        stats['success_rows'] += 1
                     
-                    stats['success_rows'] += 1
-                    
-                    if stats['success_rows'] % 10 == 0:
-                        self.stdout.write(f'已处理 {stats["success_rows"]} 行...')
+                    # 每处理10行显示进度（包括跳过的）
+                    if (stats['success_rows'] + stats['skipped']) % 10 == 0:
+                        self.stdout.write(f'已处理 {stats["success_rows"] + stats["skipped"]} 行...')
                 
                 except Exception as e:
                     stats['error_rows'] += 1
@@ -329,17 +336,20 @@ class Command(BaseCommand):
                             result = self._import_contract_long(row, conflict_mode)
                             if result == 'created':
                                 stats['created'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'updated':
                                 stats['updated'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
+                                # 跳过的记录不计入成功行数
                     else:
                         self._validate_long_row(row, 'contract')
+                        stats['success_rows'] += 1
                     
-                    stats['success_rows'] += 1
-                    
-                    if stats['success_rows'] % 10 == 0:
-                        self.stdout.write(f'已处理 {stats["success_rows"]} 行...')
+                    # 每处理10行显示进度（包括跳过的）
+                    if (stats['success_rows'] + stats['skipped']) % 10 == 0:
+                        self.stdout.write(f'已处理 {stats["success_rows"] + stats["skipped"]} 行...')
                 
                 except Exception as e:
                     stats['error_rows'] += 1
@@ -379,17 +389,20 @@ class Command(BaseCommand):
                             result = self._import_contract_long(row, conflict_mode)
                             if result == 'created':
                                 stats['created'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'updated':
                                 stats['updated'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
+                                # 跳过的记录不计入成功行数
                     else:
                         self._validate_long_row(row, 'contract')
+                        stats['success_rows'] += 1
                     
-                    stats['success_rows'] += 1
-                    
-                    if stats['success_rows'] % 10 == 0:
-                        self.stdout.write(f'已处理 {stats["success_rows"]} 行...')
+                    # 每处理10行显示进度（包括跳过的）
+                    if (stats['success_rows'] + stats['skipped']) % 10 == 0:
+                        self.stdout.write(f'已处理 {stats["success_rows"] + stats["skipped"]} 行...')
                 
                 except Exception as e:
                     stats['error_rows'] += 1
@@ -468,6 +481,19 @@ class Command(BaseCommand):
         }
         errors = []
 
+        if module == 'payment':
+            stats, errors = self._process_payment_wide(
+                df_long,
+                id_cols,
+                group_col,
+                skip_errors,
+                dry_run,
+                conflict_mode,
+                stats,
+            )
+            self._print_summary(stats, errors)
+            return
+
         # 按ID分组处理，但使用全局序号
         global_seq = 0
         for group_id, group_df in df_long.groupby(group_col):
@@ -479,14 +505,16 @@ class Command(BaseCommand):
                             result = self._import_wide_row(row, module, global_seq, group_id, conflict_mode)
                             if result == 'created':
                                 stats['created'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'updated':
                                 stats['updated'] += 1
+                                stats['success_rows'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
+                                # 跳过的记录不计入成功行数
                     else:
                         self._validate_wide_row(row, module, global_seq, group_id)
-                    
-                    stats['success_rows'] += 1
+                        stats['success_rows'] += 1
                 
                 except Exception as e:
                     stats['error_rows'] += 1
@@ -500,6 +528,236 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.WARNING(error_msg))
 
         self._print_summary(stats, errors)
+
+    def _process_payment_wide(self, df_long, id_cols, group_col, skip_errors, dry_run, conflict_mode, stats):
+        """批量处理付款宽表数据，降低逐行数据库操作成本"""
+        errors = []
+
+        if df_long.empty:
+            return stats, errors
+
+        df_long[group_col] = df_long[group_col].astype(str).str.strip()
+        contract_cache = self._build_contract_cache(df_long[group_col].unique())
+        records_by_contract = defaultdict(list)
+        period_cache = {}
+
+        for idx, record in enumerate(df_long.to_dict('records'), start=1):
+            contract_key = str(record.get(group_col, '')).strip()
+            if not contract_key or contract_key.lower() == 'nan':
+                error_msg = f'第 {idx} 条记录缺少合同编号'
+                stats['error_rows'] += 1
+                errors.append(error_msg)
+                logger.error(error_msg)
+                if not skip_errors:
+                    raise CommandError(error_msg)
+                self.stdout.write(self.style.WARNING(error_msg))
+                continue
+
+            contract = contract_cache.get(contract_key)
+            if not contract:
+                error_msg = f'合同序号/编号不存在: {contract_key}'
+                stats['error_rows'] += 1
+                errors.append(error_msg)
+                logger.error(error_msg)
+                if not skip_errors:
+                    raise CommandError(error_msg)
+                self.stdout.write(self.style.WARNING(error_msg))
+                continue
+
+            amount = self._parse_decimal(record.get('value'))
+            if amount is None or amount <= 0:
+                stats['skipped'] += 1
+                stats['success_rows'] += 1
+                continue
+
+            settlement_amount = None
+            if len(id_cols) > 1:
+                settlement_amount = self._parse_decimal(record.get(id_cols[1]))
+
+            is_settled = False
+            if len(id_cols) > 2:
+                is_settled = self._parse_settlement_flag(record.get(id_cols[2]))
+
+            period_label = record.get('period')
+            if not period_label:
+                error_msg = f'ID: {contract_key}, 第 {idx} 条记录缺少期间列'
+                stats['error_rows'] += 1
+                errors.append(error_msg)
+                logger.error(error_msg)
+                if not skip_errors:
+                    raise CommandError(error_msg)
+                self.stdout.write(self.style.WARNING(error_msg))
+                continue
+
+            try:
+                if period_label not in period_cache:
+                    period_cache[period_label] = self._parse_month_to_date(period_label)
+                payment_date = period_cache[period_label]
+            except ValueError as exc:
+                error_msg = f'ID: {contract_key}, 第 {idx} 条记录日期解析失败: {exc}'
+                stats['error_rows'] += 1
+                errors.append(error_msg)
+                logger.error(error_msg)
+                if not skip_errors:
+                    raise CommandError(error_msg)
+                self.stdout.write(self.style.WARNING(error_msg))
+                continue
+
+            base_identifier = self._get_contract_identifier(contract)
+            if not base_identifier:
+                error_msg = f'合同缺少可用编号: {contract.pk}'
+                stats['error_rows'] += 1
+                errors.append(error_msg)
+                logger.error(error_msg)
+                if not skip_errors:
+                    raise CommandError(error_msg)
+                self.stdout.write(self.style.WARNING(error_msg))
+                continue
+
+            records_by_contract[contract.id].append({
+                'contract': contract,
+                'payment_amount': amount,
+                'payment_date': payment_date,
+                'settlement_amount': settlement_amount,
+                'is_settled': is_settled,
+                'source_index': idx,
+                'base_identifier': base_identifier,
+            })
+            stats['success_rows'] += 1
+
+        if not records_by_contract:
+            return stats, errors
+
+        if dry_run:
+            return stats, errors
+
+        if conflict_mode not in ['update', 'replace']:
+            for recs in records_by_contract.values():
+                stats['skipped'] += len(recs)
+            return stats, errors
+
+        contract_ids = list(records_by_contract.keys())
+        existing_payments = Payment.objects.filter(contract_id__in=contract_ids).select_related('contract')
+        existing_by_contract = defaultdict(list)
+        existing_by_code = {}
+        for payment in existing_payments:
+            existing_by_contract[payment.contract_id].append(payment)
+            existing_by_code[payment.payment_code] = payment
+
+        prepared_entries = []
+        for contract_id, recs in records_by_contract.items():
+            contract = recs[0]['contract']
+            base_identifier = recs[0]['base_identifier']
+            recs.sort(key=lambda item: (item['payment_date'], item['source_index']))
+
+            existing_list = existing_by_contract.get(contract_id, [])
+            existing_list.sort(key=lambda item: (item.payment_date, item.created_at, item.payment_code))
+            existing_dates = [item.payment_date for item in existing_list]
+            assigned_dates = []
+
+            for record in recs:
+                payment_date = record['payment_date']
+                existing_before = bisect_left(existing_dates, payment_date)
+                existing_same = bisect_right(existing_dates, payment_date) - existing_before
+                new_before = bisect_left(assigned_dates, payment_date)
+                new_same = bisect_right(assigned_dates, payment_date) - new_before
+                seq = existing_before + existing_same + new_same + 1
+                insort(assigned_dates, payment_date)
+                payment_code = f"{base_identifier}-FK-{seq:03d}"
+
+                prepared_entries.append({
+                    'payment_code': payment_code,
+                    'contract': contract,
+                    'payment_amount': record['payment_amount'],
+                    'payment_date': payment_date,
+                    'settlement_amount': record['settlement_amount'],
+                    'is_settled': record['is_settled'],
+                })
+
+        if not prepared_entries:
+            return stats, errors
+
+        now = timezone.now()
+        to_update = []
+        to_create = []
+
+        for entry in prepared_entries:
+            existing = existing_by_code.get(entry['payment_code'])
+            if existing:
+                existing.contract = entry['contract']
+                existing.payment_amount = entry['payment_amount']
+                existing.payment_date = entry['payment_date']
+                existing.settlement_amount = entry['settlement_amount']
+                existing.is_settled = entry['is_settled']
+                existing.updated_at = now
+                to_update.append(existing)
+                stats['updated'] += 1
+            else:
+                to_create.append(Payment(
+                    payment_code=entry['payment_code'],
+                    contract=entry['contract'],
+                    payment_amount=entry['payment_amount'],
+                    payment_date=entry['payment_date'],
+                    settlement_amount=entry['settlement_amount'],
+                    is_settled=entry['is_settled'],
+                    created_at=now,
+                    updated_at=now,
+                ))
+                stats['created'] += 1
+
+        if to_update:
+            Payment.objects.bulk_update(
+                to_update,
+                ['contract', 'payment_amount', 'payment_date', 'settlement_amount', 'is_settled', 'updated_at'],
+            )
+
+        if to_create:
+            Payment.objects.bulk_create(to_create, batch_size=500)
+
+        return stats, errors
+
+    def _build_contract_cache(self, identifiers):
+        """建立合同缓存，避免重复数据库查询"""
+        cleaned = []
+        for ident in identifiers:
+            if ident is None:
+                continue
+            ident_str = str(ident).strip()
+            if not ident_str or ident_str.lower() == 'nan':
+                continue
+            cleaned.append(ident_str)
+
+        if not cleaned:
+            return {}
+
+        contracts = Contract.objects.filter(
+            Q(contract_code__in=cleaned) | Q(contract_sequence__in=cleaned)
+        )
+
+        cache = {}
+        for contract in contracts:
+            if contract.contract_code:
+                cache[contract.contract_code.strip()] = contract
+            if contract.contract_sequence:
+                cache[contract.contract_sequence.strip()] = contract
+        return cache
+
+    def _parse_settlement_flag(self, value):
+        """解析结算状态标记"""
+        if value is None:
+            return False
+        value_str = str(value).strip()
+        if not value_str:
+            return False
+        if value_str in {'是', '已结算', '已办理', '已完成'}:
+            return True
+        normalized = value_str.lower()
+        return normalized in {'true', '1', 'y', 'yes'}
+
+    def _get_contract_identifier(self, contract):
+        """优先返回合同序号，若无则回退到合同编号"""
+        identifier = contract.contract_sequence or contract.contract_code
+        return identifier.strip() if identifier else None
 
     def _identify_date_columns(self, columns):
         """识别包含日期信息的列（支持月度和半年度）"""
@@ -1095,15 +1353,27 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('导入完成！'))
         self.stdout.write('=' * 50)
         self.stdout.write(f'总行数:         {stats["total_rows"]}')
-        self.stdout.write(self.style.SUCCESS(f'成功: {stats["success_rows"]}'))
-        self.stdout.write(self.style.ERROR(f'失败: {stats["error_rows"]}'))
         
-        if 'created' in stats:
-            self.stdout.write(f'新增记录:       {stats.get("created", 0)}')
-        if 'updated' in stats:
-            self.stdout.write(f'更新记录:       {stats.get("updated", 0)}')
-        if 'skipped' in stats:
-            self.stdout.write(f'跳过记录:       {stats.get("skipped", 0)}')
+        # 计算实际导入数量（新增+更新）
+        actual_imported = stats.get("created", 0) + stats.get("updated", 0)
+        
+        if actual_imported > 0:
+            self.stdout.write(self.style.SUCCESS(f'成功导入:       {actual_imported} 条'))
+        else:
+            self.stdout.write(self.style.WARNING(f'成功导入:       {actual_imported} 条'))
+        
+        if 'created' in stats and stats.get("created", 0) > 0:
+            self.stdout.write(f'  - 新增记录:   {stats.get("created", 0)} 条')
+        if 'updated' in stats and stats.get("updated", 0) > 0:
+            self.stdout.write(f'  - 更新记录:   {stats.get("updated", 0)} 条')
+        
+        # 重复数据提示
+        if 'skipped' in stats and stats.get("skipped", 0) > 0:
+            self.stdout.write(self.style.WARNING(f'跳过重复:       {stats.get("skipped", 0)} 条（数据已存在）'))
+        
+        # 错误统计
+        if stats["error_rows"] > 0:
+            self.stdout.write(self.style.ERROR(f'导入失败:       {stats["error_rows"]} 条'))
         
         if errors:
             self.stdout.write('\n' + self.style.WARNING('错误详情:'))
@@ -1113,3 +1383,17 @@ class Command(BaseCommand):
                 self.stdout.write(f'  ... 还有 {len(errors) - 10} 条错误')
         
         self.stdout.write('=' * 50)
+        
+        # 添加友好的总结提示
+        if actual_imported == 0 and stats.get("skipped", 0) > 0:
+            self.stdout.write(self.style.WARNING(
+                f'\n提示：本次未导入任何新数据，所有 {stats.get("skipped", 0)} 条记录均为重复数据。'
+            ))
+        elif actual_imported > 0 and stats.get("skipped", 0) > 0:
+            self.stdout.write(self.style.SUCCESS(
+                f'\n提示：成功导入 {actual_imported} 条数据，跳过 {stats.get("skipped", 0)} 条重复数据。'
+            ))
+        elif actual_imported > 0:
+            self.stdout.write(self.style.SUCCESS(
+                f'\n提示：成功导入 {actual_imported} 条数据。'
+            ))

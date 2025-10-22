@@ -1,14 +1,20 @@
-from django.shortcuts import render, get_object_or_404
-from django.shortcuts import render, get_object_or_404
-from django.db.models import Count, Sum, Q
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.conf import settings
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
+from django.db import connections
+from django.db.models import Count, Sum, Q
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods, require_POST
+from datetime import datetime, timezone as dt_timezone
 from io import StringIO
+from pathlib import Path
 import json
 import os
+import shutil
 import tempfile
 
 from .models import Project
@@ -697,6 +703,118 @@ def payment_detail(request, payment_code):
         'payment_progress': payment_progress,
     }
     return render(request, 'payment_detail.html', context)
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def database_management(request):
+    """数据库管理：备份、恢复、清理"""
+    default_db = settings.DATABASES.get('default', {})
+    engine = default_db.get('ENGINE', '')
+    db_name = default_db.get('NAME')
+    db_path = None
+
+    if engine.endswith('sqlite3') and db_name:
+        db_path = Path(db_name)
+        if not db_path.is_absolute():
+            db_path = Path(settings.BASE_DIR) / db_name
+        db_path = db_path.resolve()
+
+    backups_dir = Path(settings.BASE_DIR) / 'backups' / 'database'
+    backups_dir.mkdir(parents=True, exist_ok=True)
+
+    def _format_size(num_bytes: int) -> str:
+        size = float(num_bytes)
+        units = ['B', 'KB', 'MB', 'GB', 'TB']
+        for unit in units:
+            if size < 1024 or unit == units[-1]:
+                return f'{size:.2f} {unit}'
+            size /= 1024
+        return f'{num_bytes} B'
+
+    def _collect_db_stat(path: Path):
+        if not path or not path.exists():
+            return None
+        stat = path.stat()
+        modified_at = timezone.localtime(datetime.fromtimestamp(stat.st_mtime, tz=dt_timezone.utc))
+        return {
+            'path': str(path),
+            'size_bytes': stat.st_size,
+            'modified_at': modified_at,
+            'size_display': _format_size(stat.st_size),
+            'modified_display': modified_at.strftime('%Y-%m-%d %H:%M:%S'),
+        }
+
+    if request.method == "POST":
+        action = request.POST.get('action')
+        try:
+            if action == 'clear':
+                if engine.endswith('sqlite3') and db_path:
+                    connections.close_all()
+                    if db_path.exists():
+                        # 清理SQLite残留文件，避免锁定
+                        related_suffixes = ['', '-journal', '-wal', '-shm']
+                        for suffix in related_suffixes:
+                            target = db_path if suffix == '' else db_path.with_name(db_path.name + suffix)
+                            if target.exists():
+                                target.unlink()
+                    call_command('migrate', interactive=False, verbosity=0)
+                    messages.success(request, '数据库已重置并重新迁移结构。')
+                else:
+                    call_command('flush', interactive=False, verbosity=0)
+                    messages.success(request, '数据库数据已清空。')
+            elif action == 'backup':
+                if not db_path:
+                    raise ValueError('当前数据库引擎不支持文件级备份。')
+                if not db_path.exists():
+                    raise FileNotFoundError('未找到数据库文件，无法备份。')
+                timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+                backup_file = backups_dir / f'db-backup-{timestamp}.sqlite3'
+                connections.close_all()
+                shutil.copy2(db_path, backup_file)
+                messages.success(request, f'备份成功：{backup_file.name}')
+            elif action == 'restore':
+                if not db_path:
+                    raise ValueError('当前数据库引擎不支持文件级恢复。')
+                file_name = request.POST.get('file_name')
+                if not file_name:
+                    raise ValueError('请选择要恢复的备份文件。')
+                source_file = backups_dir / file_name
+                if not source_file.exists():
+                    raise FileNotFoundError('备份文件不存在，请刷新后重试。')
+                connections.close_all()
+                # 保留一份当前数据库的安全备份
+                if db_path.exists():
+                    safety_backup = backups_dir / f'db-auto-backup-{timezone.now().strftime("%Y%m%d%H%M%S")}.sqlite3'
+                    shutil.copy2(db_path, safety_backup)
+                shutil.copy2(source_file, db_path)
+                messages.success(request, f'恢复成功，已加载备份：{file_name}')
+            else:
+                messages.error(request, '未知操作，请刷新后重试。')
+        except Exception as exc:
+            messages.error(request, f'操作失败：{exc}')
+        return redirect('database_management')
+
+    backups = []
+    if backups_dir.exists():
+        for file in sorted(backups_dir.glob('*.sqlite3'), key=lambda f: f.stat().st_mtime, reverse=True):
+            stat = file.stat()
+            backups.append({
+                'name': file.name,
+                'size_bytes': stat.st_size,
+                'size_display': _format_size(stat.st_size),
+                'modified_at': timezone.localtime(datetime.fromtimestamp(stat.st_mtime, tz=dt_timezone.utc)),
+            })
+    for backup in backups:
+        backup['modified_display'] = backup['modified_at'].strftime('%Y-%m-%d %H:%M:%S')
+
+    context = {
+        'engine': engine,
+        'db_stat': _collect_db_stat(db_path) if db_path else None,
+        'backups': backups,
+        'supports_file_ops': bool(db_path),
+    }
+    return render(request, 'database_management.html', context)
 
 
 

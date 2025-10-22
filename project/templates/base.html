@@ -726,6 +726,12 @@
                     <span>系统管理</span>
                 </a>
             </li>
+            <li class="menu-item">
+                <a href="{% url 'database_management' %}" class="menu-link {% if 'database/management' in request.path %}active{% endif %}">
+                    <i class="fas fa-database"></i>
+                    <span>数据库管理</span>
+                </a>
+            </li>
         </ul>
     </aside>
 
