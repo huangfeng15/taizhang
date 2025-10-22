@@ -12,40 +12,10 @@
     </div>
 </div>
 
-<!-- 搜索和过滤 -->
-<div class="card">
-    <form method="get" action="" class="filter-bar">
-        <div class="search-box">
-            <input type="text" name="q" placeholder="搜索付款编号、合同名称..." value="{{ search_query }}">
-            <button type="submit">
-                <i class="fas fa-search"></i>
-            </button>
-        </div>
-        <select name="project" class="filter-select" onchange="this.form.submit()" style="max-width: 200px;">
-            <option value="">所有项目</option>
-            {% for project in projects %}
-                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
-                    {{ project.project_name }}
-                </option>
-            {% endfor %}
-        </select>
-        <button type="button" onclick="showAdvancedFilter()" class="btn btn-secondary">
-            <i class="fas fa-filter"></i>
-            高级筛选
-        </button>
-        <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
-            <i class="fas fa-columns"></i>
-            选择字段
-        </button>
-        {% if search_query or project_filter %}
-            <a href="?" class="filter-reset">
-                <i class="fas fa-times"></i>
-                清除筛选
-            </a>
-        {% endif %}
-    </form>
-</div>
+<!-- 使用新的筛选系统 -->
+{% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filter_groups=advanced_filter_groups search_query=search_query search_placeholder="搜索付款编号、合同名称..." %}
 
+<!-- 付款列表 -->
 <!-- 付款列表 -->
 <div class="card">
     <div class="card-header">
@@ -61,6 +31,10 @@
             <button onclick="showImportDialog()" class="btn btn-secondary">
                 <i class="fas fa-file-import"></i>
                 导入数据
+            </button>
+            <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
+                <i class="fas fa-columns"></i>
+                选择字段
             </button>
             <a href="/admin/payment/payment/add/" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
@@ -164,6 +138,19 @@
 
 {% block extra_js %}
 <script>
+    // 筛选字段标签配置
+    window.filterLabels = {
+        'q': '搜索',
+        'project': '项目',
+        'is_settled': '结算状态',
+        'payment_code': '付款编号',
+        'contract_name': '合同名称',
+        'payment_date_start': '付款日期(起)',
+        'payment_date_end': '付款日期(止)',
+        'payment_amount_min': '付款金额(最小)',
+        'payment_amount_max': '付款金额(最大)'
+    };
+
     // 可用字段配置
     const availableColumns = [
         { key: 'row_number', label: '序号', required: true },
@@ -180,18 +167,6 @@
     // 默认显示的字段
     const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'operations'];
 
-    // 高级筛选字段配置
-    const filterFields = [
-        { name: 'payment_code', label: '付款编号', type: 'text', placeholder: '输入付款编号' },
-        { name: 'contract_name', label: '合同名称', type: 'text', placeholder: '输入合同名称' },
-        { name: 'payment_date', label: '付款日期', type: 'daterange' },
-        { name: 'payment_amount', label: '付款金额', type: 'number' },
-        { name: 'is_settled', label: '是否结算', type: 'select', options: [
-            { value: 'true', label: '已结算' },
-            { value: 'false', label: '未结算' }
-        ]}
-    ];
-
     document.addEventListener('DOMContentLoaded', function() {
         {% if payments %}
         BatchOperations.init('#paymentTable', 'data-id');
@@ -201,20 +176,6 @@
         ColumnSelector.loadColumnSettings();
         {% endif %}
     });
-    
-    // 显示高级筛选
-    function showAdvancedFilter() {
-        const currentFilters = {
-            payment_code: '{{ request.GET.payment_code|default:"" }}',
-            contract_name: '{{ request.GET.contract_name|default:"" }}',
-            payment_date_start: '{{ request.GET.payment_date_start|default:"" }}',
-            payment_date_end: '{{ request.GET.payment_date_end|default:"" }}',
-            payment_amount_min: '{{ request.GET.payment_amount_min|default:"" }}',
-            payment_amount_max: '{{ request.GET.payment_amount_max|default:"" }}',
-            is_settled: '{{ request.GET.is_settled|default:"" }}'
-        };
-        AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
-    }
     
     // 显示字段选择器
     function showColumnSelector() {

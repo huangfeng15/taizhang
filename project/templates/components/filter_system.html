@@ -1,0 +1,564 @@
+{% comment %}
+通用筛选系统组件
+使用方法:
+{% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filters=advanced_filters %}
+{% endcomment %}
+
+<style>
+/* 筛选系统样式 */
+.filter-system {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+
+.quick-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.filter-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    min-height: 32px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #e6f7ff;
+    border: 1px solid #91d5ff;
+    border-radius: 16px;
+    font-size: 13px;
+    color: #0958d9;
+    animation: slideIn 0.2s ease-out;
+}
+
+.filter-tag .tag-label {
+    font-weight: 500;
+}
+
+.filter-tag .tag-value {
+    color: #1890ff;
+}
+
+.filter-tag .remove-tag {
+    background: none;
+    border: none;
+    color: #0958d9;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.filter-tag .remove-tag:hover {
+    color: #ff4d4f;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.filter-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+
+.advanced-filter-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 480px;
+    height: 100vh;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.advanced-filter-drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.drawer-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.drawer-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drawer-body {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.drawer-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.filter-group {
+    margin-bottom: 20px;
+}
+
+.filter-group-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group-title i {
+    color: var(--primary-color);
+}
+
+.filter-count-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .advanced-filter-drawer {
+        width: 100%;
+    }
+}
+</style>
+
+<div class="filter-system">
+    <!-- 筛选标签区域 -->
+    <div class="filter-tags" id="filterTags">
+        <!-- 动态生成的筛选标签 -->
+    </div>
+
+    <!-- 快速筛选栏 -->
+    <form method="get" action="" class="quick-filters" id="quickFilterForm">
+        <div class="search-box">
+            <input type="text"
+                   name="q"
+                   placeholder="{{ search_placeholder|default:'搜索...(空格=或, 逗号=且)' }}"
+                   value="{{ search_query }}"
+                   id="quickSearch">
+            <button type="submit">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+
+        {% for filter in quick_filters %}
+            {% if filter.type == 'select' %}
+                <select name="{{ filter.name }}"
+                        class="filter-select"
+                        onchange="this.form.submit()"
+                        style="max-width: {{ filter.width|default:'200px' }};">
+                    <option value="">{{ filter.placeholder|default:'全部' }}</option>
+                    {% for option in filter.options %}
+                        <option value="{{ option.value }}"
+                                {% if option.value in filter.current_value or filter.current_value == option.value %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+        {% endfor %}
+
+        <div class="filter-actions">
+            <button type="button" 
+                    onclick="AdvancedFilterDrawer.open()" 
+                    class="btn btn-secondary"
+                    id="advancedFilterBtn">
+                <i class="fas fa-sliders-h"></i>
+                高级筛选
+                <span class="filter-count-badge" id="advancedFilterCount" style="display: none;">0</span>
+            </button>
+            
+            <button type="button" 
+                    onclick="QuickFilter.clearAll()" 
+                    class="btn btn-secondary"
+                    id="clearFiltersBtn"
+                    style="display: none;">
+                <i class="fas fa-times"></i>
+                清除全部
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 高级筛选抽屉 -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="AdvancedFilterDrawer.close()"></div>
+<div class="advanced-filter-drawer" id="advancedFilterDrawer">
+    <div class="drawer-header">
+        <h3 style="font-size: 18px; font-weight: 600; margin: 0;">
+            <i class="fas fa-sliders-h"></i>
+            高级筛选
+        </h3>
+        <button onclick="AdvancedFilterDrawer.close()" 
+                style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="drawer-body">
+        <form id="advancedFilterForm">
+            {% for group in advanced_filter_groups %}
+                <div class="filter-group">
+                    <div class="filter-group-title">
+                        <i class="{{ group.icon|default:'fas fa-filter' }}"></i>
+                        {{ group.title }}
+                    </div>
+                    
+                    {% for filter in group.filters %}
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ filter.label }}
+                                {% if filter.type == 'text' %}
+                                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: normal;">
+                                        (空格=或, 逗号=且)
+                                    </span>
+                                {% endif %}
+                            </label>
+                            
+                            {% if filter.type == 'text' %}
+                                <input type="text" 
+                                       name="{{ filter.name }}" 
+                                       class="form-input" 
+                                       placeholder="{{ filter.placeholder|default:'' }}"
+                                       value="{{ filter.current_value|default:'' }}">
+                            
+                            {% elif filter.type == 'select' %}
+                                <select name="{{ filter.name }}" class="form-input">
+                                    <option value="">全部</option>
+                                    {% for option in filter.options %}
+                                        <option value="{{ option.value }}"
+                                                {% if filter.current_value == option.value %}selected{% endif %}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            
+                            {% elif filter.type == 'daterange' %}
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="date" 
+                                           name="{{ filter.name }}_start" 
+                                           class="form-input"
+                                           value="{{ filter.start_value|default:'' }}">
+                                    <span>至</span>
+                                    <input type="date" 
+                                           name="{{ filter.name }}_end" 
+                                           class="form-input"
+                                           value="{{ filter.end_value|default:'' }}">
+                                </div>
+                            
+                            {% elif filter.type == 'number' %}
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="number"
+                                           name="{{ filter.name }}_min"
+                                           class="form-input"
+                                           placeholder="最小值"
+                                           step="{% if 'ratio' in filter.name %}1{% else %}0.01{% endif %}"
+                                           min="{% if 'ratio' in filter.name %}0{% endif %}"
+                                           max="{% if 'ratio' in filter.name %}100{% endif %}"
+                                           value="{{ filter.min_value|default:'' }}">
+                                    <span>至</span>
+                                    <input type="number"
+                                           name="{{ filter.name }}_max"
+                                           class="form-input"
+                                           placeholder="最大值"
+                                           step="{% if 'ratio' in filter.name %}1{% else %}0.01{% endif %}"
+                                           min="{% if 'ratio' in filter.name %}0{% endif %}"
+                                           max="{% if 'ratio' in filter.name %}100{% endif %}"
+                                           value="{{ filter.max_value|default:'' }}">
+                                </div>
+                                {% if filter.help_text %}
+                                    <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
+                                        {{ filter.help_text }}
+                                    </small>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </form>
+    </div>
+    
+    <div class="drawer-footer">
+        <button type="button" 
+                onclick="AdvancedFilterDrawer.reset()" 
+                class="btn btn-secondary">
+            <i class="fas fa-undo"></i>
+            重置
+        </button>
+        <button type="button" 
+                onclick="AdvancedFilterDrawer.apply()" 
+                class="btn btn-primary">
+            <i class="fas fa-check"></i>
+            应用筛选
+        </button>
+    </div>
+</div>
+
+<script>
+// 快速筛选管理
+window.QuickFilter = {
+    searchMode: 'or',
+    
+    init: function() {
+        this.initSearchMode();
+    },
+    
+    initSearchMode: function() {
+        // 根据搜索内容自动判断模式
+        const searchInput = document.getElementById('quickSearch');
+        const form = document.getElementById('quickFilterForm');
+        
+        if (form) {
+            // 在表单提交前更新模式
+            form.addEventListener('submit', (e) => {
+                // 移除旧的隐藏字段（如果存在）
+                const oldModeInput = form.querySelector('input[name="q_mode"]');
+                if (oldModeInput) {
+                    oldModeInput.remove();
+                }
+                
+                // 根据内容自动设置模式（支持中英文逗号）
+                if (searchInput && searchInput.value && searchInput.value.trim()) {
+                    const hasComma = searchInput.value.includes(',') || searchInput.value.includes('，');
+                    this.searchMode = hasComma ? 'and' : 'or';
+                    
+                    // 创建新的隐藏字段
+                    const modeInput = document.createElement('input');
+                    modeInput.type = 'hidden';
+                    modeInput.name = 'q_mode';
+                    modeInput.value = this.searchMode;
+                    form.appendChild(modeInput);
+                }
+                // 没有搜索内容时，不添加q_mode参数
+            });
+        }
+    },
+    
+    clearAll: function() {
+        const url = new URL(window.location.href);
+        const pageSize = url.searchParams.get('page_size');
+        url.search = '';
+        if (pageSize) url.searchParams.set('page_size', pageSize);
+        window.location.href = url.toString();
+    },
+    
+    initTags: function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tagsContainer = document.getElementById('filterTags');
+        const tags = [];
+        const filterLabels = window.filterLabels || {};
+        const paramGroups = {};
+        
+        for (const [key, value] of urlParams.entries()) {
+            if (key === 'page' || key === 'page_size' || key === 'q_mode' || !value) continue;
+            if (!paramGroups[key]) paramGroups[key] = [];
+            paramGroups[key].push(value);
+        }
+        
+        for (const [key, values] of Object.entries(paramGroups)) {
+            const label = filterLabels[key] || key;
+            const displayValue = values.length > 1 ? values.join(', ') : this.formatValue(key, values[0]);
+            tags.push({ key, label, value: displayValue });
+        }
+        
+        if (tags.length > 0) {
+            tagsContainer.innerHTML = tags.map(tag => `
+                <div class="filter-tag">
+                    <span class="tag-label">${tag.label}:</span>
+                    <span class="tag-value">${tag.value}</span>
+                    <button class="remove-tag" onclick="QuickFilter.removeTag('${tag.key}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+            document.getElementById('clearFiltersBtn').style.display = 'inline-flex';
+        }
+        
+        this.updateAdvancedCount();
+    },
+    
+    formatValue: function(key, value) {
+        if (key.endsWith('_start') || key.endsWith('_end')) return value;
+        if (key.endsWith('_min')) return `≥${value}`;
+        if (key.endsWith('_max')) return `≤${value}`;
+        return value;
+    },
+    
+    removeTag: function(key) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete(key);
+        if (!key.endsWith('_start') && !key.endsWith('_end') && !key.endsWith('_min') && !key.endsWith('_max')) {
+            url.searchParams.delete(key + '_start');
+            url.searchParams.delete(key + '_end');
+            url.searchParams.delete(key + '_min');
+            url.searchParams.delete(key + '_max');
+        }
+        window.location.href = url.toString();
+    },
+    
+    updateAdvancedCount: function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        // 动态获取快速筛选字段名（从表单中的select元素）
+        const quickForm = document.getElementById('quickFilterForm');
+        const quickFilterNames = ['q', 'q_mode', 'page', 'page_size'];
+        if (quickForm) {
+            const selects = quickForm.querySelectorAll('select');
+            selects.forEach(select => {
+                if (select.name) quickFilterNames.push(select.name);
+            });
+        }
+        
+        let count = 0;
+        for (const [key] of urlParams.entries()) {
+            if (!quickFilterNames.includes(key)) count++;
+        }
+        const badge = document.getElementById('advancedFilterCount');
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+};
+
+window.AdvancedFilterDrawer = {
+    open: function() {
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('advancedFilterDrawer').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    },
+    
+    close: function() {
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.getElementById('advancedFilterDrawer').classList.remove('open');
+        document.body.style.overflow = '';
+    },
+    
+    apply: function() {
+        const form = document.getElementById('advancedFilterForm');
+        const url = new URL(window.location.href);
+        
+        const quickParams = ['q', 'q_mode', 'page_size'];
+        const preserved = {};
+        quickParams.forEach(param => {
+            const value = url.searchParams.get(param);
+            if (value) preserved[param] = value;
+        });
+        
+        const quickForm = document.getElementById('quickFilterForm');
+        const quickSelects = quickForm.querySelectorAll('select');
+        quickSelects.forEach(select => {
+            const value = select.value;
+            if (value) preserved[select.name] = value;
+        });
+        
+        url.search = '';
+        url.searchParams.set('page', '1');
+        
+        Object.keys(preserved).forEach(key => {
+            url.searchParams.set(key, preserved[key]);
+        });
+        
+        const inputs = form.querySelectorAll('input[type="text"], input[type="date"], input[type="number"], select');
+        inputs.forEach(input => {
+            if (input.value && input.value.trim()) {
+                url.searchParams.set(input.name, input.value);
+            }
+        });
+        
+        this.close();
+        window.location.href = url.toString();
+    },
+    
+    reset: function() {
+        const form = document.getElementById('advancedFilterForm');
+        if (form) form.reset();
+        
+        const url = new URL(window.location.href);
+        const quickParams = ['q', 'q_mode', 'page_size'];
+        const preserved = {};
+        
+        quickParams.forEach(param => {
+            const value = url.searchParams.get(param);
+            if (value) preserved[param] = value;
+        });
+        
+        const quickForm = document.getElementById('quickFilterForm');
+        const quickSelects = quickForm.querySelectorAll('select');
+        quickSelects.forEach(select => {
+            const value = select.value;
+            if (value) preserved[select.name] = value;
+        });
+        
+        url.search = '';
+        Object.keys(preserved).forEach(key => {
+            url.searchParams.set(key, preserved[key]);
+        });
+        
+        this.close();
+        window.location.href = url.toString();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    QuickFilter.init();
+    QuickFilter.initTags();
+});
+</script>

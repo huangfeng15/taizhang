@@ -736,15 +736,15 @@
                 </a>
             </li>
             <li class="menu-item">
-                <a href="/admin/" class="menu-link" target="_blank">
-                    <i class="fas fa-cog"></i>
-                    <span>系统管理</span>
-                </a>
-            </li>
-            <li class="menu-item">
                 <a href="{% url 'database_management' %}" class="menu-link {% if 'database/management' in request.path %}active{% endif %}">
                     <i class="fas fa-database"></i>
                     <span>数据库管理</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/admin/" class="menu-link" target="_blank">
+                    <i class="fas fa-cog"></i>
+                    <span>系统管理</span>
                 </a>
             </li>
         </ul>
@@ -958,7 +958,26 @@
                     },
                     body: JSON.stringify({ ids: ids })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    // 检查响应状态
+                    if (response.status === 403) {
+                        throw new Error('权限不足，请先登录管理员账户');
+                    }
+                    if (response.status === 401) {
+                        throw new Error('未登录，请先登录');
+                    }
+                    if (!response.ok) {
+                        throw new Error(`请求失败 (${response.status})`);
+                    }
+                    
+                    // 检查响应内容类型
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error('服务器返回了非JSON响应，可能需要登录');
+                    }
+                    
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         alert(data.message);

@@ -88,6 +88,120 @@
         color: var(--text-secondary);
         padding: 24px 0;
     }
+
+    /* 模态框样式 */
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .close {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--text-secondary);
+        cursor: pointer;
+        line-height: 1;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .close:hover {
+        color: var(--text-primary);
+        background: #f5f5f5;
+    }
+
+    .modal-body {
+        padding: 24px;
+    }
+
+    .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .form-text {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
 </style>
 {% endblock %}
 
@@ -168,13 +282,9 @@
     </div>
     <div>
         <div class="action-group">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="backup">
-                <button type="submit" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %}>
-                    <i class="fas fa-database"></i> 手动备份
-                </button>
-            </form>
+            <button type="button" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="showBackupModal()">
+                <i class="fas fa-database"></i> 手动备份
+            </button>
 
             <form method="post" onsubmit="return confirm('确定要清除所有数据并重新初始化数据库吗？此操作不可撤销！');">
                 {% csrf_token %}
@@ -218,6 +328,7 @@
                     <th>文件名</th>
                     <th>大小</th>
                     <th>创建时间</th>
+                    <th style="width: 120px; text-align: center;">操作</th>
                 </tr>
             </thead>
             <tbody>
@@ -227,15 +338,185 @@
                             <td>{{ backup.name }}</td>
                             <td>{{ backup.size_display }}</td>
                             <td>{{ backup.modified_display }}</td>
+                            <td style="text-align: center;">
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="renameBackup('{{ backup.name }}')"
+                                        title="重命名此备份"
+                                        style="margin-right: 4px;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                        onclick="deleteBackup('{{ backup.name }}')"
+                                        title="删除此备份">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
                         </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="3" class="empty-row">暂无备份记录</td>
+                        <td colspan="4" class="empty-row">暂无备份记录</td>
                     </tr>
                 {% endif %}
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- 备份模态框 -->
+<div id="backupModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>创建数据库备份</h3>
+            <span class="close" onclick="hideBackupModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="backupForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="backup">
+                
+                <div class="form-group">
+                    <label for="backupName">备份名称 *</label>
+                    <input type="text" id="backupName" name="backup_name" class="form-control"
+                           placeholder="请输入备份名称（如：月度备份、项目备份等）" required>
+                    <small class="form-text text-muted">建议使用有意义的名称，便于识别和管理</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="backupDescription">备份描述</label>
+                    <textarea id="backupDescription" name="backup_description" class="form-control"
+                              rows="3" placeholder="请输入备份描述（可选）"></textarea>
+                    <small class="form-text text-muted">描述备份的目的、包含的数据范围等信息</small>
+                </div>
+                
+                <div class="form-group">
+                    <small class="form-text text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        备份文件将保存为：{备份名称}.sqlite3
+                    </small>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="hideBackupModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-database"></i> 创建备份
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showBackupModal() {
+    document.getElementById('backupModal').style.display = 'block';
+    document.getElementById('backupName').focus();
+}
+
+function hideBackupModal() {
+    document.getElementById('backupModal').style.display = 'none';
+    document.getElementById('backupForm').reset();
+}
+
+// 重命名备份文件
+async function renameBackup(oldName) {
+    const newName = prompt(`请输入新的备份名称（当前名称：${oldName}）`, oldName.replace('.sqlite3', ''));
+    
+    if (!newName || newName.trim() === '') {
+        return;
+    }
+    
+    // 验证文件名
+    const invalidChars = /[<>:"/\\|?*]/;
+    if (invalidChars.test(newName)) {
+        alert('文件名包含无效字符，请避免使用 < > : " / \\ | ? *');
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "database_management" %}', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                old_name: oldName,
+                new_name: newName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('重命名失败：' + data.message);
+        }
+    } catch (error) {
+        alert('重命名失败：' + error.message);
+    }
+}
+
+// 删除备份文件
+async function deleteBackup(fileName) {
+    if (!confirm(`确定要删除备份文件 "${fileName}" 吗？此操作不可撤销！`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "database_management" %}', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ file_name: fileName })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('删除失败：' + data.message);
+        }
+    } catch (error) {
+        alert('删除失败：' + error.message);
+    }
+}
+
+// 点击模态框外部关闭
+window.onclick = function(event) {
+    const modal = document.getElementById('backupModal');
+    if (event.target === modal) {
+        hideBackupModal();
+    }
+}
+
+// 表单提交验证
+document.getElementById('backupForm').addEventListener('submit', function(e) {
+    const backupName = document.getElementById('backupName').value.trim();
+    if (!backupName) {
+        e.preventDefault();
+        alert('请输入备份名称');
+        return false;
+    }
+    
+    // 简单的文件名验证
+    const invalidChars = /[<>:"/\\|?*]/;
+    if (invalidChars.test(backupName)) {
+        e.preventDefault();
+        alert('备份名称包含无效字符，请避免使用 < > : " / \\ | ? *');
+        return false;
+    }
+    
+    return true;
+});
+</script>
 {% endblock %}

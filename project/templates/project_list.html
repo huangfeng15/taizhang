@@ -16,7 +16,7 @@
 <div class="card">
     <form method="get" action="" class="filter-bar">
         <div class="search-box">
-            <input type="text" name="q" placeholder="搜索项目编码、名称或负责人..." value="{{ search_query }}">
+            <input type="text" name="q" placeholder="搜索项目编码、名称或负责人...(空格=或, 逗号=且)" value="{{ search_query }}">
             <button type="submit">
                 <i class="fas fa-search"></i>
             </button>
@@ -140,6 +140,32 @@
 
 {% block extra_js %}
 <script>
+    // 初始化搜索模式 - 支持中英文逗号
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('.filter-bar');
+        const searchInput = form.querySelector('input[name="q"]');
+        
+        if (form && searchInput) {
+            form.addEventListener('submit', function() {
+                // 根据内容自动设置模式（支持中英文逗号）
+                if (searchInput.value) {
+                    const hasComma = searchInput.value.includes(',') || searchInput.value.includes('，');
+                    const searchMode = hasComma ? 'and' : 'or';
+                    
+                    // 添加或更新隐藏的模式字段
+                    let modeInput = form.querySelector('input[name="q_mode"]');
+                    if (!modeInput) {
+                        modeInput = document.createElement('input');
+                        modeInput.type = 'hidden';
+                        modeInput.name = 'q_mode';
+                        form.appendChild(modeInput);
+                    }
+                    modeInput.value = searchMode;
+                }
+            });
+        }
+    });
+
     // 可用字段配置
     const availableColumns = [
         { key: 'row_number', label: '序号', required: true },

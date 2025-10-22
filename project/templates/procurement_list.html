@@ -12,40 +12,10 @@
     </div>
 </div>
 
-<!-- 搜索和过滤 -->
-<div class="card">
-    <form method="get" action="" class="filter-bar">
-        <div class="search-box">
-            <input type="text" name="q" placeholder="搜索招采编号、采购名称、中标人..." value="{{ search_query }}">
-            <button type="submit">
-                <i class="fas fa-search"></i>
-            </button>
-        </div>
-        <select name="project" class="filter-select" onchange="this.form.submit()" style="max-width: 200px;">
-            <option value="">所有项目</option>
-            {% for project in projects %}
-                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
-                    {{ project.project_name }}
-                </option>
-            {% endfor %}
-        </select>
-        <button type="button" onclick="showAdvancedFilter()" class="btn btn-secondary">
-            <i class="fas fa-filter"></i>
-            高级筛选
-        </button>
-        <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
-            <i class="fas fa-columns"></i>
-            选择字段
-        </button>
-        {% if search_query or project_filter %}
-            <a href="?" class="filter-reset">
-                <i class="fas fa-times"></i>
-                清除筛选
-            </a>
-        {% endif %}
-    </form>
-</div>
+<!-- 使用新的筛选系统 -->
+{% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filter_groups=advanced_filter_groups search_query=search_query search_placeholder="搜索招采编号、采购名称、中标人..." %}
 
+<!-- 采购列表 -->
 <!-- 采购列表 -->
 <div class="card">
     <div class="card-header">
@@ -61,6 +31,10 @@
             <button onclick="showImportDialog()" class="btn btn-secondary">
                 <i class="fas fa-file-import"></i>
                 导入数据
+            </button>
+            <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
+                <i class="fas fa-columns"></i>
+                选择字段
             </button>
             <a href="/admin/procurement/procurement/add/" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
@@ -152,6 +126,22 @@
 
 {% block extra_js %}
 <script>
+    // 筛选字段标签配置
+    window.filterLabels = {
+        'q': '搜索',
+        'project': '项目',
+        'procurement_code': '招采编号',
+        'project_name': '采购名称',
+        'procurement_unit': '采购单位',
+        'winning_bidder': '中标人',
+        'bid_opening_date_start': '开标日期(起)',
+        'bid_opening_date_end': '开标日期(止)',
+        'budget_amount_min': '预算金额(最小)',
+        'budget_amount_max': '预算金额(最大)',
+        'winning_amount_min': '中标价(最小)',
+        'winning_amount_max': '中标价(最大)'
+    };
+
     // 可用字段配置
     const availableColumns = [
         { key: 'row_number', label: '序号', required: true },
@@ -169,17 +159,6 @@
     // 默认显示的字段
     const defaultColumns = ['row_number', 'procurement_code', 'project_name', 'project', 'procurement_unit', 'winning_bidder', 'budget_amount', 'winning_amount', 'bid_opening_date', 'operations'];
 
-    // 高级筛选字段配置
-    const filterFields = [
-        { name: 'procurement_code', label: '招采编号', type: 'text', placeholder: '输入招采编号' },
-        { name: 'project_name', label: '采购名称', type: 'text', placeholder: '输入采购名称' },
-        { name: 'procurement_unit', label: '采购单位', type: 'text', placeholder: '输入采购单位' },
-        { name: 'winning_bidder', label: '中标人', type: 'text', placeholder: '输入中标人名称' },
-        { name: 'bid_opening_date', label: '开标日期', type: 'daterange' },
-        { name: 'budget_amount', label: '预算金额', type: 'number' },
-        { name: 'winning_amount', label: '中标价', type: 'number' }
-    ];
-
     document.addEventListener('DOMContentLoaded', function() {
         {% if procurements %}
         BatchOperations.init('#procurementTable', 'data-id');
@@ -189,23 +168,6 @@
         ColumnSelector.loadColumnSettings();
         {% endif %}
     });
-    
-    // 显示高级筛选
-    function showAdvancedFilter() {
-        const currentFilters = {
-            procurement_code: '{{ request.GET.procurement_code|default:"" }}',
-            project_name: '{{ request.GET.project_name|default:"" }}',
-            procurement_unit: '{{ request.GET.procurement_unit|default:"" }}',
-            winning_bidder: '{{ request.GET.winning_bidder|default:"" }}',
-            bid_opening_date_start: '{{ request.GET.bid_opening_date_start|default:"" }}',
-            bid_opening_date_end: '{{ request.GET.bid_opening_date_end|default:"" }}',
-            budget_amount_min: '{{ request.GET.budget_amount_min|default:"" }}',
-            budget_amount_max: '{{ request.GET.budget_amount_max|default:"" }}',
-            winning_amount_min: '{{ request.GET.winning_amount_min|default:"" }}',
-            winning_amount_max: '{{ request.GET.winning_amount_max|default:"" }}'
-        };
-        AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
-    }
     
     // 显示字段选择器
     function showColumnSelector() {

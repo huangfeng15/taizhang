@@ -13,45 +13,8 @@
     </div>
 </div>
 
-<!-- 搜索和过滤 -->
-<div class="card">
-    <form method="get" action="" class="filter-bar">
-        <div class="search-box">
-            <input type="text" name="q" placeholder="搜索合同编号、名称、乙方..." value="{{ search_query }}">
-            <button type="submit">
-                <i class="fas fa-search"></i>
-            </button>
-        </div>
-        <select name="project" class="filter-select" onchange="this.form.submit()" style="max-width: 200px;">
-            <option value="">所有项目</option>
-            {% for project in projects %}
-                <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
-                    {{ project.project_name }}
-                </option>
-            {% endfor %}
-        </select>
-        <select name="contract_type" class="filter-select" onchange="this.form.submit()" style="max-width: 150px;">
-            <option value="">所有类型</option>
-            {% for value, label in contract_types %}
-                <option value="{{ value }}" {% if contract_type_filter == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        <button type="button" onclick="showAdvancedFilter()" class="btn btn-secondary">
-            <i class="fas fa-filter"></i>
-            高级筛选
-        </button>
-        <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
-            <i class="fas fa-columns"></i>
-            选择字段
-        </button>
-        {% if search_query or project_filter or contract_type_filter %}
-            <a href="?" class="filter-reset">
-                <i class="fas fa-times"></i>
-                清除筛选
-            </a>
-        {% endif %}
-    </form>
-</div>
+<!-- 使用新的筛选系统 -->
+{% include 'components/filter_system.html' with search_placeholder="搜索合同序号、名称、乙方..." %}
 
 <!-- 合同列表 -->
 <div class="card">
@@ -68,6 +31,10 @@
             <button onclick="showImportDialog()" class="btn btn-secondary">
                 <i class="fas fa-file-import"></i>
                 导入数据
+            </button>
+            <button type="button" onclick="showColumnSelector()" class="btn btn-secondary">
+                <i class="fas fa-columns"></i>
+                选择字段
             </button>
             <a href="/admin/contract/contract/add/" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
@@ -244,6 +211,29 @@
 
 {% block extra_js %}
 <script>
+    // 筛选字段标签配置
+    window.filterLabels = {
+        'q': '搜索',
+        'project': '项目',
+        'contract_type': '合同类型',
+        'contract_source': '合同来源',
+        'contract_code': '合同编号',
+        'contract_sequence': '合同序号',
+        'contract_name': '合同名称',
+        'party_a': '甲方',
+        'party_b': '乙方',
+        'party_b_contact': '乙方联系人',
+        'contract_officer': '经办人',
+        'has_settlement': '结算状态',
+        'payment_ratio_range': '付款比例',
+        'signing_date_start': '签订日期(起)',
+        'signing_date_end': '签订日期(止)',
+        'contract_amount_min': '合同金额(最小)',
+        'contract_amount_max': '合同金额(最大)',
+        'performance_guarantee_return_date_start': '履约担保退回(起)',
+        'performance_guarantee_return_date_end': '履约担保退回(止)'
+    };
+
     // 可用字段配置
     const availableColumns = [
         { key: 'row_number', label: '序号', required: true },
@@ -270,41 +260,8 @@
         { key: 'operations', label: '操作', required: true }
     ];
 
-    // 默认显示的字段（包含新增的付款相关字段）
+    // 默认显示的字段
     const defaultColumns = ['row_number', 'contract_sequence', 'contract_name', 'project', 'contract_type', 'contract_source', 'party_b', 'contract_amount', 'total_paid_amount', 'has_settlement', 'settlement_amount', 'payment_ratio', 'signing_date', 'operations'];
-
-    // 高级筛选字段配置
-    const filterFields = [
-        { name: 'contract_code', label: '合同编号', type: 'text', placeholder: '输入合同编号' },
-        { name: 'contract_sequence', label: '合同序号', type: 'text', placeholder: '输入合同序号' },
-        { name: 'contract_name', label: '合同名称', type: 'text', placeholder: '输入合同名称' },
-        { name: 'party_a', label: '甲方', type: 'text', placeholder: '输入甲方名称' },
-        { name: 'party_b', label: '乙方', type: 'text', placeholder: '输入乙方名称' },
-        { name: 'party_b_contact', label: '乙方负责人及联系方式', type: 'text', placeholder: '输入乙方负责人或联系方式' },
-        { name: 'contract_officer', label: '合同签订经办人', type: 'text', placeholder: '输入经办人姓名' },
-        { name: 'contract_type', label: '合同类型', type: 'select', options: [
-            {% for value, label in contract_types %}
-            { value: '{{ value }}', label: '{{ label }}' }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ]},
-        { name: 'contract_source', label: '合同来源', type: 'select', options: [
-            { value: '采购合同', label: '采购合同' },
-            { value: '直接签订', label: '直接签订' }
-        ]},
-        { name: 'has_settlement', label: '是否已结算', type: 'select', options: [
-            { value: 'true', label: '已结算' },
-            { value: 'false', label: '未结算' }
-        ]},
-        { name: 'payment_ratio_range', label: '付款比例', type: 'select', options: [
-            { value: '0-50', label: '0%-50%' },
-            { value: '50-80', label: '50%-80%' },
-            { value: '80-100', label: '80%-100%' },
-            { value: '100-', label: '100%以上' }
-        ]},
-        { name: 'signing_date', label: '签订日期', type: 'daterange' },
-        { name: 'performance_guarantee_return_date', label: '履约担保退回时间', type: 'daterange' },
-        { name: 'contract_amount', label: '合同金额', type: 'number' }
-    ];
 
     // 初始化批量操作
     document.addEventListener('DOMContentLoaded', function() {
@@ -316,30 +273,6 @@
         ColumnSelector.loadColumnSettings();
         {% endif %}
     });
-    
-    // 显示高级筛选
-    function showAdvancedFilter() {
-        const currentFilters = {
-            contract_code: '{{ request.GET.contract_code|default:"" }}',
-            contract_sequence: '{{ request.GET.contract_sequence|default:"" }}',
-            contract_name: '{{ request.GET.contract_name|default:"" }}',
-            party_a: '{{ request.GET.party_a|default:"" }}',
-            party_b: '{{ request.GET.party_b|default:"" }}',
-            party_b_contact: '{{ request.GET.party_b_contact|default:"" }}',
-            contract_officer: '{{ request.GET.contract_officer|default:"" }}',
-            contract_type: '{{ request.GET.contract_type|default:"" }}',
-            contract_source: '{{ request.GET.contract_source|default:"" }}',
-            has_settlement: '{{ request.GET.has_settlement|default:"" }}',
-            payment_ratio_range: '{{ request.GET.payment_ratio_range|default:"" }}',
-            signing_date_start: '{{ request.GET.signing_date_start|default:"" }}',
-            signing_date_end: '{{ request.GET.signing_date_end|default:"" }}',
-            performance_guarantee_return_date_start: '{{ request.GET.performance_guarantee_return_date_start|default:"" }}',
-            performance_guarantee_return_date_end: '{{ request.GET.performance_guarantee_return_date_end|default:"" }}',
-            contract_amount_min: '{{ request.GET.contract_amount_min|default:"" }}',
-            contract_amount_max: '{{ request.GET.contract_amount_max|default:"" }}'
-        };
-        AdvancedFilter.showAdvancedFilter(filterFields, currentFilters);
-    }
     
     // 显示字段选择器
     function showColumnSelector() {

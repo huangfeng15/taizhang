@@ -57,9 +57,9 @@ def dashboard(request):
         )['total'] or 0
         
         # 添加计算后的属性
-        project.procurement_count = procurement_count
-        project.contract_count = contract_count
-        project.contract_total = contract_total
+        setattr(project, 'procurement_count', procurement_count)
+        setattr(project, 'contract_count', contract_count)
+        setattr(project, 'contract_total', contract_total)
         projects.append(project)
     
     # 最近采购(前10个)
@@ -77,6 +77,9 @@ def project_list(request):
     """项目列表页面"""
     # 获取过滤参数
     search_query = request.GET.get('q', '')
+    # 自动检测搜索模式：如果包含逗号则为and，否则为or
+    has_comma = ',' in search_query or '，' in search_query
+    search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
     status_filter = request.GET.get('status', '')
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
@@ -91,13 +94,29 @@ def project_list(request):
     # 基础查询
     projects = Project.objects.all()
     
-    # 搜索过滤
+    # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
-        projects = projects.filter(
-            Q(project_code__icontains=search_query) |
-            Q(project_name__icontains=search_query) |
-            Q(project_manager__icontains=search_query)
-        )
+        if search_mode == 'and':
+            # 逗号分隔 = 且条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                projects = projects.filter(
+                    Q(project_code__icontains=keyword) |
+                    Q(project_name__icontains=keyword) |
+                    Q(project_manager__icontains=keyword)
+                )
+        else:
+            # 空格或逗号分隔 = 或条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= (
+                    Q(project_code__icontains=keyword) |
+                    Q(project_name__icontains=keyword) |
+                    Q(project_manager__icontains=keyword)
+                )
+            if q_objects:
+                projects = projects.filter(q_objects)
     
     # 状态过滤
     if status_filter:
@@ -134,13 +153,14 @@ def project_list(request):
         )['total'] or 0
         
         # 添加计算后的属性
-        project.procurement_count = procurement_count
-        project.contract_count = contract_count
-        project.contract_total = contract_total
+        setattr(project, 'procurement_count', procurement_count)
+        setattr(project, 'contract_count', contract_count)
+        setattr(project, 'contract_total', contract_total)
         projects_with_stats.append(project)
     
     # 更新page_obj的object_list
-    page_obj.object_list = projects_with_stats
+    # 类型忽略：动态添加的属性
+    page_obj.object_list = projects_with_stats  # type: ignore
     
     context = {
         'projects': page_obj,
@@ -217,8 +237,13 @@ def project_detail(request, project_code):
 
 def contract_list(request):
     """合同列表页面"""
+    from .filter_config import get_contract_filter_config
+    
     # 获取过滤参数
     search_query = request.GET.get('q', '')
+    # 自动检测搜索模式：如果包含逗号则为and，否则为or
+    has_comma = ',' in search_query or '，' in search_query
+    search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
     project_filter = request.GET.get('project', '')
     contract_type_filter = request.GET.get('contract_type', '')
     page = request.GET.get('page', 1)
@@ -234,7 +259,8 @@ def contract_list(request):
     contract_officer_filter = request.GET.get('contract_officer', '')
     contract_source_filter = request.GET.get('contract_source', '')
     has_settlement_filter = request.GET.get('has_settlement', '')
-    payment_ratio_range = request.GET.get('payment_ratio_range', '')
+    payment_ratio_min = request.GET.get('payment_ratio_min', '')
+    payment_ratio_max = request.GET.get('payment_ratio_max', '')
     signing_date_start = request.GET.get('signing_date_start', '')
     signing_date_end = request.GET.get('signing_date_end', '')
     performance_guarantee_return_date_start = request.GET.get('performance_guarantee_return_date_start', '')
@@ -245,13 +271,29 @@ def contract_list(request):
     # 基础查询
     contracts = Contract.objects.select_related('project')
     
-    # 搜索过滤
+    # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
-        contracts = contracts.filter(
-            Q(contract_code__icontains=search_query) |
-            Q(contract_name__icontains=search_query) |
-            Q(party_b__icontains=search_query)
-        )
+        if search_mode == 'and':
+            # 逗号分隔 = 且条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                contracts = contracts.filter(
+                    Q(contract_sequence__icontains=keyword) |
+                    Q(contract_name__icontains=keyword) |
+                    Q(party_b__icontains=keyword)
+                )
+        else:
+            # 空格或逗号分隔 = 或条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= (
+                    Q(contract_sequence__icontains=keyword) |
+                    Q(contract_name__icontains=keyword) |
+                    Q(party_b__icontains=keyword)
+                )
+            if q_objects:
+                contracts = contracts.filter(q_objects)
     
     # 项目过滤
     if project_filter:
@@ -261,21 +303,36 @@ def contract_list(request):
     if contract_type_filter:
         contracts = contracts.filter(contract_type=contract_type_filter)
     
-    # 高级筛选
-    if contract_code_filter:
-        contracts = contracts.filter(contract_code__icontains=contract_code_filter)
-    if contract_sequence_filter:
-        contracts = contracts.filter(contract_sequence__icontains=contract_sequence_filter)
-    if contract_name_filter:
-        contracts = contracts.filter(contract_name__icontains=contract_name_filter)
-    if party_a_filter:
-        contracts = contracts.filter(party_a__icontains=party_a_filter)
-    if party_b_filter:
-        contracts = contracts.filter(party_b__icontains=party_b_filter)
-    if party_b_contact_filter:
-        contracts = contracts.filter(party_b_contact__icontains=party_b_contact_filter)
-    if contract_officer_filter:
-        contracts = contracts.filter(contract_officer__icontains=contract_officer_filter)
+    # 高级筛选 - 文本字段支持逗号且、空格或
+    def apply_text_filter(queryset, field_name, filter_value):
+        """应用文本筛选,支持中英文逗号且、空格或"""
+        if not filter_value:
+            return queryset
+        
+        # 检测逗号(且条件) - 支持中英文逗号
+        if ',' in filter_value or '，' in filter_value:
+            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
+        else:
+            # 空格(或条件)
+            keywords = [k.strip() for k in filter_value.split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= Q(**{f'{field_name}__icontains': keyword})
+            if q_objects:
+                queryset = queryset.filter(q_objects)
+        return queryset
+    
+    contracts = apply_text_filter(contracts, 'contract_code', contract_code_filter)
+    contracts = apply_text_filter(contracts, 'contract_sequence', contract_sequence_filter)
+    contracts = apply_text_filter(contracts, 'contract_name', contract_name_filter)
+    contracts = apply_text_filter(contracts, 'party_a', party_a_filter)
+    contracts = apply_text_filter(contracts, 'party_b', party_b_filter)
+    contracts = apply_text_filter(contracts, 'party_b_contact', party_b_contact_filter)
+    contracts = apply_text_filter(contracts, 'contract_officer', contract_officer_filter)
+    
+    # 合同来源过滤
     if contract_source_filter:
         contracts = contracts.filter(contract_source=contract_source_filter)
     if signing_date_start:
@@ -328,8 +385,8 @@ def contract_list(request):
         # 创建一个字典来存储所有需要的数据
         contract_info = {
             'contract': contract,
-            'total_paid_amount': contract.total_paid_amount or 0,
-            'payment_count': contract.payment_count or 0,
+            'total_paid_amount': getattr(contract, 'total_paid_amount', 0) or 0,
+            'payment_count': getattr(contract, 'payment_count', 0) or 0,
             'has_settlement': False,
             'settlement_amount': None,
             'payment_ratio': 0
@@ -388,18 +445,18 @@ def contract_list(request):
         contract_data = filtered_contract_data
     
     # 付款比例筛选（在计算完成后进行）
-    if payment_ratio_range:
+    if payment_ratio_min or payment_ratio_max:
         filtered_contract_data = []
         for contract_info in contract_data:
             payment_ratio = contract_info['payment_ratio']
-            # 解析范围 (例如: "0-50", "50-80", "80-100", "100-")
-            if '-' in payment_ratio_range:
-                parts = payment_ratio_range.split('-')
-                min_ratio = float(parts[0]) if parts[0] else 0
-                max_ratio = float(parts[1]) if parts[1] else float('inf')
-                
-                if min_ratio <= payment_ratio <= max_ratio:
-                    filtered_contract_data.append(contract_info)
+            
+            # 设置筛选范围
+            min_ratio = float(payment_ratio_min) if payment_ratio_min else 0
+            max_ratio = float(payment_ratio_max) if payment_ratio_max else float('inf')
+            
+            # 检查是否在范围内
+            if min_ratio <= payment_ratio <= max_ratio:
+                filtered_contract_data.append(contract_info)
         contract_data = filtered_contract_data
     
     # 分页处理 - 对contract_data进行分页
@@ -409,6 +466,9 @@ def contract_list(request):
     # 获取所有项目用于过滤
     projects = Project.objects.all()
     
+    # 获取筛选配置
+    filter_config = get_contract_filter_config(request)
+    
     context = {
         'contracts': page_obj,
         'page_obj': page_obj,
@@ -417,6 +477,7 @@ def contract_list(request):
         'project_filter': project_filter,
         'contract_type_filter': contract_type_filter,
         'contract_types': Contract._meta.get_field('contract_type').choices,
+        **filter_config,  # 添加筛选配置
     }
     return render(request, 'contract_list.html', context)
 
@@ -487,17 +548,17 @@ def contract_detail(request, contract_code):
     settlement = None
     if contract.contract_type == '主合同':
         try:
-            settlement = contract.settlement
+            settlement = getattr(contract, 'settlement', None)
         except:
             settlement = None
     
     # 获取补充协议（如果是主合同）
     supplements = []
     if contract.contract_type == '主合同':
-        supplements = contract.supplements.all().order_by('signing_date')
+        supplements = getattr(contract, 'supplements', Contract.objects.none()).all().order_by('signing_date')
     
     # 获取履约评价
-    evaluations = contract.evaluations.all() if hasattr(contract, 'evaluations') else []
+    evaluations = getattr(contract, 'evaluations', Contract.objects.none()).all() if hasattr(contract, 'evaluations') else []
     
     context = {
         'contract': contract,
@@ -514,9 +575,14 @@ def contract_detail(request, contract_code):
 
 def procurement_list(request):
     """采购列表页面"""
+    from .filter_config import get_procurement_filter_config
+    
     # 获取过滤参数
     search_query = request.GET.get('q', '')
-    project_filter = request.GET.get('project', '')
+    # 自动检测搜索模式：如果包含逗号则为and，否则为or
+    has_comma = ',' in search_query or '，' in search_query
+    search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
+    project_filter = request.GET.getlist('project')  # 改为多选
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
     
@@ -535,27 +601,61 @@ def procurement_list(request):
     # 基础查询
     procurements = Procurement.objects.select_related('project')
     
-    # 搜索过滤
+    # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
-        procurements = procurements.filter(
-            Q(procurement_code__icontains=search_query) |
-            Q(project_name__icontains=search_query) |
-            Q(winning_bidder__icontains=search_query)
-        )
+        if search_mode == 'and':
+            # 逗号分隔 = 且条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                procurements = procurements.filter(
+                    Q(procurement_code__icontains=keyword) |
+                    Q(project_name__icontains=keyword) |
+                    Q(winning_bidder__icontains=keyword)
+                )
+        else:
+            # 空格或逗号分隔 = 或条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= (
+                    Q(procurement_code__icontains=keyword) |
+                    Q(project_name__icontains=keyword) |
+                    Q(winning_bidder__icontains=keyword)
+                )
+            if q_objects:
+                procurements = procurements.filter(q_objects)
     
-    # 项目过滤
+    # 项目过滤 - 支持多选（过滤掉空字符串）
+    project_filter = [p for p in project_filter if p]
     if project_filter:
-        procurements = procurements.filter(project__project_code=project_filter)
+        procurements = procurements.filter(project__project_code__in=project_filter)
     
-    # 高级筛选
-    if procurement_code_filter:
-        procurements = procurements.filter(procurement_code__icontains=procurement_code_filter)
-    if project_name_filter:
-        procurements = procurements.filter(project_name__icontains=project_name_filter)
-    if procurement_unit_filter:
-        procurements = procurements.filter(procurement_unit__icontains=procurement_unit_filter)
-    if winning_bidder_filter:
-        procurements = procurements.filter(winning_bidder__icontains=winning_bidder_filter)
+    # 高级筛选 - 文本字段支持逗号且、空格或
+    def apply_text_filter(queryset, field_name, filter_value):
+        """应用文本筛选,支持中英文逗号且、空格或"""
+        if not filter_value:
+            return queryset
+        
+        # 检测逗号(且条件) - 支持中英文逗号
+        if ',' in filter_value or '，' in filter_value:
+            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
+        else:
+            # 空格(或条件)
+            keywords = [k.strip() for k in filter_value.split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= Q(**{f'{field_name}__icontains': keyword})
+            if q_objects:
+                queryset = queryset.filter(q_objects)
+        return queryset
+    
+    procurements = apply_text_filter(procurements, 'procurement_code', procurement_code_filter)
+    procurements = apply_text_filter(procurements, 'project_name', project_name_filter)
+    procurements = apply_text_filter(procurements, 'procurement_unit', procurement_unit_filter)
+    procurements = apply_text_filter(procurements, 'winning_bidder', winning_bidder_filter)
+    
     if bid_opening_date_start:
         procurements = procurements.filter(bid_opening_date__gte=bid_opening_date_start)
     if bid_opening_date_end:
@@ -575,15 +675,13 @@ def procurement_list(request):
     paginator = Paginator(procurements, page_size)
     page_obj = paginator.get_page(page)
     
-    # 获取所有项目用于过滤
-    projects = Project.objects.all()
+    # 获取筛选配置
+    filter_config = get_procurement_filter_config(request)
     
     context = {
         'procurements': page_obj,
         'page_obj': page_obj,
-        'projects': projects,
-        'search_query': search_query,
-        'project_filter': project_filter,
+        **filter_config,  # 添加筛选配置
     }
     return render(request, 'procurement_list.html', context)
 
@@ -606,10 +704,15 @@ def procurement_detail(request, procurement_code):
 
 def payment_list(request):
     """付款列表页面"""
+    from .filter_config import get_payment_filter_config
+    
     # 获取过滤参数
     search_query = request.GET.get('q', '')
-    contract_filter = request.GET.get('contract', '')
-    project_filter = request.GET.get('project', '')
+    # 自动检测搜索模式：如果包含逗号则为and，否则为or
+    has_comma = ',' in search_query or '，' in search_query
+    search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
+    project_filter = request.GET.getlist('project')  # 改为多选
+    is_settled_filter = request.GET.getlist('is_settled')  # 改为多选
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
     
@@ -620,31 +723,67 @@ def payment_list(request):
     payment_date_end = request.GET.get('payment_date_end', '')
     payment_amount_min = request.GET.get('payment_amount_min', '')
     payment_amount_max = request.GET.get('payment_amount_max', '')
-    is_settled_filter = request.GET.get('is_settled', '')
     
     # 基础查询
     payments = Payment.objects.select_related('contract', 'contract__project')
     
-    # 搜索过滤
+    # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
-        payments = payments.filter(
-            Q(payment_code__icontains=search_query) |
-            Q(contract__contract_name__icontains=search_query)
-        )
+        if search_mode == 'and':
+            # 逗号分隔 = 且条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                payments = payments.filter(
+                    Q(payment_code__icontains=keyword) |
+                    Q(contract__contract_name__icontains=keyword)
+                )
+        else:
+            # 空格或逗号分隔 = 或条件（支持中英文逗号）
+            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= (
+                    Q(payment_code__icontains=keyword) |
+                    Q(contract__contract_name__icontains=keyword)
+                )
+            if q_objects:
+                payments = payments.filter(q_objects)
     
-    # 合同过滤
-    if contract_filter:
-        payments = payments.filter(contract__contract_code=contract_filter)
-    
-    # 项目过滤
+    # 项目过滤 - 支持多选（过滤掉空字符串）
+    project_filter = [p for p in project_filter if p]
     if project_filter:
-        payments = payments.filter(contract__project__project_code=project_filter)
+        payments = payments.filter(contract__project__project_code__in=project_filter)
     
-    # 高级筛选
-    if payment_code_filter:
-        payments = payments.filter(payment_code__icontains=payment_code_filter)
-    if contract_name_filter:
-        payments = payments.filter(contract__contract_name__icontains=contract_name_filter)
+    # 结算状态过滤 - 支持多选（过滤掉空字符串）
+    is_settled_filter = [s for s in is_settled_filter if s]
+    if is_settled_filter:
+        is_settled_values = [v.lower() == 'true' for v in is_settled_filter]
+        payments = payments.filter(is_settled__in=is_settled_values)
+    
+    # 高级筛选 - 文本字段支持逗号且、空格或
+    def apply_text_filter(queryset, field_name, filter_value):
+        """应用文本筛选,支持中英文逗号且、空格或"""
+        if not filter_value:
+            return queryset
+        
+        # 检测逗号(且条件) - 支持中英文逗号
+        if ',' in filter_value or '，' in filter_value:
+            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
+            for keyword in keywords:
+                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
+        else:
+            # 空格(或条件)
+            keywords = [k.strip() for k in filter_value.split() if k.strip()]
+            q_objects = Q()
+            for keyword in keywords:
+                q_objects |= Q(**{f'{field_name}__icontains': keyword})
+            if q_objects:
+                queryset = queryset.filter(q_objects)
+        return queryset
+    
+    payments = apply_text_filter(payments, 'payment_code', payment_code_filter)
+    payments = apply_text_filter(payments, 'contract__contract_name', contract_name_filter)
+    
     if payment_date_start:
         payments = payments.filter(payment_date__gte=payment_date_start)
     if payment_date_end:
@@ -653,10 +792,6 @@ def payment_list(request):
         payments = payments.filter(payment_amount__gte=payment_amount_min)
     if payment_amount_max:
         payments = payments.filter(payment_amount__lte=payment_amount_max)
-    if is_settled_filter:
-        # 处理布尔值筛选
-        is_settled = is_settled_filter.lower() == 'true'
-        payments = payments.filter(is_settled=is_settled)
     
     payments = payments.order_by('-payment_date')
     
@@ -664,20 +799,13 @@ def payment_list(request):
     paginator = Paginator(payments, page_size)
     page_obj = paginator.get_page(page)
     
-    # 获取所有项目用于过滤（用于筛选）
-    projects = Project.objects.all()
-    
-    # 获取所有合同用于过滤
-    contracts = Contract.objects.all()
+    # 获取筛选配置
+    filter_config = get_payment_filter_config(request)
     
     context = {
         'payments': page_obj,
         'page_obj': page_obj,
-        'projects': projects,
-        'contracts': contracts,
-        'search_query': search_query,
-        'contract_filter': contract_filter,
-        'project_filter': project_filter,  # 添加项目筛选参数
+        **filter_config,  # 添加筛选配置
     }
     return render(request, 'payment_list.html', context)
 
@@ -707,7 +835,7 @@ def payment_detail(request, payment_code):
 
 
 @staff_member_required
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "DELETE", "PUT"])
 def database_management(request):
     """数据库管理：备份、恢复、清理"""
     default_db = settings.DATABASES.get('default', {})
@@ -746,10 +874,73 @@ def database_management(request):
             'modified_display': modified_at.strftime('%Y-%m-%d %H:%M:%S'),
         }
 
+    if request.method == "DELETE":
+        # 处理删除备份的请求
+        try:
+            data = json.loads(request.body)
+            file_name = data.get('file_name')
+            if not file_name:
+                return JsonResponse({'success': False, 'message': '未指定要删除的备份文件'}, status=400)
+            
+            backup_file = backups_dir / file_name
+            if not backup_file.exists():
+                return JsonResponse({'success': False, 'message': '备份文件不存在'}, status=404)
+            
+            # 删除备份文件
+            backup_file.unlink()
+            return JsonResponse({'success': True, 'message': f'备份文件 {file_name} 已删除'})
+        except Exception as exc:
+            return JsonResponse({'success': False, 'message': f'删除失败：{exc}'}, status=500)
+    
+    if request.method == "PUT":
+        # 处理重命名备份的请求
+        try:
+            data = json.loads(request.body)
+            old_name = data.get('old_name')
+            new_name = data.get('new_name', '').strip()
+            
+            if not old_name or not new_name:
+                return JsonResponse({'success': False, 'message': '请提供原文件名和新文件名'}, status=400)
+            
+            # 验证并清理新文件名
+            import re
+            clean_name = re.sub(r'[<>:"/\\|?*]', '_', new_name)
+            clean_name = clean_name.strip('. ')
+            
+            if not clean_name:
+                return JsonResponse({'success': False, 'message': '新文件名无效'}, status=400)
+            
+            # 确保文件名以 .sqlite3 结尾
+            if not clean_name.lower().endswith('.sqlite3'):
+                clean_name += '.sqlite3'
+            
+            old_file = backups_dir / old_name
+            new_file = backups_dir / clean_name
+            
+            if not old_file.exists():
+                return JsonResponse({'success': False, 'message': '原备份文件不存在'}, status=404)
+            
+            if new_file.exists():
+                return JsonResponse({'success': False, 'message': f'文件名已存在：{clean_name}'}, status=400)
+            
+            # 重命名文件
+            old_file.rename(new_file)
+            return JsonResponse({'success': True, 'message': f'备份文件已重命名为：{clean_name}'})
+        except Exception as exc:
+            return JsonResponse({'success': False, 'message': f'重命名失败：{exc}'}, status=500)
+    
     if request.method == "POST":
         action = request.POST.get('action')
         try:
             if action == 'clear':
+                # 保存当前用户信息
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                current_user_id = request.user.id
+                current_username = request.user.username
+                is_superuser = request.user.is_superuser
+                is_staff = request.user.is_staff
+                
                 if engine.endswith('sqlite3') and db_path:
                     connections.close_all()
                     if db_path.exists():
@@ -760,7 +951,22 @@ def database_management(request):
                             if target.exists():
                                 target.unlink()
                     call_command('migrate', interactive=False, verbosity=0)
-                    messages.success(request, '数据库已重置并重新迁移结构。')
+                    
+                    # 重新创建管理员用户
+                    try:
+                        user = User.objects.create_superuser(
+                            username=current_username,
+                            email='admin@example.com',
+                            password='admin123',  # 默认密码
+                            is_staff=True,
+                            is_superuser=True
+                        )
+                        # 重新登录用户
+                        from django.contrib.auth import login
+                        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                        messages.success(request, '数据库已重置并重新迁移结构。管理员账户已重新创建（用户名：{}，默认密码：admin123）。'.format(current_username))
+                    except Exception as e:
+                        messages.warning(request, f'数据库已重置，但重新创建管理员账户失败：{e}。请手动创建管理员账户。')
                 else:
                     call_command('flush', interactive=False, verbosity=0)
                     messages.success(request, '数据库数据已清空。')
@@ -769,11 +975,43 @@ def database_management(request):
                     raise ValueError('当前数据库引擎不支持文件级备份。')
                 if not db_path.exists():
                     raise FileNotFoundError('未找到数据库文件，无法备份。')
-                timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
-                backup_file = backups_dir / f'db-backup-{timestamp}.sqlite3'
+                
+                # 获取用户输入的备份名称和描述
+                backup_name = request.POST.get('backup_name', '').strip()
+                backup_description = request.POST.get('backup_description', '').strip()
+                
+                # 验证备份名称
+                if not backup_name:
+                    raise ValueError('请输入备份名称。')
+                
+                # 清理文件名，移除不合法字符
+                import re
+                # 移除文件名中的非法字符
+                clean_name = re.sub(r'[<>:"/\\|?*]', '_', backup_name)
+                # 移除首尾空格和点
+                clean_name = clean_name.strip('. ')
+                # 如果清理后为空，使用默认名称
+                if not clean_name:
+                    clean_name = f'backup-{timezone.now().strftime("%Y%m%d%H%M%S")}'
+                
+                # 确保文件名以 .sqlite3 结尾
+                if not clean_name.lower().endswith('.sqlite3'):
+                    clean_name += '.sqlite3'
+                
+                # 检查文件是否已存在
+                backup_file = backups_dir / clean_name
+                if backup_file.exists():
+                    raise ValueError(f'备份文件已存在：{clean_name}')
+                
                 connections.close_all()
                 shutil.copy2(db_path, backup_file)
-                messages.success(request, f'备份成功：{backup_file.name}')
+                
+                # 构建成功消息
+                success_message = f'备份成功：{clean_name}'
+                if backup_description:
+                    success_message += f'（描述：{backup_description}）'
+                
+                messages.success(request, success_message)
             elif action == 'restore':
                 if not db_path:
                     raise ValueError('当前数据库引擎不支持文件级恢复。')
@@ -783,13 +1021,47 @@ def database_management(request):
                 source_file = backups_dir / file_name
                 if not source_file.exists():
                     raise FileNotFoundError('备份文件不存在，请刷新后重试。')
+                
+                # 保存当前用户信息和会话key
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                current_username = request.user.username
+                session_key = request.session.session_key
+                
+                # 关闭所有数据库连接
                 connections.close_all()
+                
                 # 保留一份当前数据库的安全备份
                 if db_path.exists():
                     safety_backup = backups_dir / f'db-auto-backup-{timezone.now().strftime("%Y%m%d%H%M%S")}.sqlite3'
                     shutil.copy2(db_path, safety_backup)
+                
+                # 恢复备份文件
                 shutil.copy2(source_file, db_path)
-                messages.success(request, f'恢复成功，已加载备份：{file_name}')
+                
+                # 清除当前会话缓存，强制重新从数据库读取
+                from django.core.cache import cache
+                cache.clear()
+                
+                # 尝试重新登录用户
+                try:
+                    from django.contrib.auth import login
+                    # 检查用户是否在恢复的数据库中存在
+                    user = User.objects.filter(username=current_username).first()
+                    if user:
+                        # 删除旧的会话数据
+                        request.session.flush()
+                        # 强制登录恢复的用户，创建新会话
+                        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                        messages.success(request, f'恢复成功，已加载备份：{file_name}。您已自动重新登录。')
+                    else:
+                        # 用户不在备份中，清除会话
+                        request.session.flush()
+                        messages.warning(request, f'恢复成功，已加载备份：{file_name}。您的账户在此备份中不存在，请使用备份中的管理员账户登录。')
+                except Exception as e:
+                    # 出错时也清除会话
+                    request.session.flush()
+                    messages.warning(request, f'恢复成功，已加载备份：{file_name}。自动登录失败：{e}。请手动重新登录。')
             else:
                 messages.error(request, '未知操作，请刷新后重试。')
         except Exception as exc:
@@ -824,6 +1096,12 @@ def database_management(request):
 def batch_delete_contracts(request):
     """批量删除合同"""
     try:
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': '权限不足，请先登录管理员账户'
+            }, status=403)
+        
         data = json.loads(request.body)
         contract_codes = data.get('ids', [])
         
@@ -847,6 +1125,12 @@ def batch_delete_contracts(request):
 def batch_delete_payments(request):
     """批量删除付款记录"""
     try:
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': '权限不足，请先登录管理员账户'
+            }, status=403)
+        
         data = json.loads(request.body)
         payment_codes = data.get('ids', [])
         
@@ -870,6 +1154,12 @@ def batch_delete_payments(request):
 def batch_delete_procurements(request):
     """批量删除采购项目"""
     try:
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': '权限不足，请先登录管理员账户'
+            }, status=403)
+        
         data = json.loads(request.body)
         procurement_codes = data.get('ids', [])
         
@@ -888,7 +1178,6 @@ def batch_delete_procurements(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@csrf_exempt
 @staff_member_required
 @require_POST
 def import_data(request):
@@ -920,8 +1209,8 @@ def import_data(request):
             with open(tmp_file_path, 'rb') as f:
                 raw_data = f.read(10000)
                 result = chardet.detect(raw_data)
-                detected_encoding = result['encoding']
-                if result['confidence'] > 0.7:
+                detected_encoding = result.get('encoding', 'utf-8-sig')
+                if detected_encoding and result.get('confidence', 0) > 0.7:
                     encoding_map = {'GB2312': 'gbk', 'ISO-8859-1': 'latin1', 'ascii': 'utf-8'}
                     detected_encoding = encoding_map.get(detected_encoding, detected_encoding)
                 else:
@@ -1042,6 +1331,12 @@ def import_data(request):
 def batch_delete_projects(request):
     """批量删除项目"""
     try:
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': '权限不足，请先登录管理员账户'
+            }, status=403)
+        
         data = json.loads(request.body)
         project_codes = data.get('ids', [])
         
