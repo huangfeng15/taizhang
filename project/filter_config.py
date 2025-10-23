@@ -204,9 +204,9 @@ def get_procurement_filter_config(request):
                 },
                 {
                     'name': 'project_name',
-                    'label': '采购名称',
+                    'label': '采购项目名称',
                     'type': 'text',
-                    'placeholder': '输入采购名称',
+                    'placeholder': '输入采购项目名称',
                     'current_value': request.GET.get('project_name', '')
                 },
                 {
@@ -217,11 +217,52 @@ def get_procurement_filter_config(request):
                     'current_value': request.GET.get('procurement_unit', '')
                 },
                 {
-                    'name': 'winning_bidder',
-                    'label': '中标人',
+                    'name': 'procurement_category',
+                    'label': '采购类别',
                     'type': 'text',
-                    'placeholder': '输入中标人名称',
+                    'placeholder': '输入采购类别',
+                    'current_value': request.GET.get('procurement_category', '')
+                },
+                {
+                    'name': 'winning_bidder',
+                    'label': '中标单位',
+                    'type': 'text',
+                    'placeholder': '输入中标单位名称',
                     'current_value': request.GET.get('winning_bidder', '')
+                }
+            ]
+        },
+        {
+            'title': '方式与审查',
+            'icon': 'fas fa-tasks',
+            'filters': [
+                {
+                    'name': 'procurement_method',
+                    'label': '采购方式',
+                    'type': 'text',
+                    'placeholder': '输入采购方式',
+                    'current_value': request.GET.get('procurement_method', '')
+                },
+                {
+                    'name': 'qualification_review_method',
+                    'label': '资格审查方式',
+                    'type': 'text',
+                    'placeholder': '输入资格审查方式',
+                    'current_value': request.GET.get('qualification_review_method', '')
+                },
+                {
+                    'name': 'bid_evaluation_method',
+                    'label': '评标谈判方式',
+                    'type': 'text',
+                    'placeholder': '输入评标谈判方式',
+                    'current_value': request.GET.get('bid_evaluation_method', '')
+                },
+                {
+                    'name': 'bid_awarding_method',
+                    'label': '定标方法',
+                    'type': 'text',
+                    'placeholder': '输入定标方法',
+                    'current_value': request.GET.get('bid_awarding_method', '')
                 }
             ]
         },
@@ -231,14 +272,14 @@ def get_procurement_filter_config(request):
             'filters': [
                 {
                     'name': 'budget_amount',
-                    'label': '预算金额',
+                    'label': '采购预算金额',
                     'type': 'number',
                     'min_value': request.GET.get('budget_amount_min', ''),
                     'max_value': request.GET.get('budget_amount_max', '')
                 },
                 {
                     'name': 'winning_amount',
-                    'label': '中标价',
+                    'label': '中标金额',
                     'type': 'number',
                     'min_value': request.GET.get('winning_amount_min', ''),
                     'max_value': request.GET.get('winning_amount_max', '')
@@ -250,11 +291,80 @@ def get_procurement_filter_config(request):
             'icon': 'fas fa-calendar',
             'filters': [
                 {
+                    'name': 'announcement_release_date',
+                    'label': '公告发布时间',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('announcement_release_date_start', ''),
+                    'end_value': request.GET.get('announcement_release_date_end', '')
+                },
+                {
+                    'name': 'registration_deadline',
+                    'label': '报名截止时间',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('registration_deadline_start', ''),
+                    'end_value': request.GET.get('registration_deadline_end', '')
+                },
+                {
                     'name': 'bid_opening_date',
-                    'label': '开标日期',
+                    'label': '开标时间',
                     'type': 'daterange',
                     'start_value': request.GET.get('bid_opening_date_start', ''),
                     'end_value': request.GET.get('bid_opening_date_end', '')
+                },
+                {
+                    'name': 'candidate_publicity_end_date',
+                    'label': '候选人公示结束时间',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('candidate_publicity_end_date_start', ''),
+                    'end_value': request.GET.get('candidate_publicity_end_date_end', '')
+                },
+                {
+                    'name': 'result_publicity_release_date',
+                    'label': '结果公示发布时间',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('result_publicity_release_date_start', ''),
+                    'end_value': request.GET.get('result_publicity_release_date_end', '')
+                },
+                {
+                    'name': 'planned_completion_date',
+                    'label': '计划结束采购时间',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('planned_completion_date_start', ''),
+                    'end_value': request.GET.get('planned_completion_date_end', '')
+                },
+                {
+                    'name': 'notice_issue_date',
+                    'label': '中标通知书发放日期',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('notice_issue_date_start', ''),
+                    'end_value': request.GET.get('notice_issue_date_end', '')
+                },
+                {
+                    'name': 'archive_date',
+                    'label': '资料归档日期',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('archive_date_start', ''),
+                    'end_value': request.GET.get('archive_date_end', '')
+                }
+            ]
+        },
+        {
+            'title': '其他信息',
+            'icon': 'fas fa-info-circle',
+            'filters': [
+                {
+                    'name': 'candidate_publicity_issue',
+                    'label': '候选人公示期质疑情况',
+                    'type': 'text',
+                    'placeholder': '输入质疑情况关键词',
+                    'current_value': request.GET.get('candidate_publicity_issue', '')
+                },
+                {
+                    'name': 'non_bidding_explanation',
+                    'label': '应招未招说明',
+                    'type': 'text',
+                    'placeholder': '输入应招未招说明关键词',
+                    'current_value': request.GET.get('non_bidding_explanation', '')
                 }
             ]
         }

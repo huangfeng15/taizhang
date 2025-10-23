@@ -147,11 +147,11 @@
             <thead>
                 <tr>
                     <th>招采编号</th>
-                    <th>采购名称</th>
+                    <th>采购项目名称</th>
                     <th>所属项目</th>
-                    <th>中标人</th>
-                    <th>中标价(元)</th>
-                    <th>开标日期</th>
+                    <th>中标单位</th>
+                    <th>中标金额(元)</th>
+                    <th>结果公示发布时间</th>
                 </tr>
             </thead>
             <tbody>
@@ -170,7 +170,7 @@
                     </td>
                     <td>{{ proc.winning_bidder|default:"-" }}</td>
                     <td>{{ proc.winning_amount|floatformat:2|default:"-" }}</td>
-                    <td>{{ proc.bid_opening_date|default:"-" }}</td>
+                    <td>{{ proc.result_publicity_release_date|default:"-" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

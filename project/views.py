@@ -57,43 +57,48 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '项目编码',
                 '序号',
                 '招采编号',
-                '采购名称',
+                '采购项目名称',
                 '采购单位',
-                '采购计划完成日期',
-                '采购需求书审批完成日期（OA）',
-                '招采经办人',
-                '需求部门',
-                '需求部门经办人及联系方式',
-                '预算金额（元）',
-                '采购控制价（元）',
-                '中标价（元）',
-                '采购平台',
+                '中标单位',
+                '中标单位联系人及方式',
                 '采购方式',
-                '评标方法',
-                '定标方法',
-                '开标日期',
-                '评标委员会成员',
-                '定标委员会成员',
-                '平台中标结果公示完成日期（阳光采购平台）',
+                '采购类别',
+                '采购预算金额(元)',
+                '采购控制价（元）',
+                '中标金额（元）',
+                '计划结束采购时间',
+                '候选人公示结束时间',
+                '结果公示发布时间',
                 '中标通知书发放日期',
-                '中标人',
-                '中标人联系人及方式',
+                '采购经办人',
+                '需求部门',
+                '申请人联系电话（需求部门）',
+                '采购需求书审批完成日期（OA）',
+                '采购平台',
+                '资格审查方式',
+                '评标谈判方式',
+                '定标方法',
+                '公告发布时间',
+                '报名截止时间',
+                '开标时间',
+                '评标委员会成员',
                 '投标担保形式及金额（元）',
-                '中标单位投标担保退回日期',
+                '投标担保退回日期',
                 '履约担保形式及金额（元）',
-                '全程有无投诉',
-                '应招未招说明',
-                '招采费用（元）',
+                '候选人公示期质疑情况',
+                '应招未招说明（由公开转单一或邀请的情况）',
                 '资料归档日期',
                 '模板说明',
             ],
             'notes': [
-                '【必填字段】招采编号*、采购名称*（标记*号的为必填字段，不能为空）',
+                '【必填字段】招采编号*、采购项目名称*（标记*号的为必填字段，不能为空）',
                 '【编码规则】招采编号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止使用 / 等特殊字符。建议格式：GC2025001',
                 '【项目关联】项目编码字段用于关联已存在的项目，必须填写系统中已存在的项目编码',
-                '【日期格式】所有日期列统一使用 YYYY-MM-DD 格式，例如：2025-10-20',
+                '【时间要求】公告发布时间、报名截止时间、开标时间、候选人公示结束时间、结果公示发布时间等均使用 YYYY-MM-DD 格式',
                 '【金额格式】所有金额列仅填写数字（可带小数），单位为元，例如：1500000.00 或 1500000',
-                '【采购方式】常见选项：公开招标、邀请招标、竞争性谈判、单一来源、询价等',
+                '【采购方式】常见选项：公开招标、邀请招标、竞争性谈判、单一来源、询价等，可结合采购类别填写',
+                '【担保信息】投标担保与履约担保可填写形式与金额，例如：银行保函 500000.00',
+                '【质疑情况】候选人公示期质疑情况用于记录公示期处理情况，可留空',
                 '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
             ],
         },
@@ -262,7 +267,7 @@ def dashboard(request):
         projects.append(project)
     
     # 最近采购(前10个)
-    recent_procurements = Procurement.objects.select_related('project').order_by('-bid_opening_date')[:10]
+    recent_procurements = Procurement.objects.select_related('project').order_by('-result_publicity_release_date', '-created_at')[:10]
     
     context = {
         'stats': stats,
@@ -786,9 +791,30 @@ def procurement_list(request):
     procurement_code_filter = request.GET.get('procurement_code', '')
     project_name_filter = request.GET.get('project_name', '')
     procurement_unit_filter = request.GET.get('procurement_unit', '')
+    procurement_category_filter = request.GET.get('procurement_category', '')
+    procurement_method_filter = request.GET.get('procurement_method', '')
+    qualification_review_filter = request.GET.get('qualification_review_method', '')
+    bid_evaluation_filter = request.GET.get('bid_evaluation_method', '')
+    bid_awarding_filter = request.GET.get('bid_awarding_method', '')
     winning_bidder_filter = request.GET.get('winning_bidder', '')
+    candidate_publicity_issue_filter = request.GET.get('candidate_publicity_issue', '')
+    non_bidding_explanation_filter = request.GET.get('non_bidding_explanation', '')
+    announcement_release_date_start = request.GET.get('announcement_release_date_start', '')
+    announcement_release_date_end = request.GET.get('announcement_release_date_end', '')
+    registration_deadline_start = request.GET.get('registration_deadline_start', '')
+    registration_deadline_end = request.GET.get('registration_deadline_end', '')
     bid_opening_date_start = request.GET.get('bid_opening_date_start', '')
     bid_opening_date_end = request.GET.get('bid_opening_date_end', '')
+    candidate_publicity_end_start = request.GET.get('candidate_publicity_end_date_start', '')
+    candidate_publicity_end_end = request.GET.get('candidate_publicity_end_date_end', '')
+    result_publicity_release_start = request.GET.get('result_publicity_release_date_start', '')
+    result_publicity_release_end = request.GET.get('result_publicity_release_date_end', '')
+    planned_completion_date_start = request.GET.get('planned_completion_date_start', '')
+    planned_completion_date_end = request.GET.get('planned_completion_date_end', '')
+    notice_issue_date_start = request.GET.get('notice_issue_date_start', '')
+    notice_issue_date_end = request.GET.get('notice_issue_date_end', '')
+    archive_date_start = request.GET.get('archive_date_start', '')
+    archive_date_end = request.GET.get('archive_date_end', '')
     budget_amount_min = request.GET.get('budget_amount_min', '')
     budget_amount_max = request.GET.get('budget_amount_max', '')
     winning_amount_min = request.GET.get('winning_amount_min', '')
@@ -806,6 +832,7 @@ def procurement_list(request):
                 procurements = procurements.filter(
                     Q(procurement_code__icontains=keyword) |
                     Q(project_name__icontains=keyword) |
+                    Q(procurement_category__icontains=keyword) |
                     Q(winning_bidder__icontains=keyword)
                 )
         else:
@@ -816,6 +843,7 @@ def procurement_list(request):
                 q_objects |= (
                     Q(procurement_code__icontains=keyword) |
                     Q(project_name__icontains=keyword) |
+                    Q(procurement_category__icontains=keyword) |
                     Q(winning_bidder__icontains=keyword)
                 )
             if q_objects:
@@ -850,12 +878,47 @@ def procurement_list(request):
     procurements = apply_text_filter(procurements, 'procurement_code', procurement_code_filter)
     procurements = apply_text_filter(procurements, 'project_name', project_name_filter)
     procurements = apply_text_filter(procurements, 'procurement_unit', procurement_unit_filter)
+    procurements = apply_text_filter(procurements, 'procurement_category', procurement_category_filter)
+    procurements = apply_text_filter(procurements, 'procurement_method', procurement_method_filter)
+    procurements = apply_text_filter(procurements, 'qualification_review_method', qualification_review_filter)
+    procurements = apply_text_filter(procurements, 'bid_evaluation_method', bid_evaluation_filter)
+    procurements = apply_text_filter(procurements, 'bid_awarding_method', bid_awarding_filter)
     procurements = apply_text_filter(procurements, 'winning_bidder', winning_bidder_filter)
-    
+    procurements = apply_text_filter(procurements, 'candidate_publicity_issue', candidate_publicity_issue_filter)
+    procurements = apply_text_filter(procurements, 'non_bidding_explanation', non_bidding_explanation_filter)
+
+    if announcement_release_date_start:
+        procurements = procurements.filter(announcement_release_date__gte=announcement_release_date_start)
+    if announcement_release_date_end:
+        procurements = procurements.filter(announcement_release_date__lte=announcement_release_date_end)
+    if registration_deadline_start:
+        procurements = procurements.filter(registration_deadline__gte=registration_deadline_start)
+    if registration_deadline_end:
+        procurements = procurements.filter(registration_deadline__lte=registration_deadline_end)
     if bid_opening_date_start:
         procurements = procurements.filter(bid_opening_date__gte=bid_opening_date_start)
     if bid_opening_date_end:
         procurements = procurements.filter(bid_opening_date__lte=bid_opening_date_end)
+    if candidate_publicity_end_start:
+        procurements = procurements.filter(candidate_publicity_end_date__gte=candidate_publicity_end_start)
+    if candidate_publicity_end_end:
+        procurements = procurements.filter(candidate_publicity_end_date__lte=candidate_publicity_end_end)
+    if result_publicity_release_start:
+        procurements = procurements.filter(result_publicity_release_date__gte=result_publicity_release_start)
+    if result_publicity_release_end:
+        procurements = procurements.filter(result_publicity_release_date__lte=result_publicity_release_end)
+    if planned_completion_date_start:
+        procurements = procurements.filter(planned_completion_date__gte=planned_completion_date_start)
+    if planned_completion_date_end:
+        procurements = procurements.filter(planned_completion_date__lte=planned_completion_date_end)
+    if notice_issue_date_start:
+        procurements = procurements.filter(notice_issue_date__gte=notice_issue_date_start)
+    if notice_issue_date_end:
+        procurements = procurements.filter(notice_issue_date__lte=notice_issue_date_end)
+    if archive_date_start:
+        procurements = procurements.filter(archive_date__gte=archive_date_start)
+    if archive_date_end:
+        procurements = procurements.filter(archive_date__lte=archive_date_end)
     if budget_amount_min:
         procurements = procurements.filter(budget_amount__gte=budget_amount_min)
     if budget_amount_max:
@@ -865,7 +928,7 @@ def procurement_list(request):
     if winning_amount_max:
         procurements = procurements.filter(winning_amount__lte=winning_amount_max)
     
-    procurements = procurements.order_by('-bid_opening_date')
+    procurements = procurements.order_by('-result_publicity_release_date', '-bid_opening_date', '-created_at')
     
     # 分页处理
     paginator = Paginator(procurements, page_size)
@@ -1671,35 +1734,38 @@ def _generate_project_excel(project, user):
                 procurement_data.append({
                     '项目编码': project.project_code,
                     '项目名称': project.project_name,
-                            '招采编号': procurement.procurement_code,
-                            '采购名称': procurement.project_name,
-                            '采购单位': procurement.procurement_unit or '',
-                            '采购计划完成日期': procurement.planned_completion_date.strftime('%Y-%m-%d') if procurement.planned_completion_date else '',
-                            '采购需求书审批完成日期': procurement.requirement_approval_date.strftime('%Y-%m-%d') if procurement.requirement_approval_date else '',
-                            '招采经办人': procurement.procurement_officer or '',
-                            '需求部门': procurement.demand_department or '',
-                            '需求部门经办人及联系方式': procurement.demand_contact or '',
-                            '预算金额（元）': float(procurement.budget_amount) if procurement.budget_amount else 0,
-                            '采购控制价（元）': float(procurement.control_price) if procurement.control_price else 0,
-                            '中标价（元）': float(procurement.winning_amount) if procurement.winning_amount else 0,
-                            '采购平台': procurement.procurement_platform or '',
-                            '采购方式': procurement.procurement_method or '',
-                            '评标方法': procurement.bid_evaluation_method or '',
-                            '定标方法': procurement.bid_awarding_method or '',
-                            '开标日期': procurement.bid_opening_date.strftime('%Y-%m-%d') if procurement.bid_opening_date else '',
-                            '评标委员会成员': procurement.evaluation_committee or '',
-                            '定标委员会成员': procurement.awarding_committee or '',
-                            '平台中标结果公示完成日期': procurement.platform_publicity_date.strftime('%Y-%m-%d') if procurement.platform_publicity_date else '',
-                            '中标通知书发放日期': procurement.notice_issue_date.strftime('%Y-%m-%d') if procurement.notice_issue_date else '',
-                            '中标人': procurement.winning_bidder or '',
-                            '中标人联系人及方式': procurement.winning_contact or '',
-                            '投标担保形式及金额': procurement.bid_guarantee or '',
-                            '中标单位投标担保退回日期': procurement.bid_guarantee_return_date.strftime('%Y-%m-%d') if procurement.bid_guarantee_return_date else '',
-                            '履约担保形式及金额': procurement.performance_guarantee or '',
-                            '全程有无投诉': procurement.has_complaint or '',
-                            '应招未招说明': procurement.non_bidding_explanation or '',
-                            '招采费用（元）': float(procurement.procurement_cost) if procurement.procurement_cost else 0,
-                            '资料归档日期': procurement.archive_date.strftime('%Y-%m-%d') if procurement.archive_date else '',
+                    '招采编号': procurement.procurement_code,
+                    '采购项目名称': procurement.project_name,
+                    '采购单位': procurement.procurement_unit or '',
+                    '中标单位': procurement.winning_bidder or '',
+                    '中标单位联系人及方式': procurement.winning_contact or '',
+                    '采购方式': procurement.procurement_method or '',
+                    '采购类别': procurement.procurement_category or '',
+                    '采购预算金额(元)': float(procurement.budget_amount) if procurement.budget_amount else 0,
+                    '采购控制价（元）': float(procurement.control_price) if procurement.control_price else 0,
+                    '中标金额（元）': float(procurement.winning_amount) if procurement.winning_amount else 0,
+                    '计划结束采购时间': procurement.planned_completion_date.strftime('%Y-%m-%d') if procurement.planned_completion_date else '',
+                    '候选人公示结束时间': procurement.candidate_publicity_end_date.strftime('%Y-%m-%d') if procurement.candidate_publicity_end_date else '',
+                    '结果公示发布时间': procurement.result_publicity_release_date.strftime('%Y-%m-%d') if procurement.result_publicity_release_date else '',
+                    '中标通知书发放日期': procurement.notice_issue_date.strftime('%Y-%m-%d') if procurement.notice_issue_date else '',
+                    '采购经办人': procurement.procurement_officer or '',
+                    '需求部门': procurement.demand_department or '',
+                    '申请人联系电话（需求部门）': procurement.demand_contact or '',
+                    '采购需求书审批完成日期（OA）': procurement.requirement_approval_date.strftime('%Y-%m-%d') if procurement.requirement_approval_date else '',
+                    '采购平台': procurement.procurement_platform or '',
+                    '资格审查方式': procurement.qualification_review_method or '',
+                    '评标谈判方式': procurement.bid_evaluation_method or '',
+                    '定标方法': procurement.bid_awarding_method or '',
+                    '公告发布时间': procurement.announcement_release_date.strftime('%Y-%m-%d') if procurement.announcement_release_date else '',
+                    '报名截止时间': procurement.registration_deadline.strftime('%Y-%m-%d') if procurement.registration_deadline else '',
+                    '开标时间': procurement.bid_opening_date.strftime('%Y-%m-%d') if procurement.bid_opening_date else '',
+                    '评标委员会成员': procurement.evaluation_committee or '',
+                    '投标担保形式及金额（元）': procurement.bid_guarantee or '',
+                    '投标担保退回日期': procurement.bid_guarantee_return_date.strftime('%Y-%m-%d') if procurement.bid_guarantee_return_date else '',
+                    '履约担保形式及金额（元）': procurement.performance_guarantee or '',
+                    '候选人公示期质疑情况': procurement.candidate_publicity_issue or '',
+                    '应招未招说明（由公开转单一或邀请的情况）': procurement.non_bidding_explanation or '',
+                    '资料归档日期': procurement.archive_date.strftime('%Y-%m-%d') if procurement.archive_date else '',
                     '创建时间': procurement.created_at.strftime('%Y-%m-%d %H:%M:%S') if procurement.created_at else '',
                     '更新时间': procurement.updated_at.strftime('%Y-%m-%d %H:%M:%S') if procurement.updated_at else '',
                 })

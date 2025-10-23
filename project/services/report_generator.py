@@ -50,8 +50,8 @@ class BaseReportGenerator:
     def _get_procurement_data(self):
         """获取采购数据"""
         queryset = Procurement.objects.filter(
-            platform_publicity_date__gte=self.start_date,
-            platform_publicity_date__lte=self.end_date
+            result_publicity_release_date__gte=self.start_date,
+            result_publicity_release_date__lte=self.end_date
         )
         
         total_count = queryset.count()
@@ -320,8 +320,8 @@ class AnnualReportGenerator(BaseReportGenerator):
             
             # 统计该月数据
             procurement_count = Procurement.objects.filter(
-                platform_publicity_date__gte=start_date,
-                platform_publicity_date__lte=end_date
+                result_publicity_release_date__gte=start_date,
+                result_publicity_release_date__lte=end_date
             ).count()
             
             contract_count = Contract.objects.filter(

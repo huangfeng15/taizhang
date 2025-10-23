@@ -13,7 +13,7 @@
 </div>
 
 <!-- 使用新的筛选系统 -->
-{% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filter_groups=advanced_filter_groups search_query=search_query search_placeholder="搜索招采编号、采购名称、中标人..." %}
+{% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filter_groups=advanced_filter_groups search_query=search_query search_placeholder="搜索招采编号、采购项目名称、中标单位..." %}
 
 <!-- 采购列表 -->
 <!-- 采购列表 -->
@@ -50,13 +50,15 @@
                 <tr>
                     <th data-column="row_number">序号</th>
                     <th data-column="procurement_code">招采编号</th>
-                    <th data-column="project_name">采购名称</th>
+                    <th data-column="project_name">采购项目名称</th>
                     <th data-column="project">所属项目</th>
                     <th data-column="procurement_unit">采购单位</th>
-                    <th data-column="winning_bidder">中标人</th>
-                    <th data-column="budget_amount">预算金额(元)</th>
-                    <th data-column="winning_amount">中标价(元)</th>
-                    <th data-column="bid_opening_date">开标日期</th>
+                    <th data-column="procurement_category">采购类别</th>
+                    <th data-column="procurement_method">采购方式</th>
+                    <th data-column="winning_bidder">中标单位</th>
+                    <th data-column="budget_amount">采购预算金额(元)</th>
+                    <th data-column="winning_amount">中标金额(元)</th>
+                    <th data-column="result_publicity_release_date">结果公示发布时间</th>
                     <th data-column="operations">操作</th>
                 </tr>
             </thead>
@@ -76,6 +78,8 @@
                         {% endif %}
                     </td>
                     <td data-column="procurement_unit">{{ proc.procurement_unit|default:"-" }}</td>
+                    <td data-column="procurement_category">{{ proc.procurement_category|default:"-" }}</td>
+                    <td data-column="procurement_method">{{ proc.procurement_method|default:"-" }}</td>
                     <td data-column="winning_bidder">{{ proc.winning_bidder|default:"-" }}</td>
                     <td data-column="budget_amount">
                         {% if proc.budget_amount %}
@@ -91,7 +95,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td data-column="bid_opening_date">{{ proc.bid_opening_date|default:"-" }}</td>
+                    <td data-column="result_publicity_release_date">{{ proc.result_publicity_release_date|default:"-" }}</td>
                     <td data-column="operations">
                         <a href="{% url 'procurement_detail' proc.procurement_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
                             <i class="fas fa-eye"></i>
@@ -131,33 +135,56 @@
         'q': '搜索',
         'project': '项目',
         'procurement_code': '招采编号',
-        'project_name': '采购名称',
+        'project_name': '采购项目名称',
         'procurement_unit': '采购单位',
-        'winning_bidder': '中标人',
-        'bid_opening_date_start': '开标日期(起)',
-        'bid_opening_date_end': '开标日期(止)',
-        'budget_amount_min': '预算金额(最小)',
-        'budget_amount_max': '预算金额(最大)',
-        'winning_amount_min': '中标价(最小)',
-        'winning_amount_max': '中标价(最大)'
+        'procurement_category': '采购类别',
+        'procurement_method': '采购方式',
+        'qualification_review_method': '资格审查方式',
+        'bid_evaluation_method': '评标谈判方式',
+        'bid_awarding_method': '定标方法',
+        'winning_bidder': '中标单位',
+        'budget_amount_min': '采购预算金额(最小)',
+        'budget_amount_max': '采购预算金额(最大)',
+        'winning_amount_min': '中标金额(最小)',
+        'winning_amount_max': '中标金额(最大)',
+        'announcement_release_date_start': '公告发布时间(起)',
+        'announcement_release_date_end': '公告发布时间(止)',
+        'registration_deadline_start': '报名截止时间(起)',
+        'registration_deadline_end': '报名截止时间(止)',
+        'bid_opening_date_start': '开标时间(起)',
+        'bid_opening_date_end': '开标时间(止)',
+        'candidate_publicity_end_date_start': '候选人公示结束时间(起)',
+        'candidate_publicity_end_date_end': '候选人公示结束时间(止)',
+        'result_publicity_release_date_start': '结果公示发布时间(起)',
+        'result_publicity_release_date_end': '结果公示发布时间(止)',
+        'planned_completion_date_start': '计划结束采购时间(起)',
+        'planned_completion_date_end': '计划结束采购时间(止)',
+        'notice_issue_date_start': '中标通知书发放日期(起)',
+        'notice_issue_date_end': '中标通知书发放日期(止)',
+        'archive_date_start': '资料归档日期(起)',
+        'archive_date_end': '资料归档日期(止)',
+        'candidate_publicity_issue': '候选人公示期质疑情况',
+        'non_bidding_explanation': '应招未招说明'
     };
 
     // 可用字段配置
     const availableColumns = [
         { key: 'row_number', label: '序号', required: true },
         { key: 'procurement_code', label: '招采编号', required: true },
-        { key: 'project_name', label: '采购名称', required: true },
+        { key: 'project_name', label: '采购项目名称', required: true },
         { key: 'project', label: '所属项目', required: false },
         { key: 'procurement_unit', label: '采购单位', required: false },
-        { key: 'winning_bidder', label: '中标人', required: false },
-        { key: 'budget_amount', label: '预算金额', required: false },
-        { key: 'winning_amount', label: '中标价', required: false },
-        { key: 'bid_opening_date', label: '开标日期', required: false },
+        { key: 'procurement_category', label: '采购类别', required: false },
+        { key: 'procurement_method', label: '采购方式', required: false },
+        { key: 'winning_bidder', label: '中标单位', required: false },
+        { key: 'budget_amount', label: '采购预算金额(元)', required: false },
+        { key: 'winning_amount', label: '中标金额(元)', required: false },
+        { key: 'result_publicity_release_date', label: '结果公示发布时间', required: false },
         { key: 'operations', label: '操作', required: true }
     ];
 
     // 默认显示的字段
-    const defaultColumns = ['row_number', 'procurement_code', 'project_name', 'project', 'procurement_unit', 'winning_bidder', 'budget_amount', 'winning_amount', 'bid_opening_date', 'operations'];
+    const defaultColumns = ['row_number', 'procurement_code', 'project_name', 'project', 'procurement_unit', 'procurement_category', 'procurement_method', 'winning_bidder', 'budget_amount', 'winning_amount', 'result_publicity_release_date', 'operations'];
 
     document.addEventListener('DOMContentLoaded', function() {
         {% if procurements %}

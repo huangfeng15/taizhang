@@ -30,7 +30,7 @@ def get_procurement_statistics(year=None, project_codes=None):
     
     # 年份筛选 - 按结果公示发布时间统计
     if year:
-        queryset = queryset.filter(platform_publicity_date__year=year)
+        queryset = queryset.filter(result_publicity_release_date__year=year)
     
     # 项目筛选
     if project_codes:
@@ -88,7 +88,7 @@ def get_procurement_statistics(year=None, project_codes=None):
     
     # 月度趋势
     monthly_trend = queryset.annotate(
-        month=TruncMonth('bid_opening_date')
+        month=TruncMonth('result_publicity_release_date')
     ).values('month').annotate(
         count=Count('procurement_code'),
         amount=Sum('winning_amount')

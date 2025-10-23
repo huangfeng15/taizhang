@@ -938,13 +938,13 @@ class Command(BaseCommand):
         from project.models import Project
         
         procurement_code = row.get('招采编号', '').strip()
-        project_name = row.get('采购名称', '').strip()
+        project_name = row.get('采购项目名称', '').strip()
         project_code = row.get('项目编码', '').strip()
         
         if not procurement_code:
             raise ValueError('招采编号不能为空')
         if not project_name:
-            raise ValueError('采购名称不能为空')
+            raise ValueError('采购项目名称不能为空')
         
         # 验证采购编号格式（不包含URL不安全字符）
         try:
@@ -975,32 +975,35 @@ class Command(BaseCommand):
                     'project': project,
                     'project_name': project_name,
                     'procurement_unit': row.get('采购单位', '').strip(),
-                    'planned_completion_date': self._parse_date(row.get('采购计划完成日期')),
-                    'requirement_approval_date': self._parse_date(row.get('采购需求书审批完成日期（OA）')),
-                    'procurement_officer': row.get('招采经办人', '').strip(),
-                    'demand_department': row.get('需求部门', '').strip(),
-                    'demand_contact': row.get('需求部门经办人及联系方式', '').strip(),
-                    'budget_amount': self._parse_decimal(row.get('预算金额（元）')),
-                    'control_price': self._parse_decimal(row.get('采购控制价（元）')),
-                    'winning_amount': self._parse_decimal(row.get('中标价（元）')),
+                    'procurement_category': row.get('采购类别', '').strip(),
                     'procurement_platform': row.get('采购平台', '').strip(),
                     'procurement_method': row.get('采购方式', '').strip(),
-                    'bid_evaluation_method': row.get('评标方法', '').strip(),
+                    'qualification_review_method': row.get('资格审查方式', '').strip(),
+                    'bid_evaluation_method': row.get('评标谈判方式', '').strip(),
                     'bid_awarding_method': row.get('定标方法', '').strip(),
-                    'bid_opening_date': self._parse_date(row.get('开标日期')),
-                    'evaluation_committee': row.get('评标委员会成员', '').strip(),
-                    'awarding_committee': row.get('定标委员会成员', '').strip(),
-                    'platform_publicity_date': self._parse_date(row.get('平台中标结果公示完成日期（阳光采购平台）')),
+                    'budget_amount': self._parse_decimal(row.get('采购预算金额(元)')),
+                    'control_price': self._parse_decimal(row.get('采购控制价（元）')),
+                    'winning_amount': self._parse_decimal(row.get('中标金额（元）')),
+                    'procurement_officer': row.get('采购经办人', '').strip(),
+                    'demand_department': row.get('需求部门', '').strip(),
+                    'demand_contact': row.get('申请人联系电话（需求部门）', '').strip(),
+                    'winning_bidder': row.get('中标单位', '').strip(),
+                    'winning_contact': row.get('中标单位联系人及方式', '').strip(),
+                    'planned_completion_date': self._parse_date(row.get('计划结束采购时间')),
+                    'requirement_approval_date': self._parse_date(row.get('采购需求书审批完成日期（OA）')),
+                    'announcement_release_date': self._parse_date(row.get('公告发布时间')),
+                    'registration_deadline': self._parse_date(row.get('报名截止时间')),
+                    'bid_opening_date': self._parse_date(row.get('开标时间')),
+                    'candidate_publicity_end_date': self._parse_date(row.get('候选人公示结束时间')),
+                    'result_publicity_release_date': self._parse_date(row.get('结果公示发布时间')),
                     'notice_issue_date': self._parse_date(row.get('中标通知书发放日期')),
-                    'winning_bidder': row.get('中标人', '').strip(),
-                    'winning_contact': row.get('中标人联系人及方式', '').strip(),
-                    'bid_guarantee': row.get('投标担保形式及金额（元）', '').strip(),
-                    'bid_guarantee_return_date': self._parse_date(row.get('中标单位投标担保退回日期')),
-                    'performance_guarantee': row.get('履约担保形式及金额（元）', '').strip(),
-                    'has_complaint': row.get('全程有无投诉', '').strip(),
-                    'non_bidding_explanation': row.get('应招未招说明', '').strip(),
-                    'procurement_cost': self._parse_decimal(row.get('招采费用（元）')),
                     'archive_date': self._parse_date(row.get('资料归档日期')),
+                    'evaluation_committee': row.get('评标委员会成员', '').strip(),
+                    'bid_guarantee': row.get('投标担保形式及金额（元）', '').strip(),
+                    'bid_guarantee_return_date': self._parse_date(row.get('投标担保退回日期')),
+                    'performance_guarantee': row.get('履约担保形式及金额（元）', '').strip(),
+                    'candidate_publicity_issue': row.get('候选人公示期质疑情况', '').strip(),
+                    'non_bidding_explanation': row.get('应招未招说明（由公开转单一或邀请的情况）', '').strip(),
                 }
             )
             return 'created' if created else 'updated'

@@ -53,7 +53,7 @@ class ArchiveMonitorService:
         采购归档统计
         
         统计规则：
-        - 应归档项数 = 已完成公示的采购项目数（有platform_publicity_date的记录）
+        - 应归档项数 = 已完成公示的采购项目数（有result_publicity_release_date的记录）
         - 已归档项数 = 有archive_date的记录数
         - 逾期标准 = 公示后40天
         
@@ -61,11 +61,11 @@ class ArchiveMonitorService:
             dict: 采购归档统计数据
         """
         # 基础查询集
-        base_qs = Procurement.objects.filter(platform_publicity_date__isnull=False)
+        base_qs = Procurement.objects.filter(result_publicity_release_date__isnull=False)
         
         # 年份筛选 - 按结果公示发布时间统计
         if self.year:
-            base_qs = base_qs.filter(platform_publicity_date__year=self.year)
+            base_qs = base_qs.filter(result_publicity_release_date__year=self.year)
         
         # 项目筛选
         if self.project_codes:
@@ -81,7 +81,7 @@ class ArchiveMonitorService:
         if total > 0:
             deadline = timezone.now().date() - timedelta(days=40)
             overdue = base_qs.filter(
-                platform_publicity_date__lte=deadline,
+                result_publicity_release_date__lte=deadline,
                 archive_date__isnull=True
             ).count()
             
@@ -91,19 +91,19 @@ class ArchiveMonitorService:
             mild_deadline = deadline  # 超过1天
             
             severe_overdue = base_qs.filter(
-                platform_publicity_date__lte=severe_deadline,
+                result_publicity_release_date__lte=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
             moderate_overdue = base_qs.filter(
-                platform_publicity_date__lte=moderate_deadline,
-                platform_publicity_date__gt=severe_deadline,
+                result_publicity_release_date__lte=moderate_deadline,
+                result_publicity_release_date__gt=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
             mild_overdue = base_qs.filter(
-                platform_publicity_date__lte=mild_deadline,
-                platform_publicity_date__gt=moderate_deadline,
+                result_publicity_release_date__lte=mild_deadline,
+                result_publicity_release_date__gt=moderate_deadline,
                 archive_date__isnull=True
             ).count()
         else:
@@ -286,13 +286,13 @@ class ArchiveMonitorService:
         deadline = timezone.now().date() - timedelta(days=40)
         
         queryset = Procurement.objects.filter(
-            platform_publicity_date__lte=deadline,
+            result_publicity_release_date__lte=deadline,
             archive_date__isnull=True
         ).select_related('project')
         
         # 年份筛选
         if self.year:
-            queryset = queryset.filter(platform_publicity_date__year=self.year)
+            queryset = queryset.filter(result_publicity_release_date__year=self.year)
         
         # 项目筛选（批量）
         if self.project_codes:
@@ -304,9 +304,9 @@ class ArchiveMonitorService:
         
         overdue_list = []
         for proc in queryset:
-            if not proc.platform_publicity_date:
+            if not proc.result_publicity_release_date:
                 continue
-            overdue_days = (timezone.now().date() - proc.platform_publicity_date).days - 40
+            overdue_days = (timezone.now().date() - proc.result_publicity_release_date).days - 40
             
             # 确定严重程度
             if overdue_days > 30:
@@ -326,7 +326,7 @@ class ArchiveMonitorService:
                 'name': proc.project_name,
                 'project_code': proc.project.project_code if proc.project else '',
                 'project_name': proc.project.project_name if proc.project else '',
-                'reference_date': proc.platform_publicity_date,
+                'reference_date': proc.result_publicity_release_date,
                 'reference_date_label': '平台公示完成日期',
                 'deadline_days': 40,
                 'overdue_days': overdue_days,

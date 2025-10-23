@@ -26,7 +26,7 @@ def get_procurement_ranking(rank_type='project', year=None):
     
     # 年份筛选
     if year:
-        queryset = queryset.filter(platform_publicity_date__year=year)
+        queryset = queryset.filter(result_publicity_release_date__year=year)
     
     # 按类型分组
     if rank_type == 'project':
@@ -36,11 +36,11 @@ def get_procurement_ranking(rank_type='project', year=None):
             completed_count=Count('procurement_code', filter=Q(archive_date__isnull=False)),
             on_time_count=Count('procurement_code', filter=Q(
                 archive_date__isnull=False,
-                archive_date__lte=F('platform_publicity_date') + timedelta(days=90)
+                archive_date__lte=F('result_publicity_release_date') + timedelta(days=90)
             )),
             avg_cycle_days=Avg(
                 ExpressionWrapper(
-                    F('archive_date') - F('platform_publicity_date'),
+                    F('archive_date') - F('result_publicity_release_date'),
                     output_field=fields.DurationField()
                 ),
                 filter=Q(archive_date__isnull=False)
@@ -70,7 +70,7 @@ def get_procurement_ranking(rank_type='project', year=None):
             completed_count=Count('procurement_code', filter=Q(archive_date__isnull=False)),
             on_time_count=Count('procurement_code', filter=Q(
                 archive_date__isnull=False,
-                archive_date__lte=F('platform_publicity_date') + timedelta(days=90)
+                archive_date__lte=F('result_publicity_release_date') + timedelta(days=90)
             ))
         ).order_by('-completed_count')
         
@@ -105,7 +105,7 @@ def get_archive_ranking(rank_type='project', year=None):
     # 统计采购归档
     procurement_qs = Procurement.objects.all()
     if year:
-        procurement_qs = procurement_qs.filter(platform_publicity_date__year=year)
+        procurement_qs = procurement_qs.filter(result_publicity_release_date__year=year)
     
     # 统计合同归档
     contract_qs = Contract.objects.all()

@@ -45,7 +45,7 @@
         </h2>
     </div>
     <div style="padding: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
             <div class="detail-item">
                 <label>招采编号：</label>
                 <span>{{ procurement.procurement_code }}</span>
@@ -54,8 +54,12 @@
                 <label>采购单位：</label>
                 <span>{{ procurement.procurement_unit|default:"-" }}</span>
             </div>
+            <div class="detail-item">
+                <label>采购类别：</label>
+                <span>{{ procurement.procurement_category|default:"-" }}</span>
+            </div>
             <div class="detail-item" style="grid-column: 1 / -1;">
-                <label>采购名称：</label>
+                <label>采购项目名称：</label>
                 <span>{{ procurement.project_name }}</span>
             </div>
             {% if procurement.project %}
@@ -69,12 +73,24 @@
             </div>
             {% endif %}
             <div class="detail-item">
+                <label>采购平台：</label>
+                <span>{{ procurement.procurement_platform|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
                 <label>采购方式：</label>
                 <span>{{ procurement.procurement_method|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>采购平台：</label>
-                <span>{{ procurement.procurement_platform|default:"-" }}</span>
+                <label>资格审查方式：</label>
+                <span>{{ procurement.qualification_review_method|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>评标谈判方式：</label>
+                <span>{{ procurement.bid_evaluation_method|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>定标方法：</label>
+                <span>{{ procurement.bid_awarding_method|default:"-" }}</span>
             </div>
         </div>
     </div>
@@ -91,7 +107,7 @@
     <div style="padding: 20px;">
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
             <div class="detail-item">
-                <label>预算金额：</label>
+                <label>采购预算金额（元）：</label>
                 <span>
                     {% if procurement.budget_amount %}
                         ¥{{ procurement.budget_amount|floatformat:2 }}
@@ -101,7 +117,7 @@
                 </span>
             </div>
             <div class="detail-item">
-                <label>采购控制价：</label>
+                <label>采购控制价（元）：</label>
                 <span>
                     {% if procurement.control_price %}
                         ¥{{ procurement.control_price|floatformat:2 }}
@@ -111,7 +127,7 @@
                 </span>
             </div>
             <div class="detail-item">
-                <label>中标金额：</label>
+                <label>中标金额（元）：</label>
                 <span style="font-size: 18px; font-weight: bold; color: var(--primary-color);">
                     {% if procurement.winning_amount %}
                         ¥{{ procurement.winning_amount|floatformat:2 }}
@@ -139,24 +155,8 @@
                 <span>{{ procurement.winning_bidder|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>中标人联系方式：</label>
+                <label>中标单位联系人及方式：</label>
                 <span>{{ procurement.winning_contact|default:"-" }}</span>
-            </div>
-            <div class="detail-item">
-                <label>开标日期：</label>
-                <span>{{ procurement.bid_opening_date|default:"-" }}</span>
-            </div>
-            <div class="detail-item">
-                <label>中标通知书发放日期：</label>
-                <span>{{ procurement.notice_issue_date|default:"-" }}</span>
-            </div>
-            <div class="detail-item">
-                <label>评标方法：</label>
-                <span>{{ procurement.bid_evaluation_method|default:"-" }}</span>
-            </div>
-            <div class="detail-item">
-                <label>定标方法：</label>
-                <span>{{ procurement.bid_awarding_method|default:"-" }}</span>
             </div>
         </div>
     </div>
@@ -171,18 +171,38 @@
         </h2>
     </div>
     <div style="padding: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
             <div class="detail-item">
-                <label>采购计划完成日期：</label>
+                <label>公告发布时间：</label>
+                <span>{{ procurement.announcement_release_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>报名截止时间：</label>
+                <span>{{ procurement.registration_deadline|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>计划结束采购时间：</label>
                 <span>{{ procurement.planned_completion_date|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>采购需求书审批完成日期(OA)：</label>
+                <label>采购需求书审批完成日期（OA）：</label>
                 <span>{{ procurement.requirement_approval_date|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>平台中标结果公示完成日期：</label>
-                <span>{{ procurement.platform_publicity_date|default:"-" }}</span>
+                <label>开标时间：</label>
+                <span>{{ procurement.bid_opening_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>候选人公示结束时间：</label>
+                <span>{{ procurement.candidate_publicity_end_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>结果公示发布时间：</label>
+                <span>{{ procurement.result_publicity_release_date|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
+                <label>中标通知书发放日期：</label>
+                <span>{{ procurement.notice_issue_date|default:"-" }}</span>
             </div>
             <div class="detail-item">
                 <label>资料归档日期：</label>
@@ -203,7 +223,7 @@
     <div style="padding: 20px;">
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
             <div class="detail-item">
-                <label>招采经办人：</label>
+                <label>采购经办人：</label>
                 <span>{{ procurement.procurement_officer|default:"-" }}</span>
             </div>
             <div class="detail-item">
@@ -211,7 +231,7 @@
                 <span>{{ procurement.demand_department|default:"-" }}</span>
             </div>
             <div class="detail-item" style="grid-column: 1 / -1;">
-                <label>需求部门经办人及联系方式：</label>
+                <label>申请人联系电话（需求部门）：</label>
                 <span>{{ procurement.demand_contact|default:"-" }}</span>
             </div>
         </div>
@@ -232,10 +252,6 @@
                 <label>评标委员会成员：</label>
                 <span style="white-space: pre-wrap;">{{ procurement.evaluation_committee|default:"-" }}</span>
             </div>
-            <div class="detail-item">
-                <label>定标委员会成员：</label>
-                <span style="white-space: pre-wrap;">{{ procurement.awarding_committee|default:"-" }}</span>
-            </div>
         </div>
     </div>
 </div>
@@ -255,7 +271,7 @@
                 <span>{{ procurement.bid_guarantee|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>中标单位投标担保退回日期：</label>
+                <label>投标担保退回日期：</label>
                 <span>{{ procurement.bid_guarantee_return_date|default:"-" }}</span>
             </div>
             <div class="detail-item" style="grid-column: 1 / -1;">
@@ -275,23 +291,13 @@
         </h2>
     </div>
     <div style="padding: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
             <div class="detail-item">
-                <label>全程有无投诉：</label>
-                <span>{{ procurement.has_complaint|default:"-" }}</span>
+                <label>候选人公示期质疑情况：</label>
+                <span style="white-space: pre-wrap;">{{ procurement.candidate_publicity_issue|default:"-" }}</span>
             </div>
             <div class="detail-item">
-                <label>招采费用：</label>
-                <span>
-                    {% if procurement.procurement_cost %}
-                        ¥{{ procurement.procurement_cost|floatformat:2 }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </span>
-            </div>
-            <div class="detail-item" style="grid-column: 1 / -1;">
-                <label>应招未招说明：</label>
+                <label>应招未招说明（由公开转单一或邀请的情况）：</label>
                 <span style="white-space: pre-wrap;">{{ procurement.non_bidding_explanation|default:"-" }}</span>
             </div>
         </div>
