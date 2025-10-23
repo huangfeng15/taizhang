@@ -1,350 +1,547 @@
+
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+{% block title %}{{ page_title }} - 项目采购与成本管理系统<script>
+// 应用筛选器
+function applyFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 年份参数
+    const year = document.getElementById('yearSelect').value;
+    if (year) {
+        urlParams.set('year', year);
+    } else {
+        urlParams.delete('year');
+    }
+    
+    // 项目参数
+    const projectSelect = document.getElementById('projectSelect');
+    urlParams.delete('project'); // 先删除所有project参数
+    const selectedProjects = Array.from(projectSelect.selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== ''); // 过滤掉"全部项目"选项
+    
+    selectedProjects.forEach(code => {
+        urlParams.append('project', code);
+    });
+    
+    window.location.search = urlParams.toString();
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<script>
+// 应用筛选器
+function applyFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 年份参数
+    const year = document.getElementById('yearSelect').value;
+    if (year) {
+        urlParams.set('year', year);
+    } else {
+        urlParams.delete('year');
+    }
+    
+    // 项目参数
+    const projectSelect = document.getElementById('projectSelect');
+    urlParams.delete('project'); // 先删除所有project参数
+    const selectedProjects = Array.from(projectSelect.selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== ''); // 过滤掉"全部项目"选项
+    
+    selectedProjects.forEach(code => {
+        urlParams.append('project', code);
+    });
+    
+    window.location.search = urlParams.toString();
+}
+</script>
 {% endblock %}
 
 {% block content %}
-<div class="monitoring-archive">
-    <div class="page-header">
-        <h1><i class="fas fa-archive"></i> {{ page_title }}</h1>
-        <p class="text-muted">监控采购和合同资料的归档情况，及时发现逾期项目</p>
-    </div>
-
-    <!-- 归档统计概览 - 紧凑多栏布局 -->
-    <div class="card mb-3">
-        <div class="card-header bg-primary text-white py-2">
-            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 归档统计概览</h5>
+<div class="monitoring-dashboard">
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+        <div>
+            <h1><i class="fas fa-archive"></i> {{ page_title }}</h1>
+            <p class="text-muted">监控采购和合同资料的归档情况，及时发现逾期项目</p>
         </div>
-        <div class="card-body p-2">
-            <div class="row">
-                <!-- 采购统计 -->
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">采购-应归档</small>
-                            <h5 class="mb-0">{{ archive_data.procurement.total }}</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">采购-已归档</small>
-                            <h5 class="mb-0 text-success">{{ archive_data.procurement.archived }}</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">采购-未归档</small>
-                            <h5 class="mb-0 text-warning">{{ archive_data.procurement.unarchived }}</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">合同-应归档</small>
-                            <h5 class="mb-0">{{ archive_data.contract.total }}</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">合同-已归档</small>
-                            <h5 class="mb-0 text-success">{{ archive_data.contract.archived }}</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                    <div class="card bg-light h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-muted d-block">合同-未归档</small>
-                            <h5 class="mb-0 text-warning">{{ archive_data.contract.unarchived }}</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-lg-3 col-md-6 mb-2">
-                    <div class="card {% if archive_data.procurement.rate >= 90 %}bg-success{% elif archive_data.procurement.rate >= 70 %}bg-warning{% else %}bg-danger{% endif %} text-white h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="d-block">采购归档率</small>
-                            <h4 class="mb-0">{{ archive_data.procurement.rate }}%</h4>
-                            <small>标准: 公示后40天内</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-3 col-md-6 mb-2">
-                    <div class="card {% if archive_data.contract.rate >= 90 %}bg-success{% elif archive_data.contract.rate >= 70 %}bg-warning{% else %}bg-danger{% endif %} text-white h-100">
-                        <div class="card-body p-2 text-center">
-                            <small class="d-block">合同归档率</small>
-                            <h4 class="mb-0">{{ archive_data.contract.rate }}%</h4>
-                            <small>标准: 签订后30天内</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        
+        <!-- 筛选器 - 右上角 -->
+        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; min-width: 500px;">
+            <label for="yearSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">年份：</label>
+            <select id="yearSelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;">
+                <option value="" {% if not selected_year %}selected{% endif %}>全部</option>
+                {% for year in available_years %}
+                    {% if year %}
+                    <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>{{ year }}年</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            
+            <label for="projectSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">项目：</label>
+            <select id="projectSelect" class="form-control form-control-sm" style="width: 200px; border-radius: 4px;" multiple size="1">
+                {% for project in projects %}
+                <option value="{{ project.project_code }}" {% if project.project_code in selected_projects %}selected{% endif %}>
+                    {{ project.project_name }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <button type="button" class="btn btn-primary btn-sm" onclick="applyFilters()" style="white-space: nowrap;">
+                <i class="fas fa-filter"></i> 筛选
+            </button>
         </div>
     </div>
 
-    <!-- 逾期预警 - 突出显示 -->
-    <div class="card mb-3 border-danger">
-        <div class="card-header bg-danger text-white py-2">
-            <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> 逾期预警</h5>
-        </div>
-        <div class="card-body p-2">
-            <div class="row">
-                <!-- 采购逾期 -->
-                <div class="col-lg-6 mb-2">
-                    <div class="card border-primary">
-                        <div class="card-header bg-primary text-white py-1">
-                            <strong><i class="fas fa-shopping-cart"></i> 采购逾期情况</strong>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <div class="card bg-danger text-white mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.procurement.overdue_breakdown.severe }}</h3>
-                                            <small>严重逾期</small>
-                                            <div><small class="badge badge-light text-dark">超30天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="card bg-warning text-dark mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.procurement.overdue_breakdown.moderate }}</h3>
-                                            <small>中度逾期</small>
-                                            <div><small class="badge badge-light">16-30天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="card bg-info text-white mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.procurement.overdue_breakdown.mild }}</h3>
-                                            <small>轻度逾期</small>
-                                            <div><small class="badge badge-light text-dark">1-15天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- 合同逾期 -->
-                <div class="col-lg-6 mb-2">
-                    <div class="card border-success">
-                        <div class="card-header bg-success text-white py-1">
-                            <strong><i class="fas fa-file-contract"></i> 合同逾期情况</strong>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <div class="card bg-danger text-white mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.contract.overdue_breakdown.severe }}</h3>
-                                            <small>严重逾期</small>
-                                            <div><small class="badge badge-light text-dark">超30天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="card bg-warning text-dark mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.contract.overdue_breakdown.moderate }}</h3>
-                                            <small>中度逾期</small>
-                                            <div><small class="badge badge-light">16-30天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="card bg-info text-white mb-0">
-                                        <div class="card-body p-2">
-                                            <h3 class="mb-0">{{ archive_data.contract.overdue_breakdown.mild }}</h3>
-                                            <small>轻度逾期</small>
-                                            <div><small class="badge badge-light text-dark">1-15天</small></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- 关键指标仪表盘 - 突出显示最重要的数据 -->
+    <div class="dashboard-gauge-container">
+        <div class="gauge-card">
+            <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 160 160">
+                    <defs>
+                        <linearGradient id="gaugeGradientOverall" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
+                    <circle class="gauge-progress primary" cx="80" cy="80" r="70"
+                            stroke-dasharray="440"
+                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.overall_rate }} / 100));"></circle>
+                </svg>
+                <div class="gauge-value">{{ archive_data.overall_rate }}%</div>
             </div>
+            <div class="gauge-label">综合归档率</div>
+            <div class="gauge-subtitle">总体归档完成度</div>
+        </div>
+
+        <div class="gauge-card {% if archive_data.procurement.rate >= 80 %}success{% elif archive_data.procurement.rate >= 60 %}warning{% endif %}">
+            <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 160 160">
+                    <defs>
+                        <linearGradient id="gaugeGradientProc" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
+                    <circle class="gauge-progress {% if archive_data.procurement.rate >= 80 %}success{% else %}warning{% endif %}" cx="80" cy="80" r="70"
+                            stroke-dasharray="440"
+                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.procurement.rate }} / 100));"></circle>
+                </svg>
+                <div class="gauge-value">{{ archive_data.procurement.rate }}%</div>
+            </div>
+            <div class="gauge-label">采购归档率</div>
+            <div class="gauge-subtitle">已归档 {{ archive_data.procurement.archived }}/{{ archive_data.procurement.total }}</div>
+        </div>
+
+        <div class="gauge-card {% if archive_data.contract.rate >= 80 %}success{% elif archive_data.contract.rate >= 60 %}warning{% endif %}">
+            <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 160 160">
+                    <defs>
+                        <linearGradient id="gaugeGradientCont" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
+                    <circle class="gauge-progress {% if archive_data.contract.rate >= 80 %}success{% else %}warning{% endif %}" cx="80" cy="80" r="70"
+                            stroke-dasharray="440"
+                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.contract.rate }} / 100));"></circle>
+                </svg>
+                <div class="gauge-value">{{ archive_data.contract.rate }}%</div>
+            </div>
+            <div class="gauge-label">合同归档率</div>
+            <div class="gauge-subtitle">已归档 {{ archive_data.contract.archived }}/{{ archive_data.contract.total }}</div>
+        </div>
+
+        <div class="gauge-card warning">
+            <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 160 160">
+                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
+                </svg>
+                <div class="gauge-value">{{ archive_data.procurement.overdue|add:archive_data.contract.overdue }}</div>
+            </div>
+            <div class="gauge-label">逾期项目</div>
+            <div class="gauge-subtitle">需要立即处理</div>
         </div>
     </div>
 
-    <!-- 筛选器 -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5><i class="fas fa-filter"></i> 筛选条件</h5>
-        </div>
-        <div class="card-body">
-            <form method="get" action="{% url 'archive_monitor' %}" class="form-inline">
-                <div class="form-group mr-3 mb-2">
-                    <label class="mr-2">模块：</label>
-                    <select name="module" class="form-control">
-                        <option value="">全部</option>
-                        <option value="procurement" {% if module_filter == 'procurement' %}selected{% endif %}>采购</option>
-                        <option value="contract" {% if module_filter == 'contract' %}selected{% endif %}>合同</option>
-                    </select>
-                </div>
-                <div class="form-group mr-3 mb-2">
-                    <label class="mr-2">严重程度：</label>
-                    <select name="severity" class="form-control">
-                        <option value="">全部</option>
-                        <option value="severe" {% if severity_filter == 'severe' %}selected{% endif %}>严重</option>
-                        <option value="moderate" {% if severity_filter == 'moderate' %}selected{% endif %}>中度</option>
-                        <option value="mild" {% if severity_filter == 'mild' %}selected{% endif %}>轻度</option>
-                    </select>
-                </div>
-                <div class="form-group mr-3 mb-2">
-                    <label class="mr-2">项目：</label>
-                    <select name="project" class="form-control">
-                        <option value="">全部项目</option>
-                        {% for project in projects %}
-                        <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
-                            {{ project.project_code }} - {{ project.project_name|truncatechars:30 }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary mb-2">
-                    <i class="fas fa-search"></i> 筛选
-                </button>
-                <a href="{% url 'archive_monitor' %}" class="btn btn-secondary ml-2 mb-2">
-                    <i class="fas fa-redo"></i> 重置
+    <!-- 标签页容器 - 组织多模块数据 -->
+    <div class="tab-container">
+        <ul class="tab-nav">
+            <li class="tab-nav-item">
+                <a href="#tab-overview" class="tab-nav-link active" onclick="switchTab(event, 'tab-overview')">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>综合概览</span>
                 </a>
-            </form>
-        </div>
-    </div>
+            </li>
+            <li class="tab-nav-item">
+                <a href="#tab-procurement" class="tab-nav-link" onclick="switchTab(event, 'tab-procurement')">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>采购详情</span>
+                </a>
+            </li>
+            <li class="tab-nav-item">
+                <a href="#tab-contract" class="tab-nav-link" onclick="switchTab(event, 'tab-contract')">
+                    <i class="fas fa-file-contract"></i>
+                    <span>合同详情</span>
+                </a>
+            </li>
+            <li class="tab-nav-item">
+                <a href="#tab-overdue" class="tab-nav-link" onclick="switchTab(event, 'tab-overdue')">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>逾期预警 ({{ archive_data.procurement.overdue|add:archive_data.contract.overdue }})</span>
+                </a>
+            </li>
+        </ul>
 
-    <!-- 逾期项目列表 -->
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="fas fa-list"></i> 逾期项目列表</h5>
-            <span class="badge badge-pill badge-danger">共 {{ page_obj.paginator.count }} 项</span>
-        </div>
-        <div class="card-body">
-            {% if overdue_list %}
-            <div class="table-responsive">
-                <table class="table table-hover table-striped">
-                    <thead class="thead-light">
-                        <tr>
-                            <th style="width: 60px;">序号</th>
-                            <th>模块</th>
-                            <th>编号</th>
-                            <th>名称</th>
-                            <th>所属项目</th>
-                            <th>参考日期</th>
-                            <th>归档标准</th>
-                            <th>逾期天数</th>
-                            <th>严重程度</th>
-                            <th>经办人</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in overdue_list %}
-                        <tr class="severity-row-{{ item.severity }}">
-                            <td>{{ forloop.counter }}</td>
-                            <td>
-                                <span class="badge {% if item.module == '采购' %}badge-primary{% else %}badge-success{% endif %}">
-                                    {{ item.module }}
-                                </span>
-                            </td>
-                            <td><code class="text-dark">{{ item.code }}</code></td>
-                            <td>
-                                <strong>{{ item.name|truncatechars:40 }}</strong>
-                            </td>
-                            <td>
-                                {% if item.project_code %}
-                                <div><code class="text-muted">{{ item.project_code }}</code></div>
-                                <small class="text-muted">{{ item.project_name|truncatechars:25 }}</small>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="text-nowrap">
-                                    <small class="text-muted">{{ item.reference_date_label }}</small>
+        <!-- 标签页内容 -->
+        <div class="tab-content">
+            <!-- 综合概览 -->
+            <div id="tab-overview" class="tab-pane active">
+                <div class="key-metrics-grid">
+                    <div class="key-metric-card">
+                        <div class="key-metric-header">
+                            <div>
+                                <div class="key-metric-title">采购项目总数</div>
+                                <div class="key-metric-value">{{ archive_data.procurement.total }}</div>
+                            </div>
+                            <div class="key-metric-icon">
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                        </div>
+                        <div class="key-metric-trend up">
+                            <i class="fas fa-arrow-up"></i> 已归档 {{ archive_data.procurement.archived }} 项
+                        </div>
+                    </div>
+
+                    <div class="key-metric-card success">
+                        <div class="key-metric-header">
+                            <div>
+                                <div class="key-metric-title">合同项目总数</div>
+                                <div class="key-metric-value">{{ archive_data.contract.total }}</div>
+                            </div>
+                            <div class="key-metric-icon success">
+                                <i class="fas fa-file-contract"></i>
+                            </div>
+                        </div>
+                        <div class="key-metric-trend up">
+                            <i class="fas fa-arrow-up"></i> 已归档 {{ archive_data.contract.archived }} 项
+                        </div>
+                    </div>
+
+                    <div class="key-metric-card warning">
+                        <div class="key-metric-header">
+                            <div>
+                                <div class="key-metric-title">逾期项目总数</div>
+                                <div class="key-metric-value">{{ archive_data.procurement.overdue|add:archive_data.contract.overdue }}</div>
+                            </div>
+                            <div class="key-metric-icon warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        <div class="key-metric-trend down">
+                            <i class="fas fa-exclamation-circle"></i> 需要立即关注
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-chart-bar"></i> 归档完成情况</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="archiveCompletionChart" style="max-height: 250px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-exclamation-circle"></i> 逾期严重程度分布</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="overdueDistributionChart" style="max-height: 250px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 采购详情 -->
+            <div id="tab-procurement" class="tab-pane">
+                <div class="compact-stat-card">
+                    <div class="stat-header">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>采购归档统计</span>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ archive_data.procurement.total }}</div>
+                            <div class="stat-label">应归档</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success">{{ archive_data.procurement.archived }}</div>
+                            <div class="stat-label">已归档</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-warning">{{ archive_data.procurement.overdue }}</div>
+                            <div class="stat-label">逾期</div>
+                        </div>
+                        <div class="stat-item primary">
+                            <div class="stat-number">{{ archive_data.procurement.rate }}%</div>
+                            <div class="stat-label">归档率</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie"></i> 采购逾期分级统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number text-danger" style="font-size: 48px;">{{ archive_data.procurement.overdue_breakdown.severe }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #e74c3c;">严重逾期</div>
+                                    <small class="text-muted">超过30天</small>
                                 </div>
-                                <strong>{{ item.reference_date }}</strong>
-                            </td>
-                            <td>
-                                <span class="badge badge-secondary">{{ item.deadline_days }} 天内</span>
-                            </td>
-                            <td>
-                                <span class="badge badge-danger badge-lg">{{ item.overdue_days }} 天</span>
-                            </td>
-                            <td>
-                                {% if item.severity == 'severe' %}
-                                <span class="badge badge-danger">
-                                    <i class="fas fa-exclamation-circle"></i> 严重
-                                </span>
-                                {% elif item.severity == 'moderate' %}
-                                <span class="badge badge-warning">
-                                    <i class="fas fa-exclamation-triangle"></i> 中度
-                                </span>
-                                {% else %}
-                                <span class="badge badge-info">
-                                    <i class="fas fa-info-circle"></i> 轻度
-                                </span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number" style="font-size: 48px; color: #f39c12;">{{ archive_data.procurement.overdue_breakdown.moderate }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #f39c12;">中度逾期</div>
+                                    <small class="text-muted">16-30天</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number" style="font-size: 48px; color: #3498db;">{{ archive_data.procurement.overdue_breakdown.mild }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #3498db;">轻度逾期</div>
+                                    <small class="text-muted">1-15天</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 合同详情 -->
+            <div id="tab-contract" class="tab-pane">
+                <div class="compact-stat-card">
+                    <div class="stat-header">
+                        <i class="fas fa-file-contract"></i>
+                        <span>合同归档统计</span>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ archive_data.contract.total }}</div>
+                            <div class="stat-label">应归档</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success">{{ archive_data.contract.archived }}</div>
+                            <div class="stat-label">已归档</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-warning">{{ archive_data.contract.overdue }}</div>
+                            <div class="stat-label">逾期</div>
+                        </div>
+                        <div class="stat-item primary">
+                            <div class="stat-number">{{ archive_data.contract.rate }}%</div>
+                            <div class="stat-label">归档率</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie"></i> 合同逾期分级统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number text-danger" style="font-size: 48px;">{{ archive_data.contract.overdue_breakdown.severe }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #e74c3c;">严重逾期</div>
+                                    <small class="text-muted">超过30天</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number" style="font-size: 48px; color: #f39c12;">{{ archive_data.contract.overdue_breakdown.moderate }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #f39c12;">中度逾期</div>
+                                    <small class="text-muted">16-30天</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="compact-stat-card">
+                                    <div class="stat-number" style="font-size: 48px; color: #3498db;">{{ archive_data.contract.overdue_breakdown.mild }}</div>
+                                    <div class="stat-label" style="font-size: 16px; color: #3498db;">轻度逾期</div>
+                                    <small class="text-muted">1-15天</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 逾期预警 -->
+            <div id="tab-overdue" class="tab-pane">
+                <!-- 筛选器 -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <form method="get" action="{% url 'archive_monitor' %}" class="form-inline">
+                            <div class="form-group mr-3 mb-2">
+                                <label class="mr-2">模块：</label>
+                                <select name="module" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="procurement" {% if module_filter == 'procurement' %}selected{% endif %}>采购</option>
+                                    <option value="contract" {% if module_filter == 'contract' %}selected{% endif %}>合同</option>
+                                </select>
+                            </div>
+                            <div class="form-group mr-3 mb-2">
+                                <label class="mr-2">严重程度：</label>
+                                <select name="severity" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="severe" {% if severity_filter == 'severe' %}selected{% endif %}>严重</option>
+                                    <option value="moderate" {% if severity_filter == 'moderate' %}selected{% endif %}>中度</option>
+                                    <option value="mild" {% if severity_filter == 'mild' %}selected{% endif %}>轻度</option>
+                                </select>
+                            </div>
+                            <div class="form-group mr-3 mb-2">
+                                <label class="mr-2">项目：</label>
+                                <select name="project" class="form-control">
+                                    <option value="">全部项目</option>
+                                    {% for project in projects %}
+                                    <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
+                                        {{ project.project_code }} - {{ project.project_name|truncatechars:30 }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary mb-2">
+                                <i class="fas fa-search"></i> 筛选
+                            </button>
+                            <a href="{% url 'archive_monitor' %}" class="btn btn-secondary ml-2 mb-2">
+                                <i class="fas fa-redo"></i> 重置
+                            </a>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 逾期项目列表 -->
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5><i class="fas fa-exclamation-triangle"></i> 逾期项目列表 
+                            <span class="badge badge-light text-danger float-right">共 {{ page_obj.paginator.count }} 项</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if overdue_list %}
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">序号</th>
+                                        <th>模块</th>
+                                        <th>编号</th>
+                                        <th>名称</th>
+                                        <th>项目</th>
+                                        <th>参考日期</th>
+                                        <th>逾期天数</th>
+                                        <th>程度</th>
+                                        <th>经办人</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in overdue_list %}
+                                    <tr class="severity-{{ item.severity }}">
+                                        <td>{{ forloop.counter }}</td>
+                                        <td><span class="badge badge-secondary">{{ item.module }}</span></td>
+                                        <td><code style="font-size: 12px;">{{ item.code }}</code></td>
+                                        <td>{{ item.name|truncatechars:30 }}</td>
+                                        <td>
+                                            {% if item.project_code %}
+                                            <small>{{ item.project_code }}</small><br>
+                                            <small class="text-muted">{{ item.project_name|truncatechars:15 }}</small>
+                                            {% else %}
+                                            <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>{{ item.reference_date_label }}</small><br>
+                                            <small>{{ item.reference_date }}</small>
+                                        </td>
+                                        <td>
+                                            <strong class="text-danger">{{ item.overdue_days }}</strong>天
+                                            <br><small class="text-muted">(应≤{{ item.deadline_days }}天)</small>
+                                        </td>
+                                        <td>
+                                            {% if item.severity == 'severe' %}
+                                            <span class="badge badge-danger">严重</span>
+                                            {% elif item.severity 
+== 'moderate' %}
+                                            <span class="badge badge-warning">中度</span>
+                                            {% else %}
+                                            <span class="badge badge-info">轻度</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ item.officer|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                        <nav aria-label="分页导航" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">首页</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">上一页</a>
+                                </li>
                                 {% endif %}
-                            </td>
-                            <td>{{ item.officer|default:"-" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+                                <li class="page-item active">
+                                    <span class="page-link">
+                                        第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
+                                    </span>
+                                </li>
+
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">下一页</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">末页</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+
+                        {% else %}
+                        <div class="alert alert-success text-center mb-0">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <h5>太棒了！</h5>
+                            <p>当前筛选条件下没有逾期项目。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-
-            <!-- 分页 -->
-            {% if page_obj.has_other_pages %}
-            <nav aria-label="分页导航" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">首页</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">上一页</a>
-                    </li>
-                    {% endif %}
-
-                    <li class="page-item active">
-                        <span class="page-link">
-                            第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
-                        </span>
-                    </li>
-
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">下一页</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">末页</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-
-            {% else %}
-            <div class="alert alert-success text-center">
-                <i class="fas fa-check-circle fa-3x mb-3"></i>
-                <h5>太棒了！</h5>
-                <p>当前筛选条件下没有逾期项目。</p>
-            </div>
-            {% endif %}
         </div>
     </div>
 
@@ -355,10 +552,145 @@
         </a>
     </div>
 </div>
+<script>
+// 应用筛选器
+function applyFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 年份参数
+    const year = document.getElementById('yearSelect').value;
+    if (year) {
+        urlParams.set('year', year);
+    } else {
+        urlParams.delete('year');
+    }
+    
+    // 项目参数
+    const projectSelect = document.getElementById('projectSelect');
+    urlParams.delete('project'); // 先删除所有project参数
+    const selectedProjects = Array.from(projectSelect.selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== ''); // 过滤掉"全部项目"选项
+    
+    selectedProjects.forEach(code => {
+        urlParams.append('project', code);
+    });
+    
+    window.location.search = urlParams.toString();
+}
+</script>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// 可以添加表格排序、导出等交互功能
+// 标签页切换功能
+function switchTab(event, tabId) {
+    event.preventDefault();
+    
+    // 移除所有活动状态
+    document.querySelectorAll('.tab-nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // 添加新的活动状态
+    event.currentTarget.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 归档完成情况图表
+    const archiveCompletionCtx = document.getElementById('archiveCompletionChart');
+    if (archiveCompletionCtx) {
+        new Chart(archiveCompletionCtx, {
+            type: 'bar',
+            data: {
+                labels: ['采购', '合同'],
+                datasets: [{
+                    label: '已归档',
+                    data: [{{ archive_data.procurement.archived }}, {{ archive_data.contract.archived }}],
+                    backgroundColor: 'rgba(82, 196, 26, 0.8)',
+                }, {
+                    label: '未归档',
+                    data: [{{ archive_data.procurement.total|add:'-'|add:archive_data.procurement.archived }}, 
+                           {{ archive_data.contract.total|add:'-'|add:archive_data.contract.archived }}],
+                    backgroundColor: 'rgba(250, 173, 20, 0.8)',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                },
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    // 逾期严重程度分布图表
+    const overdueDistributionCtx = document.getElementById('overdueDistributionChart');
+    if (overdueDistributionCtx) {
+        new Chart(overdueDistributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['严重逾期', '中度逾期', '轻度逾期'],
+                datasets: [{
+                    data: [
+                        {{ archive_data.procurement.overdue_breakdown.severe|add:archive_data.contract.overdue_breakdown.severe }},
+                        {{ archive_data.procurement.overdue_breakdown.moderate|add:archive_data.contract.overdue_breakdown.moderate }},
+                        {{ archive_data.procurement.overdue_breakdown.mild|add:archive_data.contract.overdue_breakdown.mild }}
+                    ],
+                    backgroundColor: [
+                        'rgba(255, 77, 79, 0.8)',
+                        'rgba(250, 173, 20, 0.8)',
+                        'rgba(24, 144, 255, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+});
+</script>
+<script>
+// 应用筛选器
+function applyFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 年份参数
+    const year = document.getElementById('yearSelect').value;
+    if (year) {
+        urlParams.set('year', year);
+    } else {
+        urlParams.delete('year');
+    }
+    
+    // 项目参数
+    const projectSelect = document.getElementById('projectSelect');
+    urlParams.delete('project'); // 先删除所有project参数
+    const selectedProjects = Array.from(projectSelect.selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== ''); // 过滤掉"全部项目"选项
+    
+    selectedProjects.forEach(code => {
+        urlParams.append('project', code);
+    });
+    
+    window.location.search = urlParams.toString();
+}
 </script>
 {% endblock %}

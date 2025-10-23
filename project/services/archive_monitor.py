@@ -13,6 +13,17 @@ from settlement.models import Settlement
 class ArchiveMonitorService:
     """归档监控服务"""
     
+    def __init__(self, year=None, project_codes=None):
+        """
+        初始化服务
+        
+        Args:
+            year: 筛选年份，None表示全部年份
+            project_codes: 项目编码列表，None表示全部项目
+        """
+        self.year = year
+        self.project_codes = project_codes
+    
     def get_archive_overview(self):
         """
         获取归档总览数据
@@ -49,21 +60,27 @@ class ArchiveMonitorService:
         Returns:
             dict: 采购归档统计数据
         """
-        # 应归档总数：已完成平台公示的采购
-        total = Procurement.objects.filter(
-            platform_publicity_date__isnull=False
-        ).count()
+        # 基础查询集
+        base_qs = Procurement.objects.filter(platform_publicity_date__isnull=False)
+        
+        # 年份筛选 - 按结果公示发布时间统计
+        if self.year:
+            base_qs = base_qs.filter(platform_publicity_date__year=self.year)
+        
+        # 项目筛选
+        if self.project_codes:
+            base_qs = base_qs.filter(project__project_code__in=self.project_codes)
+        
+        # 应归档总数
+        total = base_qs.count()
         
         # 已归档数量
-        archived = Procurement.objects.filter(
-            platform_publicity_date__isnull=False,
-            archive_date__isnull=False
-        ).count()
+        archived = base_qs.filter(archive_date__isnull=False).count()
         
         # 逾期统计（公示后40天）
         if total > 0:
             deadline = timezone.now().date() - timedelta(days=40)
-            overdue = Procurement.objects.filter(
+            overdue = base_qs.filter(
                 platform_publicity_date__lte=deadline,
                 archive_date__isnull=True
             ).count()
@@ -73,18 +90,18 @@ class ArchiveMonitorService:
             moderate_deadline = timezone.now().date() - timedelta(days=56)  # 超过16天
             mild_deadline = deadline  # 超过1天
             
-            severe_overdue = Procurement.objects.filter(
+            severe_overdue = base_qs.filter(
                 platform_publicity_date__lte=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
-            moderate_overdue = Procurement.objects.filter(
+            moderate_overdue = base_qs.filter(
                 platform_publicity_date__lte=moderate_deadline,
                 platform_publicity_date__gt=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
-            mild_overdue = Procurement.objects.filter(
+            mild_overdue = base_qs.filter(
                 platform_publicity_date__lte=mild_deadline,
                 platform_publicity_date__gt=moderate_deadline,
                 archive_date__isnull=True
@@ -120,24 +137,30 @@ class ArchiveMonitorService:
         Returns:
             dict: 合同归档统计数据
         """
-        # 只统计主合同
-        total = Contract.objects.filter(
+        # 基础查询集 - 只统计主合同
+        base_qs = Contract.objects.filter(
             contract_type='主合同',
             signing_date__isnull=False
-        ).count()
+        )
+        
+        # 年份筛选 - 按合同签订时间统计
+        if self.year:
+            base_qs = base_qs.filter(signing_date__year=self.year)
+        
+        # 项目筛选
+        if self.project_codes:
+            base_qs = base_qs.filter(project__project_code__in=self.project_codes)
+        
+        # 应归档总数
+        total = base_qs.count()
         
         # 已归档数量
-        archived = Contract.objects.filter(
-            contract_type='主合同',
-            signing_date__isnull=False,
-            archive_date__isnull=False
-        ).count()
+        archived = base_qs.filter(archive_date__isnull=False).count()
         
         # 逾期统计（签订后30天）
         if total > 0:
             deadline = timezone.now().date() - timedelta(days=30)
-            overdue = Contract.objects.filter(
-                contract_type='主合同',
+            overdue = base_qs.filter(
                 signing_date__lte=deadline,
                 archive_date__isnull=True
             ).count()
@@ -147,21 +170,18 @@ class ArchiveMonitorService:
             moderate_deadline = timezone.now().date() - timedelta(days=46)  # 超过16天
             mild_deadline = deadline  # 超过1天
             
-            severe_overdue = Contract.objects.filter(
-                contract_type='主合同',
+            severe_overdue = base_qs.filter(
                 signing_date__lte=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
-            moderate_overdue = Contract.objects.filter(
-                contract_type='主合同',
+            moderate_overdue = base_qs.filter(
                 signing_date__lte=moderate_deadline,
                 signing_date__gt=severe_deadline,
                 archive_date__isnull=True
             ).count()
             
-            mild_overdue = Contract.objects.filter(
-                contract_type='主合同',
+            mild_overdue = base_qs.filter(
                 signing_date__lte=mild_deadline,
                 signing_date__gt=moderate_deadline,
                 archive_date__isnull=True
@@ -270,6 +290,15 @@ class ArchiveMonitorService:
             archive_date__isnull=True
         ).select_related('project')
         
+        # 年份筛选
+        if self.year:
+            queryset = queryset.filter(platform_publicity_date__year=self.year)
+        
+        # 项目筛选（批量）
+        if self.project_codes:
+            queryset = queryset.filter(project__project_code__in=self.project_codes)
+        
+        # 单项目筛选（用于详情页）
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         
@@ -317,6 +346,15 @@ class ArchiveMonitorService:
             archive_date__isnull=True
         ).select_related('project')
         
+        # 年份筛选
+        if self.year:
+            queryset = queryset.filter(signing_date__year=self.year)
+        
+        # 项目筛选（批量）
+        if self.project_codes:
+            queryset = queryset.filter(project__project_code__in=self.project_codes)
+        
+        # 单项目筛选（用于详情页）
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         

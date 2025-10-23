@@ -70,59 +70,54 @@
 
 {% block content %}
 <div class="monitoring-ranking">
-    <div class="page-header">
-        <h1><i class="fas fa-trophy"></i> {{ page_title }}</h1>
-        <p class="text-muted">查看项目和个人在采购、归档、合同、结算等维度的绩效排名</p>
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+        <div>
+            <h1><i class="fas fa-trophy"></i> {{ page_title }}</h1>
+            <p class="text-muted">查看项目和个人在采购、归档、合同、结算等维度的绩效排名</p>
+        </div>
+        
+        <!-- 筛选器 - 右上角 -->
+        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; min-width: 400px;">
+            <label for="yearSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">年份：</label>
+            <select id="yearSelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;" onchange="changeYear(this.value)">
+                {% for year in available_years %}
+                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
+                    {% if year %}{{ year }}年{% else %}全部{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <label for="rankBySelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">维度：</label>
+            <select id="rankBySelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;" onchange="changeRankBy(this.value)">
+                <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
+                <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
+            </select>
+        </div>
     </div>
 
     <!-- 排名类型切换 -->
     <div class="ranking-nav">
         <div class="btn-group" role="group">
-            <a href="?type=comprehensive&year={{ selected_year }}&rank_by={{ rank_by }}" 
+            <a href="?type=comprehensive&year={{ selected_year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'comprehensive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-star"></i> 综合排名
             </a>
-            <a href="?type=procurement&year={{ selected_year }}&rank_by={{ rank_by }}" 
+            <a href="?type=procurement&year={{ selected_year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-shopping-cart"></i> 采购绩效
             </a>
-            <a href="?type=archive&year={{ selected_year }}&rank_by={{ rank_by }}" 
+            <a href="?type=archive&year={{ selected_year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'archive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-archive"></i> 归档绩效
             </a>
-            <a href="?type=contract&year={{ selected_year }}&rank_by={{ rank_by }}" 
+            <a href="?type=contract&year={{ selected_year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-file-contract"></i> 合同签订
             </a>
-            <a href="?type=settlement&year={{ selected_year }}&rank_by={{ rank_by }}" 
+            <a href="?type=settlement&year={{ selected_year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-calculator"></i> 结算完成
             </a>
-        </div>
-    </div>
-
-    <!-- 年份和排名维度选择器 -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="year-selector">
-                <label for="yearSelect"><strong>选择年份：</strong></label>
-                <select id="yearSelect" class="form-control" style="width: auto;" onchange="changeYear(this.value)">
-                    {% for year in available_years %}
-                    <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
-                        {% if year %}{{ year }}年{% else %}全部年份{% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="rank-by-selector">
-                <label for="rankBySelect"><strong>排名维度：</strong></label>
-                <select id="rankBySelect" class="form-control" style="width: auto;" onchange="changeRankBy(this.value)">
-                    <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
-                    <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
-                </select>
-            </div>
         </div>
     </div>
 

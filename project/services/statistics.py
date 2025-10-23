@@ -9,12 +9,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 
-def get_procurement_statistics(year=None):
+def get_procurement_statistics(year=None, project_codes=None):
     """
     采购统计
     
     Args:
-        year: 统计年份，默认为当前年份
+        year: 统计年份，默认为当前年份，None表示全部年份
+        project_codes: 项目编码列表，None表示全部项目
         
     Returns:
         dict: 包含采购统计数据
@@ -24,10 +25,16 @@ def get_procurement_statistics(year=None):
     if year is None:
         year = datetime.now().year
     
-    # 基础查询集 - 按开标日期筛选年份
-    queryset = Procurement.objects.filter(
-        bid_opening_date__year=year
-    )
+    # 基础查询集 - 按结果公示发布时间筛选年份
+    queryset = Procurement.objects.all()
+    
+    # 年份筛选 - 按结果公示发布时间统计
+    if year:
+        queryset = queryset.filter(platform_publicity_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
     
     # 基本统计
     total_count = queryset.count()
@@ -111,12 +118,13 @@ def get_procurement_statistics(year=None):
     }
 
 
-def get_contract_statistics(year=None):
+def get_contract_statistics(year=None, project_codes=None):
     """
     合同统计
     
     Args:
-        year: 统计年份，默认为当前年份
+        year: 统计年份，默认为当前年份，None表示全部年份
+        project_codes: 项目编码列表，None表示全部项目
         
     Returns:
         dict: 包含合同统计数据
@@ -126,10 +134,16 @@ def get_contract_statistics(year=None):
     if year is None:
         year = datetime.now().year
     
-    # 基础查询集 - 按签订日期筛选年份
-    queryset = Contract.objects.filter(
-        signing_date__year=year
-    )
+    # 基础查询集
+    queryset = Contract.objects.all()
+    
+    # 年份筛选 - 按合同签订时间统计
+    if year:
+        queryset = queryset.filter(signing_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
     
     # 基本统计
     total_count = queryset.count()
@@ -214,12 +228,13 @@ def get_contract_statistics(year=None):
     }
 
 
-def get_payment_statistics(year=None):
+def get_payment_statistics(year=None, project_codes=None):
     """
     付款统计
     
     Args:
-        year: 统计年份，默认为当前年份
+        year: 统计年份，默认为当前年份，None表示全部年份
+        project_codes: 项目编码列表，None表示全部项目
         
     Returns:
         dict: 包含付款统计数据
@@ -231,10 +246,16 @@ def get_payment_statistics(year=None):
     if year is None:
         year = datetime.now().year
     
-    # 基础查询集 - 按付款日期筛选年份
-    queryset = Payment.objects.filter(
-        payment_date__year=year
-    )
+    # 基础查询集
+    queryset = Payment.objects.all()
+    
+    # 年份筛选 - 按付款时间统计
+    if year:
+        queryset = queryset.filter(payment_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(contract__project__project_code__in=project_codes)
     
     # 基本统计
     total_count = queryset.count()
@@ -402,12 +423,13 @@ def get_settlement_statistics():
     }
 
 
-def get_overview_statistics(year=None):
+def get_overview_statistics(year=None, project_codes=None):
     """
     获取综合统计概览
     
     Args:
         year: 统计年份，默认为当前年份
+        project_codes: 项目编码列表，None表示全部项目
         
     Returns:
         dict: 综合统计数据
@@ -415,9 +437,9 @@ def get_overview_statistics(year=None):
     if year is None:
         year = datetime.now().year
     
-    procurement_stats = get_procurement_statistics(year)
-    contract_stats = get_contract_statistics(year)
-    payment_stats = get_payment_statistics(year)
+    procurement_stats = get_procurement_statistics(year, project_codes)
+    contract_stats = get_contract_statistics(year, project_codes)
+    payment_stats = get_payment_statistics(year, project_codes)
     settlement_stats = get_settlement_statistics()
     
     return {
@@ -429,12 +451,13 @@ def get_overview_statistics(year=None):
     }
 
 
-def get_year_comparison(years):
+def get_year_comparison(years, project_codes=None):
     """
     多年度数据对比
     
     Args:
         years: 年份列表，例如 [2023, 2024, 2025]
+        project_codes: 项目编码列表，None表示全部项目
         
     Returns:
         dict: 多年度对比数据
@@ -448,21 +471,21 @@ def get_year_comparison(years):
     }
     
     for year in years:
-        proc_stats = get_procurement_statistics(year)
+        proc_stats = get_procurement_statistics(year, project_codes)
         comparison_data['procurement'].append({
             'year': year,
             'count': proc_stats['total_count'],
             'amount': proc_stats['total_winning']
         })
         
-        contract_stats = get_contract_statistics(year)
+        contract_stats = get_contract_statistics(year, project_codes)
         comparison_data['contract'].append({
             'year': year,
             'count': contract_stats['total_count'],
             'amount': contract_stats['total_amount']
         })
         
-        payment_stats = get_payment_statistics(year)
+        payment_stats = get_payment_statistics(year, project_codes)
         comparison_data['payment'].append({
             'year': year,
             'count': payment_stats['total_count'],

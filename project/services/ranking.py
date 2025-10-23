@@ -2,7 +2,7 @@
 绩效排名服务模块
 提供项目和个人在采购、归档等维度的绩效排名功能
 """
-from django.db.models import Count, Q, Avg, F, ExpressionWrapper, fields
+from django.db.models import Count, Q, Avg, F, ExpressionWrapper, fields, Sum
 from django.db.models.functions import Coalesce
 from datetime import datetime, timedelta
 from procurement.models import Procurement
@@ -32,9 +32,9 @@ def get_procurement_ranking(rank_type='project', year=None):
     if rank_type == 'project':
         # 按项目排名
         rankings = queryset.values('project__project_name').annotate(
-            total_count=Count('id'),
-            completed_count=Count('id', filter=Q(archive_date__isnull=False)),
-            on_time_count=Count('id', filter=Q(
+            total_count=Count('procurement_code'),
+            completed_count=Count('procurement_code', filter=Q(archive_date__isnull=False)),
+            on_time_count=Count('procurement_code', filter=Q(
                 archive_date__isnull=False,
                 archive_date__lte=F('platform_publicity_date') + timedelta(days=90)
             )),
@@ -65,10 +65,10 @@ def get_procurement_ranking(rank_type='project', year=None):
             })
     else:
         # 按采购人排名
-        rankings = queryset.values('procurer').annotate(
-            total_count=Count('id'),
-            completed_count=Count('id', filter=Q(archive_date__isnull=False)),
-            on_time_count=Count('id', filter=Q(
+        rankings = queryset.values('procurement_officer').annotate(
+            total_count=Count('procurement_code'),
+            completed_count=Count('procurement_code', filter=Q(archive_date__isnull=False)),
+            on_time_count=Count('procurement_code', filter=Q(
                 archive_date__isnull=False,
                 archive_date__lte=F('platform_publicity_date') + timedelta(days=90)
             ))
@@ -81,7 +81,7 @@ def get_procurement_ranking(rank_type='project', year=None):
             
             result.append({
                 'rank': idx,
-                'name': item['procurer'] or '未指定',
+                'name': item['procurement_officer'] or '未指定',
                 'total_count': item['total_count'],
                 'completed_count': completed,
                 'on_time_rate': round(on_time_rate, 1),
@@ -184,8 +184,8 @@ def get_contract_ranking(rank_type='project', year=None):
     
     if rank_type == 'project':
         rankings = queryset.values('project__project_name').annotate(
-            total_count=Count('id'),
-            total_amount=Coalesce(Count('contract_amount'), 0)
+            total_count=Count('contract_code'),
+            total_amount=Coalesce(Sum('contract_amount'), 0)
         ).order_by('-total_count')
         
         result = []
@@ -217,8 +217,8 @@ def get_settlement_ranking(rank_type='project'):
     
     if rank_type == 'project':
         rankings = queryset.values('main_contract__project__project_name').annotate(
-            total_count=Count('id'),
-            total_amount=Coalesce(Count('final_amount'), 0)
+            total_count=Count('settlement_code'),
+            total_amount=Coalesce(Sum('final_amount'), 0)
         ).order_by('-total_count')
         
         result = []
