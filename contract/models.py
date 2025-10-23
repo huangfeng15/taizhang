@@ -169,6 +169,13 @@ class Contract(BaseModel):
         help_text='履约担保退回的日期'
     )
     
+    archive_date = models.DateField(
+        '资料归档日期',
+        null=True,
+        blank=True,
+        help_text='合同资料归档的日期'
+    )
+    
     class Meta:
         verbose_name = '合同信息'
         verbose_name_plural = '合同信息'

@@ -64,17 +64,17 @@ class ContractAdmin(admin.ModelAdmin):
             'fields': ('contract_sequence', 'contract_code', 'contract_name', 'contract_type', 'contract_source')
         }),
         ('关联信息', {
-            'fields': ('parent_contract', 'procurement'),
+            'fields': ('parent_contract', 'procurement', 'project'),
             'description': '采购合同必须关联采购项目；直接签订合同无需关联采购'
         }),
         ('合同方信息', {
-            'fields': ('party_a', 'party_b')
+            'fields': ('party_a', 'party_b', 'party_b_contact', 'party_b_contact_in_contract')
         }),
         ('金额与时间', {
             'fields': ('contract_amount', 'signing_date', 'duration')
         }),
         ('其他信息', {
-            'fields': ('contract_officer', 'payment_method'),
+            'fields': ('contract_officer', 'payment_method', 'performance_guarantee_return_date', 'archive_date'),
             'classes': ('collapse',)
         }),
         ('审计信息', {

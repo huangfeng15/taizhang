@@ -68,6 +68,7 @@
                     <th data-column="duration">合同工期/服务期限</th>
                     <th data-column="payment_method">支付方式</th>
                     <th data-column="performance_guarantee_return_date">履约担保退回时间</th>
+                    <th data-column="archive_date">资料归档日期</th>
                     <th data-column="contract_officer">合同签订经办人</th>
                     <th data-column="operations">操作</th>
                 </tr>
@@ -175,6 +176,7 @@
                     <td data-column="duration" style="max-width: 200px;">{{ contract.duration|default:"-" }}</td>
                     <td data-column="payment_method" style="max-width: 200px;">{{ contract.payment_method|default:"-" }}</td>
                     <td data-column="performance_guarantee_return_date">{{ contract.performance_guarantee_return_date|default:"-" }}</td>
+                    <td data-column="archive_date">{{ contract.archive_date|default:"-" }}</td>
                     <td data-column="contract_officer">{{ contract.contract_officer|default:"-" }}</td>
                     <td data-column="operations">
                         <a href="{% url 'contract_detail' contract.contract_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;">
@@ -256,6 +258,7 @@
         { key: 'duration', label: '合同工期/服务期限', required: false },
         { key: 'payment_method', label: '支付方式', required: false },
         { key: 'performance_guarantee_return_date', label: '履约担保退回时间', required: false },
+        { key: 'archive_date', label: '资料归档日期', required: false },
         { key: 'contract_officer', label: '合同签订经办人', required: false },
         { key: 'operations', label: '操作', required: true }
     ];
