@@ -7,7 +7,7 @@ from .models import Payment
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = [
-        'payment_code', 'contract', 'payment_amount', 'payment_date'
+        'payment_code', 'contract', 'payment_amount', 'payment_date', 'is_settled', 'settlement_archive_date'
     ]
     search_fields = [
         'payment_code', 'contract__contract_code', 'contract__contract_name'
@@ -23,6 +23,9 @@ class PaymentAdmin(admin.ModelAdmin):
         }),
         ('付款详情', {
             'fields': ('payment_amount', 'payment_date')
+        }),
+        ('结算信息', {
+            'fields': ('is_settled', 'settlement_amount', 'settlement_archive_date')
         }),
         ('审计信息', {
             'fields': ('created_at', 'updated_at'),

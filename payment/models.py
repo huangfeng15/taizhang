@@ -60,6 +60,13 @@ class Payment(BaseModel):
         help_text='标识该笔付款是否已办理结算'
     )
     
+    settlement_archive_date = models.DateField(
+        '结算资料归档时间',
+        null=True,
+        blank=True,
+        help_text='结算资料归档的日期'
+    )
+    
     class Meta:
         verbose_name = '付款信息'
         verbose_name_plural = '付款信息'

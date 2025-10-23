@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="monitoring-update">
+    <div class="page-header">
+        <h1><i class="fas fa-sync-alt"></i> {{ page_title }}</h1>
+        <p class="text-muted">监控各模块数据的更新时效性</p>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="filter-bar">
+                <div class="filter-item">
+                    <label>预警天数:</label>
+                    <input type="number" name="warning_days" value="{{ warning_days }}" min="1" max="365" class="form-control" style="width: 100px;">
+                </div>
+                <div class="filter-item">
+                    <label>视图模式:</label>
+                    <select name="view" class="form-select" style="width: 150px;">
+                        <option value="overview" {% if view_mode == 'overview' %}selected{% endif %}>概览</option>
+                        <option value="project" {% if view_mode == 'project' %}selected{% endif %}>按项目</option>
+                        <option value="detail" {% if view_mode == 'detail' %}selected{% endif %}>详细列表</option>
+                    </select>
+                </div>
+                {% if view_mode == 'detail' %}
+                <div class="filter-item">
+                    <label>模块:</label>
+                    <select name="module" class="form-select" style="width: 120px;">
+                        <option value="">全部</option>
+                        <option value="project" {% if module_filter == 'project' %}selected{% endif %}>项目</option>
+                        <option value="procurement" {% if module_filter == 'procurement' %}selected{% endif %}>采购</option>
+                        <option value="contract" {% if module_filter == 'contract' %}selected{% endif %}>合同</option>
+                        <option value="payment" {% if module_filter == 'payment' %}selected{% endif %}>付款</option>
+                        <option value="settlement" {% if module_filter == 'settlement' %}selected{% endif %}>结算</option>
+                    </select>
+                </div>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> 查询
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 模块概览 -->
+    <div class="stats-grid mb-4">
+        {% for module in module_overview %}
+        <div class="stat-card">
+            <div class="card-body">
+                <div class="stat-icon {% if module.outdated_count > 0 %}bg-danger{% else %}bg-success{% endif %}">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ module.module_name }}</h3>
+                    <div class="stat-value">{{ module.total_count }}</div>
+                    <div class="stat-detail">
+                        {% if module.outdated_count > 0 %}
+                        <span class="badge badge-danger">{{ module.outdated_count }} 条过期</span>
+                        {% else %}
+                        <span class="badge badge-success">全部更新</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if view_mode == 'detail' and outdated_records %}
+    <!-- 详细列表视图 -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-list"></i> 过期记录列表</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>模块</th>
+                            <th>记录标识</th>
+                            <th>名称</th>
+                            <th>最后更新时间</th>
+                            <th>过期天数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in outdated_records %}
+                        <tr class="{% if record.days_outdated > 90 %}severity-row-severe{% elif record.days_outdated > 60 %}severity-row-moderate{% else %}severity-row-mild{% endif %}">
+                            <td><span class="badge badge-info">{{ record.module_name }}</span></td>
+                            <td>{{ record.code }}</td>
+                            <td>{{ record.name }}</td>
+                            <td>{{ record.last_updated|date:"Y-m-d H:i" }}</td>
+                            <td><span class="badge badge-warning">{{ record.days_outdated }} 天</span></td>
+                            <td>
+                                <a href="{{ record.detail_url }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> 查看
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if page_obj %}
+            {% include 'pagination.html' with page_obj=page_obj %}
+            {% endif %}
+        </div>
+    </div>
+    
+    {% elif view_mode == 'project' and projects_page %}
+    <!-- 按项目视图 -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-project-diagram"></i> 项目更新状态</h5>
+        </div>
+        <div class="card-body">
+            {% for project in projects_page %}
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-folder"></i> {{ project.project_name }}
+                        <span class="badge badge-secondary float-right">{{ project.project_code }}</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for module, status in project.modules.items %}
+                        <div class="col-md-2">
+                            <div class="text-center p-2">
+                                <div class="small text-muted">{{ module }}</div>
+                                <div class="h5 mb-0">
+                                    {% if status.outdated_count > 0 %}
+                                    <span class="text-danger">{{ status.outdated_count }}</span>
+                                    {% else %}
+                                    <span class="text-success"><i class="fas fa-check"></i></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if page_obj %}
+            {% include 'pagination.html' with page_obj=page_obj %}
+            {% endif %}
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- 概览视图 -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 更新状态概览</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                监控标准：超过 <strong>{{ warning_days }}</strong> 天未更新的记录将被标记为过期
+            </div>
+            
+            {% if project_status %}
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="stat-box">
+                        <div class="stat-label">项目总数</div>
+                        <div class="stat-number">{{ project_status.total_projects }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-box">
+                        <div class="stat-label">正常项目</div>
+                        <div class="stat-number text-success">{{ project_status.normal_projects }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-box">
+                        <div class="stat-label">需关注项目</div>
+                        <div class="stat-number text-danger">{{ project_status.outdated_projects }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="mt-4 text-center">
+                <a href="?view=project&warning_days={{ warning_days }}" class="btn btn-primary">
+                    <i class="fas fa-th-list"></i> 查看项目详情
+                </a>
+                <a href="?view=detail&warning_days={{ warning_days }}" class="btn btn-outline-primary">
+                    <i class="fas fa-list"></i> 查看过期记录
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

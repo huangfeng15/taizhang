@@ -58,6 +58,20 @@
                 </span>
             </div>
             <div class="detail-item">
+                <label>是否结算：</label>
+                <span>
+                    {% if payment.is_settled %}
+                        <span class="badge badge-success">已结算</span>
+                    {% else %}
+                        <span class="badge badge-warning">未结算</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>结算资料归档时间：</label>
+                <span>{{ payment.settlement_archive_date|date:"Y-m"|default:"-" }}</span>
+            </div>
+            <div class="detail-item">
                 <label>创建时间：</label>
                 <span>{{ payment.created_at|date:"Y-m-d H:i:s" }}</span>
             </div>

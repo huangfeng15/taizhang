@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<style>
+.ranking-nav {
+    margin-bottom: 20px;
+}
+.ranking-nav .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.ranking-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.ranking-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+}
+.ranking-table {
+    margin-top: 15px;
+}
+.ranking-table .rank-medal {
+    font-size: 1.5rem;
+    margin-right: 5px;
+}
+.ranking-table .rank-number {
+    font-weight: bold;
+    color: #666;
+    font-size: 1.2rem;
+}
+.ranking-table tr.rank-1 {
+    background-color: #fff3cd;
+}
+.ranking-table tr.rank-2 {
+    background-color: #e7e7e7;
+}
+.ranking-table tr.rank-3 {
+    background-color: #ffeaa7;
+}
+.progress-bar-custom {
+    height: 20px;
+    border-radius: 10px;
+}
+.year-selector {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.rank-by-selector {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="monitoring-ranking">
+    <div class="page-header">
+        <h1><i class="fas fa-trophy"></i> {{ page_title }}</h1>
+        <p class="text-muted">查看项目和个人在采购、归档、合同、结算等维度的绩效排名</p>
+    </div>
+
+    <!-- 排名类型切换 -->
+    <div class="ranking-nav">
+        <div class="btn-group" role="group">
+            <a href="?type=comprehensive&year={{ selected_year }}&rank_by={{ rank_by }}" 
+               class="btn btn-sm {% if ranking_type == 'comprehensive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-star"></i> 综合排名
+            </a>
+            <a href="?type=procurement&year={{ selected_year }}&rank_by={{ rank_by }}" 
+               class="btn btn-sm {% if ranking_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-shopping-cart"></i> 采购绩效
+            </a>
+            <a href="?type=archive&year={{ selected_year }}&rank_by={{ rank_by }}" 
+               class="btn btn-sm {% if ranking_type == 'archive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-archive"></i> 归档绩效
+            </a>
+            <a href="?type=contract&year={{ selected_year }}&rank_by={{ rank_by }}" 
+               class="btn btn-sm {% if ranking_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-file-contract"></i> 合同签订
+            </a>
+            <a href="?type=settlement&year={{ selected_year }}&rank_by={{ rank_by }}" 
+               class="btn btn-sm {% if ranking_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-calculator"></i> 结算完成
+            </a>
+        </div>
+    </div>
+
+    <!-- 年份和排名维度选择器 -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="year-selector">
+                <label for="yearSelect"><strong>选择年份：</strong></label>
+                <select id="yearSelect" class="form-control" style="width: auto;" onchange="changeYear(this.value)">
+                    {% for year in available_years %}
+                    <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
+                        {% if year %}{{ year }}年{% else %}全部年份{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="rank-by-selector">
+                <label for="rankBySelect"><strong>排名维度：</strong></label>
+                <select id="rankBySelect" class="form-control" style="width: auto;" onchange="changeRankBy(this.value)">
+                    <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
+                    <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 综合排名 -->
+    {% if ranking_type == 'comprehensive' and comprehensive_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-star"></i> 综合绩效排名 
+            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
+        </h3>
+        <p class="text-muted">综合考虑采购完成率、归档率、合同数量、结算数量等多个维度</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>项目名称</th>
+                        <th>采购完成率</th>
+                        <th>归档完成率</th>
+                        <th>合同数量</th>
+                        <th>结算数量</th>
+                        <th>综合得分</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in comprehensive_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>
+                            <div class="progress progress-bar-custom">
+                                <div class="progress-bar bg-success" style="width: {{ item.procurement_rate }}%">
+                                    {{ item.procurement_rate }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="progress progress-bar-custom">
+                                <div class="progress-bar bg-info" style="width: {{ item.archive_rate }}%">
+                                    {{ item.archive_rate }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ item.contract_count }}</td>
+                        <td>{{ item.settlement_count }}</td>
+                        <td><strong class="text-primary">{{ item.score }}</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 采购绩效排名 -->
+    {% if ranking_type == 'procurement' and procurement_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-shopping-cart"></i> 采购绩效排名 
+            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
+        </h3>
+        <p class="text-muted">按{{ rank_by|yesno:"项目,个人" }}统计采购完成数量、准时率、平均周期等指标</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>{% if rank_by == 'project' %}项目名称{% else %}采购人{% endif %}</th>
+                        <th>总数量</th>
+                        <th>完成数量</th>
+                        <th>准时率</th>
+                        {% if rank_by == 'project' %}
+                        <th>平均周期(天)</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in procurement_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>{{ item.completed_count }}</td>
+                        <td>
+                            <div class="progress progress-bar-custom">
+                                <div class="progress-bar 
+                                    {% if item.on_time_rate >= 80 %}bg-success
+                                    {% elif item.on_time_rate >= 60 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ item.on_time_rate }}%">
+                                    {{ item.on_time_rate }}%
+                                </div>
+                            </div>
+                        </td>
+                        {% if rank_by == 'project' %}
+                        <td>{{ item.avg_cycle_days }}</td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 归档绩效排名 -->
+    {% if ranking_type == 'archive' and archive_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-archive"></i> 归档绩效排名 
+            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
+        </h3>
+        <p class="text-muted">统计采购、合同、结算的归档完成情况</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>项目名称</th>
+                        <th>总数量</th>
+                        <th>已归档</th>
+                        <th>归档率</th>
+                        <th>采购归档</th>
+                        <th>合同归档</th>
+                        <th>结算归档</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in archive_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>{{ item.archived_count }}</td>
+                        <td>
+                            <div class="progress progress-bar-custom">
+                                <div class="progress-bar 
+                                    {% if item.archive_rate >= 80 %}bg-success
+                                    {% elif item.archive_rate >= 50 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ item.archive_rate }}%">
+                                    {{ item.archive_rate }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td><small>{{ item.procurement.archived }}/{{ item.procurement.total }}</small></td>
+                        <td><small>{{ item.contract.archived }}/{{ item.contract.total }}</small></td>
+                        <td><small>{{ item.settlement.archived }}/{{ item.settlement.total }}</small></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 合同签订排名 -->
+    {% if ranking_type == 'contract' and contract_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-file-contract"></i> 合同签订排名 
+            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
+        </h3>
+        <p class="text-muted">按项目统计合同签订数量和金额</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>项目名称</th>
+                        <th>合同数量</th>
+                        <th>合同总额(元)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in contract_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>{{ item.total_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 结算完成排名 -->
+    {% if ranking_type == 'settlement' and settlement_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-calculator"></i> 结算完成排名 (全部)</h3>
+        <p class="text-muted">按项目统计结算完成数量和金额</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>项目名称</th>
+                        <th>结算数量</th>
+                        <th>结算总额(元)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in settlement_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>{{ item.total_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 年份切换
+function changeYear(year) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('year', year);
+    window.location.search = urlParams.toString();
+}
+
+// 排名维度切换
+function changeRankBy(rankBy) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('rank_by', rankBy);
+    window.location.search = urlParams.toString();
+}
+</script>
+{% endblock %}

@@ -751,6 +751,57 @@
                     <span>数据库管理</span>
                 </a>
             </li>
+            <li class="menu-item {% if 'monitoring' in request.path or 'reports' in request.path %}expanded{% endif %}">
+                <a href="javascript:void(0)" class="menu-link" onclick="toggleSubmenu(this)">
+                    <i class="fas fa-chart-line"></i>
+                    <span>监控中心</span>
+                    <i class="fas fa-chevron-right menu-toggle"></i>
+                </a>
+                <ul class="menu-submenu">
+                    <li class="menu-item">
+                        <a href="{% url 'monitoring_dashboard' %}" class="menu-link {% if request.resolver_match.url_name == 'monitoring_dashboard' %}active{% endif %}">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>监控总览</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'archive_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'archive_monitor' %}active{% endif %}">
+                            <i class="fas fa-archive"></i>
+                            <span>归档监控</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'update_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'update_monitor' %}active{% endif %}">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>更新监控</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'completeness_check' %}" class="menu-link {% if request.resolver_match.url_name == 'completeness_check' %}active{% endif %}">
+                            <i class="fas fa-check-double"></i>
+                            <span>齐全性检查</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'statistics_view' %}" class="menu-link {% if request.resolver_match.url_name == 'statistics_view' %}active{% endif %}">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>统计分析</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'ranking_view' %}" class="menu-link {% if request.resolver_match.url_name == 'ranking_view' %}active{% endif %}">
+                            <i class="fas fa-trophy"></i>
+                            <span>绩效排名</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="{% url 'generate_report' %}" class="menu-link {% if request.resolver_match.url_name == 'generate_report' %}active{% endif %}">
+                            <i class="fas fa-file-alt"></i>
+                            <span>报表生成</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
             <li class="menu-item">
                 <a href="/admin/" class="menu-link" target="_blank">
                     <i class="fas fa-cog"></i>
@@ -769,6 +820,12 @@
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('mobile-open');
+        }
+
+        // 子菜单展开/折叠
+        function toggleSubmenu(element) {
+            const menuItem = element.closest('.menu-item');
+            menuItem.classList.toggle('expanded');
         }
 
         // 点击主内容区关闭移动端侧边栏

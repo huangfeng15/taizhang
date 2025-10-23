@@ -21,6 +21,15 @@ urlpatterns = [
     path('payment/<str:payment_code>/', views.payment_detail, name='payment_detail'),
     path('database/management/', views.database_management, name='database_management'),
     
+    # 监控与报表路由
+    path('monitoring/', views.monitoring_dashboard, name='monitoring_dashboard'),
+    path('monitoring/archive/', views.archive_monitor, name='archive_monitor'),
+    path('monitoring/update/', views.update_monitor, name='update_monitor'),
+    path('monitoring/completeness/', views.completeness_check, name='completeness_check'),
+    path('monitoring/statistics/', views.statistics_view, name='statistics_view'),
+    path('monitoring/ranking/', views.ranking_view, name='ranking_view'),
+    path('reports/generate/', views.generate_report, name='generate_report'),
+    
     # 批量操作API
     path('api/contracts/batch-delete/', views.batch_delete_contracts, name='batch_delete_contracts'),
     path('api/payments/batch-delete/', views.batch_delete_payments, name='batch_delete_payments'),
@@ -30,6 +39,9 @@ urlpatterns = [
     # 数据导入API
     path('api/import/template/', views.download_import_template, name='download_import_template'),
     path('api/import/', views.import_data, name='import_data'),
+    
+    # 数据导出API
+    path('api/export/project-data/', views.export_project_data, name='export_project_data'),
 ]
 
 # 自定义Admin站点标题

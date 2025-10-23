@@ -56,6 +56,7 @@
                     <th data-column="payment_amount">付款金额(元)</th>
                     <th data-column="payment_date">付款日期</th>
                     <th data-column="is_settled">是否结算</th>
+                    <th data-column="settlement_archive_date">结算归档时间</th>
                     <th data-column="operations">操作</th>
                 </tr>
             </thead>
@@ -104,6 +105,7 @@
                             <span class="badge badge-warning">未结算</span>
                         {% endif %}
                     </td>
+                    <td data-column="settlement_archive_date">{{ payment.settlement_archive_date|date:"Y-m"|default:"-" }}</td>
                     <td data-column="operations">
                         <a href="{% url 'payment_detail' payment.payment_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
                             <i class="fas fa-eye"></i>
@@ -161,11 +163,12 @@
         { key: 'payment_amount', label: '付款金额', required: false },
         { key: 'payment_date', label: '付款日期', required: false },
         { key: 'is_settled', label: '是否结算', required: false },
+        { key: 'settlement_archive_date', label: '结算归档时间', required: false },
         { key: 'operations', label: '操作', required: true }
     ];
 
     // 默认显示的字段
-    const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'operations'];
+    const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'settlement_archive_date', 'operations'];
 
     document.addEventListener('DOMContentLoaded', function() {
         {% if payments %}

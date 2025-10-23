@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .form-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    
+    .form-group select,
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group select:focus,
+    .form-group input:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+    }
+    
+    .report-type-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .report-type-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .report-type-card:hover {
+        border-color: #4CAF50;
+        background-color: #f1f8f4;
+    }
+    
+    .report-type-card.active {
+        border-color: #4CAF50;
+        background-color: #e8f5e9;
+    }
+    
+    .report-type-card input[type="radio"] {
+        display: none;
+    }
+    
+    .report-type-card .icon {
+        font-size: 32px;
+        margin-bottom: 10px;
+    }
+    
+    .report-type-card .label {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .report-type-card .description {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .dynamic-fields {
+        display: none;
+        animation: fadeIn 0.3s;
+    }
+    
+    .dynamic-fields.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary {
+        background-color: #4CAF50;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #45a049;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .btn-secondary {
+        background-color: #2196F3;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #0b7dda;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .info-box {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196F3;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    
+    .info-box h4 {
+        margin: 0 0 10px 0;
+        color: #1976D2;
+    }
+    
+    .info-box ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    
+    .info-box li {
+        margin-bottom: 5px;
+        color: #555;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-form-container">
+    <h1 style="text-align: center; margin-bottom: 30px;">📊 报表生成</h1>
+    
+    <div class="info-box">
+        <h4>📋 报表说明</h4>
+        <ul>
+            <li><strong>周报：</strong>统计指定周的业务数据</li>
+            <li><strong>月报：</strong>统计指定月份的业务数据</li>
+            <li><strong>季报：</strong>统计指定季度的业务数据</li>
+            <li><strong>年报：</strong>统计全年业务数据及月度趋势</li>
+        </ul>
+    </div>
+    
+    <form method="post" id="reportForm">
+        {% csrf_token %}
+        
+        <div class="form-card">
+            <h3 style="margin-bottom: 20px;">1️⃣ 选择报表类型</h3>
+            
+            <div class="report-type-cards">
+                <label class="report-type-card active" for="weekly">
+                    <input type="radio" name="report_type" id="weekly" value="weekly" checked>
+                    <div class="icon">📅</div>
+                    <div class="label">周报</div>
+                    <div class="description">本周数据统计</div>
+                </label>
+                
+                <label class="report-type-card" for="monthly">
+                    <input type="radio" name="report_type" id="monthly" value="monthly">
+                    <div class="icon">📆</div>
+                    <div class="label">月报</div>
+                    <div class="description">本月数据统计</div>
+                </label>
+                
+                <label class="report-type-card" for="quarterly">
+                    <input type="radio" name="report_type" id="quarterly" value="quarterly">
+                    <div class="icon">📊</div>
+                    <div class="label">季报</div>
+                    <div class="description">季度数据统计</div>
+                </label>
+                
+                <label class="report-type-card" for="annual">
+                    <input type="radio" name="report_type" id="annual" value="annual">
+                    <div class="icon">📈</div>
+                    <div class="label">年报</div>
+                    <div class="description">年度数据总结</div>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-card">
+            <h3 style="margin-bottom: 20px;">2️⃣ 设置报表参数</h3>
+            
+            <!-- 周报参数 -->
+            <div id="weeklyFields" class="dynamic-fields active">
+                <div class="form-group">
+                    <label for="target_date">选择日期（所在周）：</label>
+                    <input type="date" id="target_date" name="target_date" 
+                           value="{{ request.GET.target_date|default:'' }}">
+                    <small style="color: #666;">选择任意日期，系统将生成该日期所在周（周一至周日）的报表</small>
+                </div>
+            </div>
+            
+            <!-- 月报参数 -->
+            <div id="monthlyFields" class="dynamic-fields">
+                <div class="form-group">
+                    <label for="year_monthly">年份：</label>
+                    <select id="year_monthly" name="year">
+                        {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                            {{ year }}年
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="month">月份：</label>
+                    <select id="month" name="month">
+                        {% for month in available_months %}
+                        <option value="{{ month }}" {% if month == current_month %}selected{% endif %}>
+                            {{ month }}月
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 季报参数 -->
+            <div id="quarterlyFields" class="dynamic-fields">
+                <div class="form-group">
+                    <label for="year_quarterly">年份：</label>
+                    <select id="year_quarterly" name="year">
+                        {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                            {{ year }}年
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quarter">季度：</label>
+                    <select id="quarter" name="quarter">
+                        {% for q in available_quarters %}
+                        <option value="{{ q }}" {% if q == current_quarter %}selected{% endif %}>
+                            第{{ q }}季度
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 年报参数 -->
+            <div id="annualFields" class="dynamic-fields">
+                <div class="form-group">
+                    <label for="year_annual">年份：</label>
+                    <select id="year_annual" name="year">
+                        {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                            {{ year }}年
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button type="submit" name="export_format" value="preview" class="btn btn-primary">
+                👁️ 预览报表
+            </button>
+            <button type="submit" name="export_format" value="excel" class="btn btn-secondary">
+                📥 导出Excel
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reportTypeCards = document.querySelectorAll('.report-type-card');
+    const reportTypeRadios = document.querySelectorAll('input[name="report_type"]');
+    const dynamicFields = document.querySelectorAll('.dynamic-fields');
+    
+    // 切换报表类型
+    function switchReportType(type) {
+        // 更新卡片样式
+        reportTypeCards.forEach(card => card.classList.remove('active'));
+        document.querySelector(`label[for="${type}"]`).classList.add('active');
+        
+        // 显示对应的参数字段
+        dynamicFields.forEach(field => field.classList.remove('active'));
+        document.getElementById(`${type}Fields`).classList.add('active');
+    }
+    
+    // 监听单选按钮变化
+    reportTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            switchReportType(this.value);
+        });
+    });
+    
+    // 监听卡片点击
+    reportTypeCards.forEach(card => {
+        card.addEventListener('click', function() {
+            const radio = this.querySelector('input[type="radio"]');
+            radio.checked = true;
+            switchReportType(radio.value);
+        });
+    });
+    
+    // 设置默认日期为今天
+    const targetDateInput = document.getElementById('target_date');
+    if (targetDateInput && !targetDateInput.value) {
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        targetDateInput.value = dateStr;
+    }
+});
+</script>
+{% endblock %}

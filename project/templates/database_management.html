@@ -285,6 +285,10 @@
             <button type="button" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="showBackupModal()">
                 <i class="fas fa-database"></i> 手动备份
             </button>
+            
+            <a href="{% url 'export_project_data' %}" class="btn btn-primary" style="text-decoration: none;">
+                <i class="fas fa-file-excel"></i> 导出数据
+            </a>
 
             <form method="post" onsubmit="return confirm('确定要清除所有数据并重新初始化数据库吗？此操作不可撤销！');">
                 {% csrf_token %}
