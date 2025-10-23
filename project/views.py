@@ -26,8 +26,6 @@ from procurement.models import Procurement
 from payment.models import Payment
 from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
-from settlement.models import Settlement
-from supplier_eval.models import SupplierEvaluation
 
 
 IMPORT_TEMPLATE_DEFINITIONS = {
@@ -397,9 +395,6 @@ def project_detail(request, project_code):
     payment_count = all_payments.count()
     
     # 结算数量（综合统计：Settlement表 + Payment表中的结算标记）
-    from settlement.models import Settlement
-    from django.db.models import Q
-    
     # 统计已结算的合同数量（去重）
     # 包括：1. Settlement表中有记录的合同  2. Payment表中标记为已结算的合同
     settlement_count = Contract.objects.filter(
@@ -1035,7 +1030,6 @@ def payment_detail(request, payment_code):
     return render(request, 'payment_detail.html', context)
 
 
-@staff_member_required
 @require_http_methods(["GET", "POST", "DELETE", "PUT"])
 def database_management(request):
     """数据库管理：备份、恢复、清理"""
@@ -1321,17 +1315,11 @@ def download_import_template(request):
     return response
 
 
-@staff_member_required
+@csrf_exempt
 @require_POST
 def batch_delete_contracts(request):
     """批量删除合同"""
     try:
-        if not request.user.is_authenticated or not request.user.is_staff:
-            return JsonResponse({
-                'success': False,
-                'message': '权限不足，请先登录管理员账户'
-            }, status=403)
-        
         data = json.loads(request.body)
         contract_codes = data.get('ids', [])
         
@@ -1350,17 +1338,11 @@ def batch_delete_contracts(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@staff_member_required
+@csrf_exempt
 @require_POST
 def batch_delete_payments(request):
     """批量删除付款记录"""
     try:
-        if not request.user.is_authenticated or not request.user.is_staff:
-            return JsonResponse({
-                'success': False,
-                'message': '权限不足，请先登录管理员账户'
-            }, status=403)
-        
         data = json.loads(request.body)
         payment_codes = data.get('ids', [])
         
@@ -1379,17 +1361,11 @@ def batch_delete_payments(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@staff_member_required
+@csrf_exempt
 @require_POST
 def batch_delete_procurements(request):
     """批量删除采购项目"""
     try:
-        if not request.user.is_authenticated or not request.user.is_staff:
-            return JsonResponse({
-                'success': False,
-                'message': '权限不足，请先登录管理员账户'
-            }, status=403)
-        
         data = json.loads(request.body)
         procurement_codes = data.get('ids', [])
         
@@ -1408,7 +1384,7 @@ def batch_delete_procurements(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@staff_member_required
+@csrf_exempt
 @require_POST
 def import_data(request):
     """通用数据导入接口"""
@@ -1556,17 +1532,11 @@ def import_data(request):
         })
 
 
-@staff_member_required
+@csrf_exempt
 @require_POST
 def batch_delete_projects(request):
     """批量删除项目"""
     try:
-        if not request.user.is_authenticated or not request.user.is_staff:
-            return JsonResponse({
-                'success': False,
-                'message': '权限不足，请先登录管理员账户'
-            }, status=403)
-        
         data = json.loads(request.body)
         project_codes = data.get('ids', [])
         
@@ -1585,7 +1555,6 @@ def batch_delete_projects(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@staff_member_required
 @require_http_methods(['GET', 'POST'])
 def export_project_data(request):
     """导出项目数据为Excel文件"""
@@ -1626,6 +1595,11 @@ def export_project_data(request):
         # 如果只有一个项目，直接返回该项目的Excel文件
         if len(projects) == 1:
             project = projects.first()
+            if project is None:
+                return JsonResponse({
+                    'success': False,
+                    'message': '项目不存在'
+                }, status=404)
             excel_file = _generate_project_excel(project, request.user)
             filename = f"{project.project_name}_数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             

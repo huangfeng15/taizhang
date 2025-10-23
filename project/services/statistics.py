@@ -308,7 +308,6 @@ def get_payment_statistics(year=None, project_codes=None):
         
         # 检查是否有结算
         try:
-            from settlement.models import Settlement
             settlement = Settlement.objects.filter(main_contract=contract).first()
             if settlement:
                 # 有结算，使用结算价

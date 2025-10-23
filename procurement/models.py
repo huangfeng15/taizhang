@@ -280,7 +280,7 @@ class Procurement(BaseModel):
         help_text='相关资料归档的日期'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):
         verbose_name = '采购信息'
         verbose_name_plural = '采购信息'
         ordering = ['-created_at']

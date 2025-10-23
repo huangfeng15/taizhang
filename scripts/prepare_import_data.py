@@ -42,13 +42,14 @@ def clean_procurement_csv():
     # 验证招采编号
     print('  验证招采编号格式...')
     invalid_codes = []
-    for idx, row in df.iterrows():
+    for idx, row in df.iterrows():  # type: ignore
         code = row.get('招采编号', '')
         is_valid, error_msg, cleaned = validate_code_format(code, '招采编号')
         if not is_valid:
-            invalid_codes.append(f'第{idx+2}行: {error_msg} (值: {code})')
+            row_num = int(idx) + 2 if isinstance(idx, (int, float)) else 2  # type: ignore
+            invalid_codes.append(f'第{row_num}行: {error_msg} (值: {code})')
         elif cleaned and cleaned != str(code).strip():
-            df.at[idx, '招采编号'] = cleaned
+            df.loc[idx, '招采编号'] = cleaned  # type: ignore
     
     if invalid_codes:
         print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的招采编号:')
@@ -97,13 +98,14 @@ def clean_contract_csv():
     # 验证合同编号
     print('  验证合同编号格式...')
     invalid_codes = []
-    for idx, row in df.iterrows():
+    for idx, row in df.iterrows():  # type: ignore
         code = row.get('合同编号', '')
         is_valid, error_msg, cleaned = validate_code_format(code, '合同编号')
         if not is_valid:
-            invalid_codes.append(f'第{idx+2}行: {error_msg} (值: {code})')
+            row_num = int(idx) + 2 if isinstance(idx, (int, float)) else 2  # type: ignore
+            invalid_codes.append(f'第{row_num}行: {error_msg} (值: {code})')
         elif cleaned and cleaned != str(code).strip():
-            df.at[idx, '合同编号'] = cleaned
+            df.loc[idx, '合同编号'] = cleaned  # type: ignore
     
     if invalid_codes:
         print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的合同编号:')
@@ -173,12 +175,13 @@ def clean_payment_csv():
     # 验证合同编号格式
     print('  验证合同编号格式...')
     invalid_codes = []
-    for idx, row in df.iterrows():
+    for idx, row in df.iterrows():  # type: ignore
         code = row[contract_col]
         if pd.notna(code) and str(code).strip() and str(code).strip() != 'nan':
             is_valid, error_msg, cleaned = validate_code_format(code, '合同编号')
             if not is_valid:
-                invalid_codes.append(f'第{idx+4}行: {error_msg} (值: {code})')
+                row_num = int(idx) + 4 if isinstance(idx, (int, float)) else 4  # type: ignore
+                invalid_codes.append(f'第{row_num}行: {error_msg} (值: {code})')
     
     if invalid_codes:
         print(f'\n[错误] 发现 {len(invalid_codes)} 个格式错误的合同编号:')

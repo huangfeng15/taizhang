@@ -40,9 +40,9 @@ def get_project_update_status(warning_days=40):
         }
         
         # 检查项目本身的更新状态
-        project_days = (today - project.updated_at.date()).days if project.updated_at else None
+        project_days = (today - project.updated_at.date()).days if project.updated_at is not None else None
         project_info['modules']['项目信息'] = {
-            'last_update': project.updated_at.date() if project.updated_at else None,
+            'last_update': project.updated_at.date() if project.updated_at is not None else None,
             'days_ago': project_days,
             'is_warning': project_days and project_days > warning_days,
             'count': 1
@@ -55,9 +55,13 @@ def get_project_update_status(warning_days=40):
         procurements = project.procurements.all()
         if procurements.exists():
             latest_procurement = procurements.order_by('-updated_at').first()
-            days_ago = (today - latest_procurement.updated_at.date()).days if latest_procurement.updated_at else None
+            days_ago = None
+            last_update = None
+            if latest_procurement and latest_procurement.updated_at is not None:
+                days_ago = (today - latest_procurement.updated_at.date()).days
+                last_update = latest_procurement.updated_at.date()
             project_info['modules']['采购'] = {
-                'last_update': latest_procurement.updated_at.date() if latest_procurement.updated_at else None,
+                'last_update': last_update,
                 'days_ago': days_ago,
                 'is_warning': days_ago and days_ago > warning_days,
                 'count': procurements.count()
@@ -70,9 +74,13 @@ def get_project_update_status(warning_days=40):
         contracts = project.contracts.all()
         if contracts.exists():
             latest_contract = contracts.order_by('-updated_at').first()
-            days_ago = (today - latest_contract.updated_at.date()).days if latest_contract.updated_at else None
+            days_ago = None
+            last_update = None
+            if latest_contract and latest_contract.updated_at is not None:
+                days_ago = (today - latest_contract.updated_at.date()).days
+                last_update = latest_contract.updated_at.date()
             project_info['modules']['合同'] = {
-                'last_update': latest_contract.updated_at.date() if latest_contract.updated_at else None,
+                'last_update': last_update,
                 'days_ago': days_ago,
                 'is_warning': days_ago and days_ago > warning_days,
                 'count': contracts.count()
@@ -85,9 +93,9 @@ def get_project_update_status(warning_days=40):
         payments = Payment.objects.filter(contract__project=project)
         if payments.exists():
             latest_payment = payments.order_by('-updated_at').first()
-            days_ago = (today - latest_payment.updated_at.date()).days if latest_payment.updated_at else None
+            days_ago = (today - latest_payment.updated_at.date()).days if latest_payment and latest_payment.updated_at is not None else None
             project_info['modules']['付款'] = {
-                'last_update': latest_payment.updated_at.date() if latest_payment.updated_at else None,
+                'last_update': latest_payment.updated_at.date() if latest_payment and latest_payment.updated_at is not None else None,
                 'days_ago': days_ago,
                 'is_warning': days_ago and days_ago > warning_days,
                 'count': payments.count()
@@ -100,9 +108,9 @@ def get_project_update_status(warning_days=40):
         settlements = Settlement.objects.filter(main_contract__project=project)
         if settlements.exists():
             latest_settlement = settlements.order_by('-updated_at').first()
-            days_ago = (today - latest_settlement.updated_at.date()).days if latest_settlement.updated_at else None
+            days_ago = (today - latest_settlement.updated_at.date()).days if latest_settlement and latest_settlement.updated_at is not None else None
             project_info['modules']['结算'] = {
-                'last_update': latest_settlement.updated_at.date() if latest_settlement.updated_at else None,
+                'last_update': latest_settlement.updated_at.date() if latest_settlement and latest_settlement.updated_at is not None else None,
                 'days_ago': days_ago,
                 'is_warning': days_ago and days_ago > warning_days,
                 'count': settlements.count()
@@ -227,7 +235,7 @@ def get_outdated_records(module_name, warning_days=40, limit=50):
     
     result = []
     for record in records:
-        days_ago = (today - record.updated_at.date()).days if record.updated_at else None
+        days_ago = (today - record.updated_at.date()).days if record.updated_at is not None else None
         
         # 根据不同模型获取名称和编号
         if module_name == '项目':
@@ -252,7 +260,7 @@ def get_outdated_records(module_name, warning_days=40, limit=50):
         result.append({
             'code': code,
             'name': name,
-            'last_update': record.updated_at.date() if record.updated_at else None,
+            'last_update': record.updated_at.date() if record.updated_at is not None else None,
             'days_ago': days_ago,
             'updated_by': record.updated_by if hasattr(record, 'updated_by') else ''
         })

@@ -205,7 +205,7 @@ class Command(BaseCommand):
             confidence = result['confidence']
             
             # 如果置信度足够高，使用检测到的编码
-            if confidence > 0.7:
+            if confidence > 0.7 and detected_encoding:
                 # 处理一些常见的编码别名
                 encoding_map = {
                     'GB2312': 'gbk',

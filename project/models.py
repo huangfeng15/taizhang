@@ -1,5 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from django.db import models
 from project.validators import validate_code_field, validate_and_clean_code
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from procurement.models import Procurement
+    from contract.models import Contract
 
 
 class Project(models.Model):
@@ -67,6 +74,11 @@ class Project(models.Model):
         auto_now=True,
         help_text='每次更新时自动更新'
     )
+    
+    if TYPE_CHECKING:
+        # 类型提示：Django 反向关联
+        procurements: QuerySet[Procurement]
+        contracts: QuerySet[Contract]
     
     class Meta:
         verbose_name = '项目信息'
