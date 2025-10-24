@@ -603,17 +603,57 @@ def get_payment_filter_config(request):
     }
 
 
+def resolve_monitoring_year(request):
+    """统一解析监控类页面的年份筛选，支持默认当前年与“全部”选项。"""
+    from datetime import datetime
+    
+    current_year_local = datetime.now().year
+    year_param = request.GET.get('year')
+    
+    available_years = list(range(2019, current_year_local + 2))
+    
+    if year_param == 'all':
+        return {
+            'current_year': current_year_local,
+            'available_years': available_years,
+            'selected_year_value': 'all',
+            'year_filter': None,
+            'display_year': '全部'
+        }
+    
+    if year_param and year_param.isdigit():
+        year_int = int(year_param)
+        return {
+            'current_year': current_year_local,
+            'available_years': available_years,
+            'selected_year_value': year_param,
+            'year_filter': year_int,
+            'display_year': str(year_int)
+        }
+    
+    # 默认使用当前年度
+    return {
+        'current_year': current_year_local,
+        'available_years': available_years,
+        'selected_year_value': str(current_year_local),
+        'year_filter': current_year_local,
+        'display_year': str(current_year_local)
+    }
+
+
 def get_monitoring_filter_config(request):
     """获取监控中心的筛选配置"""
     from .models import Project
-    from datetime import datetime
     
-    # 获取可用年份列表
-    current_year = datetime.now().year
-    available_years = list(range(2019, current_year + 2))
+    year_context = resolve_monitoring_year(request)
+    selected_project = request.GET.get('project', '')
+    project_values = request.GET.getlist('project')
+    if not project_values and selected_project:
+        project_values = [selected_project]
+    if not project_values:
+        project_values = ['']
     
-    # 获取年份参数（支持空字符串表示全部）
-    selected_year = request.GET.get('year', '')
+    projects = list(Project.objects.all().order_by('project_name'))
     
     quick_filters = [
         {
@@ -621,25 +661,26 @@ def get_monitoring_filter_config(request):
             'type': 'select',
             'placeholder': '选择年份',
             'width': '130px',
-            'current_value': selected_year,  # 改为直接使用字符串值
-            'options': [
-                {'value': '', 'label': '全部年度'}
-            ] + [
-                {'value': str(year), 'label': f'{year}年'}
-                for year in available_years
-            ]
+            'current_value': year_context['selected_year_value'],
+            'options': (
+                [{'value': 'all', 'label': '全部年度'}] +
+                [
+                    {'value': str(year), 'label': f'{year}年'}
+                    for year in year_context['available_years']
+                ]
+            )
         },
         {
             'name': 'project',
             'type': 'select',
             'placeholder': '所有项目',
             'width': '200px',
-            'current_value': request.GET.getlist('project'),
+            'current_value': project_values,
             'options': [
                 {'value': '', 'label': '全部项目'}
             ] + [
                 {'value': p.project_code, 'label': p.project_name}
-                for p in Project.objects.all().order_by('project_name')
+                for p in projects
             ]
         }
     ]
@@ -650,5 +691,12 @@ def get_monitoring_filter_config(request):
     return {
         'quick_filters': quick_filters,
         'advanced_filter_groups': advanced_filter_groups,
-        'search_query': request.GET.get('q', '')
+        'search_query': request.GET.get('q', ''),
+        'available_years': year_context['available_years'],
+        'current_year': year_context['current_year'],
+        'selected_year_value': year_context['selected_year_value'],
+        'display_year': year_context['display_year'],
+        'projects': projects,
+        'selected_project_value': selected_project,
+        'year_filter': year_context['year_filter'],
     }

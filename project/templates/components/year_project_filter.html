@@ -15,11 +15,11 @@
 {% with project_param=project_param|default:'project' %}
 {% with selected_year_str=selected_year|stringformat:"s" %}
 {% with selected_project_str=selected_project|stringformat:"s" %}
-<div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
+<div class="monitoring-filter">
     <form method="get"
           action="{{ form_action|default:'' }}"
           id="{{ prefix }}FilterForm"
-          style="display: flex; align-items: center; gap: 12px; margin: 0;">
+          class="monitoring-filter__form">
 
         {% if preserve_params %}
             {% for item in preserve_params %}
@@ -33,13 +33,12 @@
             {% endfor %}
         {% endif %}
 
-        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;"
+        <label class="monitoring-filter__label"
                for="{{ prefix }}YearSelect">年份：</label>
         <select name="{{ year_param }}"
                 id="{{ prefix }}YearSelect"
-                class="form-control form-control-sm filter-select"
-                onchange="this.form.submit()"
-                style="width: 120px; border-radius: 4px;">
+                class="form-control form-control-sm filter-select monitoring-filter__select monitoring-filter__select--year"
+                onchange="this.form.submit()">
             <option value="all"
                     {% if selected_year_str == '' or selected_year_str == 'None' or selected_year_str == 'all' %}
                     selected
@@ -56,13 +55,12 @@
             {% endfor %}
         </select>
 
-        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;"
+        <label class="monitoring-filter__label"
                for="{{ prefix }}ProjectSelect">项目：</label>
         <select name="{{ project_param }}"
                 id="{{ prefix }}ProjectSelect"
-                class="form-control form-control-sm filter-select"
-                onchange="this.form.submit()"
-                style="width: 220px; border-radius: 4px;">
+                class="form-control form-control-sm filter-select monitoring-filter__select monitoring-filter__select--project"
+                onchange="this.form.submit()">
             <option value=""
                     {% if not selected_project_str or selected_project_str == 'None' %}
                     selected

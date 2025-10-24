@@ -5,365 +5,19 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
-<style>
-/* 导航按钮组 */
-.stat-nav {
-    margin-bottom: 20px;
-}
-.stat-nav .btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-.stat-nav .btn {
-    border-radius: 8px;
-    padding: 8px 16px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-}
-.stat-nav .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
-}
-
-/* 年份选择器 */
-.year-selector {
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 18px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.year-selector label {
-    font-weight: 600;
-    color: #495057;
-    margin: 0;
-}
-.year-selector select {
-    border-radius: 6px;
-    border: 2px solid #dee2e6;
-    padding: 6px 12px;
-    transition: all 0.3s ease;
-}
-.year-selector select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.15);
-}
-
-/* 概览 - 紧凑多栏卡片网格 */
-.overview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-/* 统计数据卡片 - 紧凑列表设计 */
-.stat-card-compact {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border-radius: 12px;
-    padding: 18px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    border-left: 4px solid #007bff;
-    transition: all 0.3s ease;
-}
-.stat-card-compact:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 20px rgba(0,123,255,0.15);
-}
-.stat-card-compact .card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #e9ecef;
-}
-.stat-card-compact .card-header i {
-    font-size: 1.3rem;
-    background: linear-gradient(135deg, #007bff, #00d4ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.stat-card-compact .card-header h4 {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #2c3e50;
-}
-.stat-card-compact .stat-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.stat-card-compact .stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-}
-.stat-card-compact .stat-row .label {
-    font-size: 0.88rem;
-    color: #6c757d;
-    font-weight: 500;
-}
-.stat-card-compact .stat-row .value {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #2c3e50;
-}
-.stat-card-compact .stat-row .value.success {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.stat-card-compact .stat-row .value.warning {
-    background: linear-gradient(135deg, #ffc107, #ff9800);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.stat-card-compact .stat-row .value.danger {
-    background: linear-gradient(135deg, #dc3545, #e74c3c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* 详情页 - 紧凑卡片 */
-.detail-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.08);
-    border: 1px solid rgba(0,0,0,0.05);
-}
-.detail-card .card-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 3px solid transparent;
-    border-image: linear-gradient(90deg, #007bff, #00d4ff) 1;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #2c3e50;
-}
-.detail-card .card-title i {
-    background: linear-gradient(135deg, #007bff, #00d4ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-size: 1.4rem;
-}
-
-/* 统计指标网格 - 更紧凑 */
-.stat-grid-compact {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-bottom: 15px;
-}
-.stat-item-compact {
-    padding: 14px;
-    background: white;
-    border-radius: 10px;
-    border-left: 3px solid #007bff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transition: all 0.3s ease;
-}
-.stat-item-compact:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,123,255,0.15);
-}
-.stat-item-compact .label {
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-bottom: 6px;
-    font-weight: 500;
-}
-.stat-item-compact .value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #2c3e50;
-    line-height: 1.2;
-}
-.stat-item-compact .value.success {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.stat-item-compact .value.warning {
-    background: linear-gradient(135deg, #ffc107, #ff9800);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.stat-item-compact .value.danger {
-    background: linear-gradient(135deg, #dc3545, #e74c3c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* 图表区域 - 紧凑设计 */
-.chart-section {
-    margin-top: 15px;
-}
-.chart-section h5 {
-    font-size: 1rem;
-    color: #495057;
-    margin-bottom: 12px;
-    font-weight: 600;
-    padding-left: 10px;
-    border-left: 3px solid #007bff;
-}
-.chart-container {
-    position: relative;
-    height: 300px;
-    margin-bottom: 15px;
-    background: white;
-    border-radius: 10px;
-    padding: 15px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-.chart-container canvas {
-    max-height: 300px;
-}
-
-/* 对比选择器 */
-.comparison-selector {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.comparison-selector label {
-    margin-right: 12px;
-    font-weight: 600;
-    color: #495057;
-}
-.comparison-selector .form-check {
-    margin-right: 15px;
-}
-.comparison-selector .form-check-input:checked {
-    background-color: #007bff;
-    border-color: #007bff;
-}
-
-/* 表格优化 */
-.table-responsive {
-    margin-top: 12px;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-.table {
-    margin-bottom: 0;
-}
-.table thead th {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
-    font-weight: 600;
-    border: none;
-    padding: 12px;
-    font-size: 0.9rem;
-}
-.table tbody tr {
-    transition: background-color 0.2s ease;
-}
-.table tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-.table td, .table th {
-    padding: 10px 12px;
-    vertical-align: middle;
-    font-size: 0.9rem;
-}
-
-/* 响应式优化 */
-@media (max-width: 992px) {
-    .overview-grid {
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    }
-    .stat-grid-compact {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-}
-
-@media (max-width: 768px) {
-    .overview-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-    .stat-card-compact {
-        padding: 14px;
-    }
-    .stat-grid-compact {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    .detail-card {
-        padding: 16px;
-    }
-    .chart-container {
-        height: 250px;
-        padding: 12px;
-    }
-}
-
-@media (max-width: 576px) {
-    .overview-grid {
-        grid-template-columns: 1fr;
-    }
-    .stat-grid-compact {
-        grid-template-columns: 1fr;
-    }
-    .stat-nav .btn-group {
-        flex-direction: column;
-    }
-    .stat-nav .btn {
-        width: 100%;
-    }
-}
-</style>
 {% endblock %}
 
 {% block content %}
 <div class="monitoring-statistics">
-    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-        <div>
+    <div class="monitoring-page__header">
+        <div class="monitoring-page__intro">
             <h1><i class="fas fa-chart-bar"></i> {{ page_title }}</h1>
             <p class="text-muted">查看采购、合同、付款、结算的统计分析数据</p>
         </div>
-        
-        <!-- 筛选器 - 右上角（年度对比时不显示） -->
+
         {% if stat_type != 'comparison' %}
-        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
-            <form method="get" action="" id="filterForm" style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                <!-- 保留统计类型参数 -->
-                <input type="hidden" name="type" value="{{ stat_type }}">
-                
-                {% for filter in quick_filters %}
-                    {% if filter.type == 'select' %}
-                        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                            {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
-                        </label>
-                        <select name="{{ filter.name }}"
-                                id="filter_{{ filter.name }}"
-                                class="form-control form-control-sm filter-select"
-                                style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
-                            {% for option in filter.options %}
-                                <option value="{{ option.value }}"
-                                        {% if option.value == filter.current_value %}selected{% endif %}>
-                                    {{ option.label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    {% endif %}
-                {% endfor %}
-            </form>
+        <div class="monitoring-page__filters">
+            {% include 'components/year_project_filter.html' with available_years=available_years projects=projects selected_year=year_filter_value selected_project=selected_project_value form_id='stats' %}
         </div>
         {% endif %}
     </div>
@@ -371,19 +25,19 @@
     <!-- 统计类型切换 -->
     <div class="stat-nav">
         <div class="btn-group" role="group">
-            <a href="?type=overview&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'overview' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=overview{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'overview' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-tachometer-alt"></i> 综合概览
             </a>
-            <a href="?type=procurement&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=procurement{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-shopping-cart"></i> 采购统计
             </a>
-            <a href="?type=contract&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=contract{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-file-contract"></i> 合同统计
             </a>
-            <a href="?type=payment&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'payment' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=payment{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'payment' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-money-bill-wave"></i> 付款统计
             </a>
-            <a href="?type=settlement&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=settlement{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-calculator"></i> 结算统计
             </a>
             <a href="?type=comparison" class="btn btn-sm {% if stat_type == 'comparison' %}btn-primary{% else %}btn-outline-primary{% endif %}">
@@ -399,7 +53,7 @@
         <div class="stat-card-compact">
             <div class="card-header">
                 <i class="fas fa-shopping-cart"></i>
-                <h4>采购概览（{{ selected_year }}年）</h4>
+                <h4>采购概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
             </div>
             <div class="stat-list">
                 <div class="stat-row">
@@ -433,7 +87,7 @@
         <div class="stat-card-compact">
             <div class="card-header">
                 <i class="fas fa-file-contract"></i>
-                <h4>合同概览（{{ selected_year }}年）</h4>
+                <h4>合同概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
             </div>
             <div class="stat-list">
                 <div class="stat-row">
@@ -463,7 +117,7 @@
         <div class="stat-card-compact">
             <div class="card-header">
                 <i class="fas fa-money-bill-wave"></i>
-                <h4>付款概览（{{ selected_year }}年）</h4>
+                <h4>付款概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
             </div>
             <div class="stat-list">
                 <div class="stat-row">
@@ -572,12 +226,12 @@
             <h5>采购方式分布</h5>
         <div class="row">
             <div class="col-md-6">
-                <div class="chart-container">
+                <div class="chart-container chart-container--panel">
                     <canvas id="procurementMethodChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="table-responsive">
+                <div class="table-responsive table-responsive--elevated">
                     <table class="table table-sm">
                         <thead>
                             <tr>
@@ -608,7 +262,7 @@
         {% if procurement_stats.monthly_trend %}
         <div class="chart-section">
             <h5>月度采购趋势</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
                 <canvas id="procurementTrendChart"></canvas>
             </div>
         </div>
@@ -667,12 +321,12 @@
             <h5>合同类型分布</h5>
         <div class="row">
             <div class="col-md-6">
-                <div class="chart-container">
+                <div class="chart-container chart-container--panel">
                     <canvas id="contractTypeChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="table-responsive">
+                <div class="table-responsive table-responsive--elevated">
                     <table class="table table-sm">
                         <thead>
                             <tr>
@@ -705,12 +359,12 @@
             <h5>合同来源分布</h5>
         <div class="row">
             <div class="col-md-6">
-                <div class="chart-container">
+                <div class="chart-container chart-container--panel">
                     <canvas id="contractSourceChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="table-responsive">
+                <div class="table-responsive table-responsive--elevated">
                     <table class="table table-sm">
                         <thead>
                             <tr>
@@ -741,7 +395,7 @@
         {% if contract_stats.monthly_trend %}
         <div class="chart-section">
             <h5>月度签约趋势</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
                 <canvas id="contractTrendChart"></canvas>
             </div>
         </div>
@@ -804,7 +458,7 @@
         {% if payment_stats.monthly_trend %}
         <div class="chart-section">
             <h5>月度付款趋势</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
                 <canvas id="paymentTrendChart"></canvas>
             </div>
         </div>
@@ -815,12 +469,12 @@
             <h5>结算状态分布</h5>
         <div class="row">
             <div class="col-md-6">
-                <div class="chart-container">
+                <div class="chart-container chart-container--panel">
                     <canvas id="settlementStatusChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="table-responsive">
+                <div class="table-responsive table-responsive--elevated">
                     <table class="table table-sm">
                         <thead>
                             <tr>
@@ -891,7 +545,7 @@
         {% if settlement_stats.yearly_data %}
         <div class="chart-section">
             <h5>年度结算趋势</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
                 <canvas id="settlementYearlyChart"></canvas>
             </div>
         </div>
@@ -901,7 +555,7 @@
         {% if settlement_stats.variance_analysis %}
         <div class="chart-section">
             <h5>结算与合同差异分析（前10条）</h5>
-        <div class="table-responsive">
+        <div class="table-responsive table-responsive--elevated">
             <table class="table table-sm">
                 <thead>
                     <tr>
@@ -962,7 +616,7 @@
         <!-- 采购对比 -->
         <div class="chart-section">
             <h5>采购数据对比</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
             <canvas id="procurementComparisonChart"></canvas>
             </div>
         </div>
@@ -970,7 +624,7 @@
         <!-- 合同对比 -->
         <div class="chart-section">
             <h5>合同数据对比</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
             <canvas id="contractComparisonChart"></canvas>
             </div>
         </div>
@@ -978,7 +632,7 @@
         <!-- 付款对比 -->
         <div class="chart-section">
             <h5>付款数据对比</h5>
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container chart-container--panel chart-container--tall">
             <canvas id="paymentComparisonChart"></canvas>
             </div>
         </div>
@@ -986,7 +640,7 @@
         <!-- 对比数据表格 -->
         <div class="chart-section">
             <h5>详细对比数据</h5>
-        <div class="table-responsive">
+        <div class="table-responsive table-responsive--elevated">
             <table class="table table-sm">
                 <thead>
                     <tr>
@@ -1316,15 +970,13 @@ Chart.defaults.font.family = "'Segoe UI', 'Microsoft YaHei', sans-serif";
 
 // 年份和项目筛选器 - 自动提交表单
 document.addEventListener('DOMContentLoaded', function() {
-    const filterForm = document.getElementById('filterForm');
+    const filterForm = document.getElementById('statsFilterForm');
     if (!filterForm) return;
     
     const filterSelects = document.querySelectorAll('.filter-select');
     
     filterSelects.forEach(function(select) {
         select.addEventListener('change', function() {
-            console.log('筛选器变化:', select.name, '=', select.value);
-            
             // 显示加载提示
             const container = document.querySelector('.monitoring-statistics');
             if (container) {
@@ -1335,12 +987,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // 立即提交表单
             filterForm.submit();
         });
-    });
-    
-    // 调试信息：显示当前筛选器状态
-    console.log('筛选器初始化完成');
-    filterSelects.forEach(function(select) {
-        console.log('筛选器:', select.name, '当前值:', select.value);
     });
 });
 </script>

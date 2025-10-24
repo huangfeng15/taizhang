@@ -2107,20 +2107,21 @@ def monitoring_dashboard(request):
     支持导出为Excel格式
     """
     from project.services.archive_monitor import ArchiveMonitorService
-    from project.filter_config import get_monitoring_filter_config
+    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
+    
+    year_context = resolve_monitoring_year(request)
     
     # 获取筛选参数
-    year = request.GET.get('year', '')
     project_codes = request.GET.getlist('project')
     # 过滤掉空字符串
     project_codes = [p for p in project_codes if p]
     export_format = request.GET.get('export', '')  # 导出参数
     
-    # 转换年份 - 空字符串表示全部年份
-    year_filter = int(year) if year and year.isdigit() else None
-    
     # 创建服务实例
-    archive_service = ArchiveMonitorService(year=year_filter, project_codes=project_codes if project_codes else None)
+    archive_service = ArchiveMonitorService(
+        year=year_context['year_filter'],
+        project_codes=project_codes if project_codes else None
+    )
     archive_overview = archive_service.get_archive_overview()
     
     # 获取最严重的逾期项目（前10条用于展示，全部用于导出）
@@ -2132,7 +2133,7 @@ def monitoring_dashboard(request):
         return _export_monitoring_dashboard_excel(
             archive_overview,
             overdue_list_full,
-            year_filter,
+            year_context['year_filter'],
             project_codes,
             request.user
         )
@@ -2144,6 +2145,8 @@ def monitoring_dashboard(request):
         'archive_data': archive_overview,
         'overdue_list': overdue_list,
         'page_title': '监控中心',
+        'selected_year': year_context['display_year'],
+        'year_filter_value': year_context['selected_year_value'],
         **filter_config,  # 添加筛选配置
     }
     return render(request, 'monitoring/dashboard.html', context)
@@ -2156,10 +2159,10 @@ def archive_monitor(request):
     显示采购、合同的详细归档情况和逾期列表
     """
     from project.services.archive_monitor import ArchiveMonitorService
-    from project.filter_config import get_monitoring_filter_config
+    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
     
     # 获取筛选参数
-    year = request.GET.get('year', '')
+    year_context = resolve_monitoring_year(request)
     project_codes = request.GET.getlist('project')
     # 过滤掉空字符串
     project_codes = [p for p in project_codes if p]
@@ -2169,11 +2172,11 @@ def archive_monitor(request):
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=50)
     
-    # 转换年份 - 空字符串表示全部年份
-    year_filter = int(year) if year and year.isdigit() else None
-    
     # 创建服务实例
-    archive_service = ArchiveMonitorService(year=year_filter, project_codes=project_codes if project_codes else None)
+    archive_service = ArchiveMonitorService(
+        year=year_context['year_filter'],
+        project_codes=project_codes if project_codes else None
+    )
     
     # 获取归档总览数据
     archive_overview = archive_service.get_archive_overview()
@@ -2192,14 +2195,13 @@ def archive_monitor(request):
     # 获取筛选配置
     filter_config = get_monitoring_filter_config(request)
     
-    # 获取所有项目用于筛选
-    projects = Project.objects.all().order_by('project_name')
-    
     context = {
         'archive_data': archive_overview,
         'overdue_list': page_obj,
         'page_obj': page_obj,
-        'projects': projects,
+        'projects': filter_config['projects'],
+        'selected_year': year_context['display_year'],
+        'year_filter_value': year_context['selected_year_value'],
         'module_filter': module_filter,
         'severity_filter': severity_filter,
         'project_filter': project_code,
@@ -2368,25 +2370,9 @@ def statistics_view(request):
         get_settlement_statistics,
         get_year_comparison
     )
-    from project.filter_config import get_monitoring_filter_config
-    from datetime import datetime
+    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
     
-    # 获取查询参数
-    current_year = datetime.now().year
-    selected_year = request.GET.get('year', '')
-    
-    # 处理年份参数
-    # 空字符串表示全部年份（year_filter=None）
-    if selected_year == '' or selected_year == 'all':
-        year_filter = None
-        display_year = '全部'
-    elif selected_year and selected_year.isdigit():
-        year_filter = int(selected_year)
-        display_year = f'{year_filter}'
-    else:
-        # 如果没有提供年份参数，默认显示全部
-        year_filter = None
-        display_year = '全部'
+    year_context = resolve_monitoring_year(request)
     
     project_codes = request.GET.getlist('project')
     # 过滤掉空字符串
@@ -2397,7 +2383,11 @@ def statistics_view(request):
     comparison_years = request.GET.getlist('comparison_years')
     if not comparison_years:
         # 默认对比最近3年
-        comparison_years = [str(current_year - 2), str(current_year - 1), str(current_year)]
+        comparison_years = [
+            str(year_context['current_year'] - 2),
+            str(year_context['current_year'] - 1),
+            str(year_context['current_year'])
+        ]
     comparison_years = [int(y) for y in comparison_years if y.isdigit()]
     
     # 获取筛选配置
@@ -2406,9 +2396,9 @@ def statistics_view(request):
     context = {
         'page_title': '统计分析',
         'stat_type': stat_type,
-        'selected_year': display_year,  # 添加选中的年份（用于显示）
-        'year_filter_value': selected_year if selected_year else 'all',  # 用于表单的实际值
-        'available_years': list(range(2019, current_year + 2)),  # 添加可用年份列表
+        'selected_year': year_context['display_year'],  # 添加选中的年份（用于显示）
+        'year_filter_value': year_context['selected_year_value'],  # 用于表单的实际值
+        'available_years': year_context['available_years'],  # 添加可用年份列表
         'comparison_years': comparison_years,
         **filter_config,  # 添加筛选配置
     }
@@ -2418,19 +2408,19 @@ def statistics_view(request):
     
     if stat_type == 'overview':
         # 综合概览 - 加载所有统计数据
-        context['procurement_stats'] = get_procurement_statistics(year_filter, project_filter)
-        context['contract_stats'] = get_contract_statistics(year_filter, project_filter)
-        context['payment_stats'] = get_payment_statistics(year_filter, project_filter)
+        context['procurement_stats'] = get_procurement_statistics(year_context['year_filter'], project_filter)
+        context['contract_stats'] = get_contract_statistics(year_context['year_filter'], project_filter)
+        context['payment_stats'] = get_payment_statistics(year_context['year_filter'], project_filter)
         context['settlement_stats'] = get_settlement_statistics()
     elif stat_type == 'procurement':
         # 采购统计
-        context['procurement_stats'] = get_procurement_statistics(year_filter, project_filter)
+        context['procurement_stats'] = get_procurement_statistics(year_context['year_filter'], project_filter)
     elif stat_type == 'contract':
         # 合同统计
-        context['contract_stats'] = get_contract_statistics(year_filter, project_filter)
+        context['contract_stats'] = get_contract_statistics(year_context['year_filter'], project_filter)
     elif stat_type == 'payment':
         # 付款统计
-        context['payment_stats'] = get_payment_statistics(year_filter, project_filter)
+        context['payment_stats'] = get_payment_statistics(year_context['year_filter'], project_filter)
     elif stat_type == 'settlement':
         # 结算统计
         context['settlement_stats'] = get_settlement_statistics()
