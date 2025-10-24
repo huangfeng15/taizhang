@@ -1,0 +1,87 @@
+{% comment %}
+通用年度/项目筛选组件
+依赖上下文变量：
+- available_years: 可选年份列表
+- projects: 项目列表
+- selected_year: 当前年份（字符串或数字）
+- selected_project: 当前项目编码（可选）
+可选参数：
+- form_id: 表单 ID 前缀
+- year_param / project_param: 参数名
+- form_action: 表单提交地址
+{% endcomment %}
+{% with prefix=form_id|default:'monitoring' %}
+{% with year_param=year_param|default:'year' %}
+{% with project_param=project_param|default:'project' %}
+{% with selected_year_str=selected_year|stringformat:"s" %}
+{% with selected_project_str=selected_project|stringformat:"s" %}
+<div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
+    <form method="get"
+          action="{{ form_action|default:'' }}"
+          id="{{ prefix }}FilterForm"
+          style="display: flex; align-items: center; gap: 12px; margin: 0;">
+
+        {% if preserve_params %}
+            {% for item in preserve_params %}
+                <input type="hidden" name="{{ item.name }}" value="{{ item.value }}">
+            {% endfor %}
+        {% elif request %}
+            {% for key, value in request.GET.items %}
+                {% if key != year_param and key != project_param %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+
+        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;"
+               for="{{ prefix }}YearSelect">年份：</label>
+        <select name="{{ year_param }}"
+                id="{{ prefix }}YearSelect"
+                class="form-control form-control-sm filter-select"
+                onchange="this.form.submit()"
+                style="width: 120px; border-radius: 4px;">
+            <option value="all"
+                    {% if selected_year_str == '' or selected_year_str == 'None' or selected_year_str == 'all' %}
+                    selected
+                    {% endif %}>全部年份</option>
+            {% for year in available_years %}
+                {% if year %}
+                {% with year_str=year|stringformat:"s" %}
+                <option value="{{ year_str }}"
+                        {% if selected_year_str == year_str %}
+                        selected
+                        {% endif %}>{{ year_str }}年</option>
+                {% endwith %}
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;"
+               for="{{ prefix }}ProjectSelect">项目：</label>
+        <select name="{{ project_param }}"
+                id="{{ prefix }}ProjectSelect"
+                class="form-control form-control-sm filter-select"
+                onchange="this.form.submit()"
+                style="width: 220px; border-radius: 4px;">
+            <option value=""
+                    {% if not selected_project_str or selected_project_str == 'None' %}
+                    selected
+                    {% endif %}>全部项目</option>
+            {% for project in projects %}
+            {% with code=project.project_code|stringformat:"s" %}
+            <option value="{{ code }}"
+                    {% if code == selected_project_str %}
+                    selected
+                    {% endif %}>
+                {{ project.project_name }}
+            </option>
+            {% endwith %}
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}

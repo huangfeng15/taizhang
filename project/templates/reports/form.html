@@ -167,12 +167,37 @@
         margin-bottom: 5px;
         color: #555;
     }
+    
+    .report-form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .report-form-header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    
+    .report-form-header__filters {
+        display: flex;
+        justify-content: flex-end;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="report-form-container">
-    <h1 style="text-align: center; margin-bottom: 30px;">📊 报表生成</h1>
+    <div class="report-form-header">
+        <h1>📊 报表生成</h1>
+        <div class="report-form-header__filters">
+            {% include 'components/year_project_filter.html' with form_id='report' selected_project=selected_projects|first %}
+        </div>
+    </div>
     
     <div class="info-box">
         <h4>📋 报表说明</h4>

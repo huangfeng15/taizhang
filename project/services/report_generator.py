@@ -18,7 +18,7 @@ from project.models import Project
 class BaseReportGenerator:
     """报表生成基类"""
     
-    def __init__(self, start_date, end_date):
+    def __init__(self, start_date, end_date, project_codes=None):
         """
         初始化报表生成器
         
@@ -28,6 +28,7 @@ class BaseReportGenerator:
         """
         self.start_date = start_date
         self.end_date = end_date
+        self.project_codes = project_codes
     
     def generate_data(self):
         """
@@ -53,6 +54,8 @@ class BaseReportGenerator:
             result_publicity_release_date__gte=self.start_date,
             result_publicity_release_date__lte=self.end_date
         )
+        if self.project_codes:
+            queryset = queryset.filter(project__project_code__in=self.project_codes)
         
         total_count = queryset.count()
         total_budget = queryset.aggregate(Sum('budget_amount'))['budget_amount__sum'] or Decimal('0')
@@ -83,6 +86,8 @@ class BaseReportGenerator:
             signing_date__gte=self.start_date,
             signing_date__lte=self.end_date
         )
+        if self.project_codes:
+            queryset = queryset.filter(project__project_code__in=self.project_codes)
         
         total_count = queryset.count()
         total_amount = queryset.aggregate(Sum('contract_amount'))['contract_amount__sum'] or Decimal('0')
@@ -113,6 +118,8 @@ class BaseReportGenerator:
             payment_date__gte=self.start_date,
             payment_date__lte=self.end_date
         )
+        if self.project_codes:
+            queryset = queryset.filter(contract__project__project_code__in=self.project_codes)
         
         total_count = queryset.count()
         total_amount = queryset.aggregate(Sum('payment_amount'))['payment_amount__sum'] or Decimal('0')
@@ -139,6 +146,8 @@ class BaseReportGenerator:
             completion_date__gte=self.start_date,
             completion_date__lte=self.end_date
         )
+        if self.project_codes:
+            queryset = queryset.filter(main_contract__project__project_code__in=self.project_codes)
         
         settled_count = queryset.count()
         settled_amount = queryset.aggregate(Sum('final_amount'))['final_amount__sum'] or Decimal('0')
@@ -171,7 +180,7 @@ class BaseReportGenerator:
 class WeeklyReportGenerator(BaseReportGenerator):
     """周报生成器"""
     
-    def __init__(self, target_date=None):
+    def __init__(self, target_date=None, project_codes=None):
         """
         初始化周报生成器
         
@@ -186,7 +195,7 @@ class WeeklyReportGenerator(BaseReportGenerator):
         start_date = target_date - timedelta(days=weekday)
         end_date = start_date + timedelta(days=6)
         
-        super().__init__(start_date, end_date)
+        super().__init__(start_date, end_date, project_codes=project_codes)
         self.week_number = target_date.isocalendar()[1]
         self.year = target_date.year
     
@@ -203,7 +212,7 @@ class WeeklyReportGenerator(BaseReportGenerator):
 class MonthlyReportGenerator(BaseReportGenerator):
     """月报生成器"""
     
-    def __init__(self, year=None, month=None):
+    def __init__(self, year=None, month=None, project_codes=None):
         """
         初始化月报生成器
         
@@ -223,7 +232,7 @@ class MonthlyReportGenerator(BaseReportGenerator):
         else:
             end_date = date(year, month + 1, 1) - timedelta(days=1)
         
-        super().__init__(start_date, end_date)
+        super().__init__(start_date, end_date, project_codes=project_codes)
         self.year = year
         self.month = month
     
@@ -240,7 +249,7 @@ class MonthlyReportGenerator(BaseReportGenerator):
 class QuarterlyReportGenerator(BaseReportGenerator):
     """季报生成器"""
     
-    def __init__(self, year=None, quarter=None):
+    def __init__(self, year=None, quarter=None, project_codes=None):
         """
         初始化季报生成器
         
@@ -263,7 +272,7 @@ class QuarterlyReportGenerator(BaseReportGenerator):
         else:
             end_date = date(year, end_month + 1, 1) - timedelta(days=1)
         
-        super().__init__(start_date, end_date)
+        super().__init__(start_date, end_date, project_codes=project_codes)
         self.year = year
         self.quarter = quarter
     
@@ -280,7 +289,7 @@ class QuarterlyReportGenerator(BaseReportGenerator):
 class AnnualReportGenerator(BaseReportGenerator):
     """年报生成器"""
     
-    def __init__(self, year=None):
+    def __init__(self, year=None, project_codes=None):
         """
         初始化年报生成器
         
@@ -293,7 +302,7 @@ class AnnualReportGenerator(BaseReportGenerator):
         start_date = date(year, 1, 1)
         end_date = date(year, 12, 31)
         
-        super().__init__(start_date, end_date)
+        super().__init__(start_date, end_date, project_codes=project_codes)
         self.year = year
     
     def generate_data(self):
