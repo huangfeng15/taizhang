@@ -117,12 +117,17 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '合同编号',
                 '合同名称',
                 '合同签订经办人',
+                '合同类型',
                 '甲方',
                 '乙方',
-                '乙方负责人及联系方式',
-                '合同文本内乙方联系人及方式',
                 '含税签约合同价（元）',
                 '合同签订日期',
+                '甲方法定代表人及联系方式',
+                '甲方联系人及联系方式',
+                '甲方负责人及联系方式',
+                '乙方法定代表人及联系方式',
+                '乙方联系人及联系方式',
+                '乙方负责人及联系方式',
                 '合同工期/服务期限',
                 '支付方式',
                 '履约担保退回时间',
@@ -134,9 +139,10 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '【编码规则】合同编号与合同序号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止使用 / 等特殊字符',
                 '【合同类型】仅支持三种类型：主合同、补充协议、解除协议（留空默认为"主合同"）',
                 '【关联规则】补充协议或解除协议必须填写"关联主合同编号"，关联已存在的主合同',
-                '【合同来源】可选值：招标采购、非招标采购（留空默认为"招标采购"）',
+                '【合同来源】可选值：采购合同、直接签订（留空默认为"采购合同"）',
                 '【项目关联】项目编码字段用于关联已存在的项目，必须填写系统中已存在的项目编码',
                 '【采购关联】关联采购编号字段用于关联已存在的采购记录，如无采购可留空',
+                '【联系信息】甲乙方的法定代表人、联系人、负责人信息均为可选字段，建议填写完整以便管理',
                 '【日期格式】合同签订日期、履约担保退回时间等日期字段统一使用 YYYY-MM-DD 格式',
                 '【金额格式】含税签约合同价仅填写数字（可带小数），单位为元，例如：2500000.00',
                 '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
@@ -1785,28 +1791,32 @@ def _generate_project_excel(project, user):
                 contract_data.append({
                     '项目编码': project.project_code,
                     '项目名称': project.project_name,
-                            '关联采购编号': contract.procurement.procurement_code if contract.procurement else '',
-                            '合同类型': contract.contract_type,
-                            '合同来源': contract.contract_source,
-                            '关联主合同编号': contract.parent_contract.contract_code if contract.parent_contract else '',
-                            '序号': contract.contract_sequence or '',
-                            '合同序号': contract.contract_sequence or '',
-                            '合同编号': contract.contract_code,
-                            '合同名称': contract.contract_name,
-                            '合同签订经办人': contract.contract_officer or '',
-                            '甲方': contract.party_a or '',
-                            '乙方': contract.party_b or '',
-                            '乙方负责人及联系方式': contract.party_b_contact or '',
-                            '合同文本内乙方联系人及方式': contract.party_b_contact_in_contract or '',
-                            '含税签约合同价（元）': float(contract.contract_amount) if contract.contract_amount else 0,
-                            '合同签订日期': contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '',
-                            '合同工期/服务期限': contract.duration or '',
-                            '支付方式': contract.payment_method or '',
-                            '履约担保退回时间': contract.performance_guarantee_return_date.strftime('%Y-%m-%d') if contract.performance_guarantee_return_date else '',
-                            '资料归档日期': contract.archive_date.strftime('%Y-%m-%d') if contract.archive_date else '',
-                            '累计付款金额（元）': total_paid,
-                            '付款笔数': payment_count,
-                            '付款比例': f"{contract.get_payment_ratio():.2f}%" if contract.get_payment_ratio() > 0 else '0%',
+                    '关联采购编号': contract.procurement.procurement_code if contract.procurement else '',
+                    '合同类型': contract.contract_type,
+                    '合同来源': contract.contract_source,
+                    '关联主合同编号': contract.parent_contract.contract_code if contract.parent_contract else '',
+                    '序号': contract.contract_sequence or '',
+                    '合同序号': contract.contract_sequence or '',
+                    '合同编号': contract.contract_code,
+                    '合同名称': contract.contract_name,
+                    '合同签订经办人': contract.contract_officer or '',
+                    '甲方': contract.party_a or '',
+                    '乙方': contract.party_b or '',
+                    '含税签约合同价（元）': float(contract.contract_amount) if contract.contract_amount else 0,
+                    '合同签订日期': contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '',
+                    '甲方法定代表人及联系方式': contract.party_a_legal_representative or '',
+                    '甲方联系人及联系方式': contract.party_a_contact_person or '',
+                    '甲方负责人及联系方式': contract.party_a_manager or '',
+                    '乙方法定代表人及联系方式': contract.party_b_legal_representative or '',
+                    '乙方联系人及联系方式': contract.party_b_contact_person or '',
+                    '乙方负责人及联系方式': contract.party_b_manager or '',
+                    '合同工期/服务期限': contract.duration or '',
+                    '支付方式': contract.payment_method or '',
+                    '履约担保退回时间': contract.performance_guarantee_return_date.strftime('%Y-%m-%d') if contract.performance_guarantee_return_date else '',
+                    '资料归档日期': contract.archive_date.strftime('%Y-%m-%d') if contract.archive_date else '',
+                    '累计付款金额（元）': total_paid,
+                    '付款笔数': payment_count,
+                    '付款比例': f"{contract.get_payment_ratio():.2f}%" if contract.get_payment_ratio() > 0 else '0%',
                     '创建时间': contract.created_at.strftime('%Y-%m-%d %H:%M:%S') if contract.created_at else '',
                     '更新时间': contract.updated_at.strftime('%Y-%m-%d %H:%M:%S') if contract.updated_at else '',
                 })
@@ -1918,17 +1928,190 @@ def _generate_project_excel(project, user):
 from django.contrib.auth.decorators import login_required
 
 
+def _export_monitoring_dashboard_excel(archive_data, overdue_list, year_filter, project_codes, user):
+    """
+    导出监控仪表盘数据为Excel
+    
+    Args:
+        archive_data: 归档概览数据
+        overdue_list: 逾期项目列表
+        year_filter: 年份筛选
+        project_codes: 项目编码列表
+        user: 当前用户
+    
+    Returns:
+        HttpResponse: Excel文件响应
+    """
+    from datetime import datetime
+    from io import BytesIO
+    import pandas as pd
+    
+    try:
+        # 创建Excel写入器
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            
+            # 1. 归档概览工作表
+            overview_data = [{
+                '指标': '综合归档率',
+                '数值': f"{archive_data['overall_rate']}%",
+                '说明': '所有模块的整体归档完成情况'
+            }, {
+                '指标': '采购归档率',
+                '数值': f"{archive_data['procurement']['rate']}%",
+                '说明': f"已归档 {archive_data['procurement']['archived']}/{archive_data['procurement']['total']}"
+            }, {
+                '指标': '合同归档率',
+                '数值': f"{archive_data['contract']['rate']}%",
+                '说明': f"已归档 {archive_data['contract']['archived']}/{archive_data['contract']['total']}"
+            }, {
+                '指标': '综合及时率',
+                '数值': f"{archive_data['overall_timely_rate']}%",
+                '说明': '在规定时限内完成归档的比例'
+            }, {
+                '指标': '逾期项目总数',
+                '数值': archive_data['procurement']['overdue'] + archive_data['contract']['overdue'],
+                '说明': '超过规定时限未归档的项目'
+            }]
+            
+            df_overview = pd.DataFrame(overview_data)
+            df_overview.to_excel(writer, sheet_name='归档概览', index=False)
+            
+            # 2. 采购归档详情工作表
+            procurement_detail = [{
+                '项目': '应归档总数',
+                '数值': archive_data['procurement']['total']
+            }, {
+                '项目': '已归档数',
+                '数值': archive_data['procurement']['archived']
+            }, {
+                '项目': '未归档数',
+                '数值': archive_data['procurement']['total'] - archive_data['procurement']['archived']
+            }, {
+                '项目': '逾期数',
+                '数值': archive_data['procurement']['overdue']
+            }, {
+                '项目': '归档率',
+                '数值': f"{archive_data['procurement']['rate']}%"
+            }, {
+                '项目': '及时归档率',
+                '数值': f"{archive_data['procurement']['timely_rate']}%"
+            }, {
+                '项目': '平均归档周期(天)',
+                '数值': archive_data['procurement']['avg_archive_days']
+            }, {
+                '项目': '严重逾期(>30天)',
+                '数值': archive_data['procurement']['overdue_breakdown']['severe']
+            }, {
+                '项目': '中度逾期(16-30天)',
+                '数值': archive_data['procurement']['overdue_breakdown']['moderate']
+            }, {
+                '项目': '轻度逾期(1-15天)',
+                '数值': archive_data['procurement']['overdue_breakdown']['mild']
+            }]
+            
+            df_procurement = pd.DataFrame(procurement_detail)
+            df_procurement.to_excel(writer, sheet_name='采购归档详情', index=False)
+            
+            # 3. 合同归档详情工作表
+            contract_detail = [{
+                '项目': '应归档总数',
+                '数值': archive_data['contract']['total']
+            }, {
+                '项目': '已归档数',
+                '数值': archive_data['contract']['archived']
+            }, {
+                '项目': '未归档数',
+                '数值': archive_data['contract']['total'] - archive_data['contract']['archived']
+            }, {
+                '项目': '逾期数',
+                '数值': archive_data['contract']['overdue']
+            }, {
+                '项目': '归档率',
+                '数值': f"{archive_data['contract']['rate']}%"
+            }, {
+                '项目': '及时归档率',
+                '数值': f"{archive_data['contract']['timely_rate']}%"
+            }, {
+                '项目': '平均归档周期(天)',
+                '数值': archive_data['contract']['avg_archive_days']
+            }, {
+                '项目': '严重逾期(>30天)',
+                '数值': archive_data['contract']['overdue_breakdown']['severe']
+            }, {
+                '项目': '中度逾期(16-30天)',
+                '数值': archive_data['contract']['overdue_breakdown']['moderate']
+            }, {
+                '项目': '轻度逾期(1-15天)',
+                '数值': archive_data['contract']['overdue_breakdown']['mild']
+            }]
+            
+            df_contract = pd.DataFrame(contract_detail)
+            df_contract.to_excel(writer, sheet_name='合同归档详情', index=False)
+            
+            # 4. 逾期项目明细工作表
+            if overdue_list:
+                overdue_data = []
+                for item in overdue_list:
+                    overdue_data.append({
+                        '模块': item['module'],
+                        '编号': item['code'],
+                        '名称': item['name'],
+                        '项目编码': item.get('project_code', ''),
+                        '项目名称': item.get('project_name', ''),
+                        '参考日期': item['reference_date_label'],
+                        '参考日期值': str(item['reference_date']),
+                        '逾期天数': item['overdue_days'],
+                        '规定天数': item['deadline_days'],
+                        '逾期程度': '严重' if item['severity'] == 'severe' else ('中度' if item['severity'] == 'moderate' else '轻度'),
+                        '经办人': item.get('officer', '')
+                    })
+                
+                df_overdue = pd.DataFrame(overdue_data)
+                df_overdue.to_excel(writer, sheet_name='逾期项目明细', index=False)
+            
+            # 5. 导出信息工作表
+            export_info = [{
+                '导出时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                '导出人': user.username if user.is_authenticated else '系统',
+                '筛选年份': year_filter if year_filter else '全部',
+                '筛选项目': ','.join(project_codes) if project_codes else '全部',
+                '数据说明': '本报表包含归档概览、采购归档详情、合同归档详情和逾期项目明细'
+            }]
+            
+            df_export_info = pd.DataFrame(export_info)
+            df_export_info.to_excel(writer, sheet_name='导出信息', index=False)
+        
+        # 返回Excel文件
+        output.seek(0)
+        filename = f"监控中心数据_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+        
+    except Exception as e:
+        # 如果导出失败，返回错误信息
+        return HttpResponse(f'导出失败: {str(e)}', status=500)
+
+
 @login_required
 def monitoring_dashboard(request):
     """
     监控仪表盘 - 总览页面
     显示归档监控、更新监控等核心指标
+    支持导出为Excel格式
     """
     from project.services.archive_monitor import ArchiveMonitorService
+    from project.filter_config import get_monitoring_filter_config
     
     # 获取筛选参数
     year = request.GET.get('year', '')
     project_codes = request.GET.getlist('project')
+    export_format = request.GET.get('export', '')  # 导出参数
     
     # 转换年份
     year_filter = int(year) if year and year.isdigit() else None
@@ -1937,20 +2120,28 @@ def monitoring_dashboard(request):
     archive_service = ArchiveMonitorService(year=year_filter, project_codes=project_codes if project_codes else None)
     archive_overview = archive_service.get_archive_overview()
     
-    # 获取最严重的逾期项目（前10条）
-    overdue_list = archive_service.get_overdue_list()[:10]
+    # 获取最严重的逾期项目（前10条用于展示，全部用于导出）
+    overdue_list_full = archive_service.get_overdue_list()
+    overdue_list = overdue_list_full[:10]
     
-    # 获取所有项目用于筛选
-    projects = Project.objects.all().order_by('project_name')
+    # 如果请求导出
+    if export_format == 'excel':
+        return _export_monitoring_dashboard_excel(
+            archive_overview,
+            overdue_list_full,
+            year_filter,
+            project_codes,
+            request.user
+        )
+    
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
     
     context = {
         'archive_data': archive_overview,
         'overdue_list': overdue_list,
         'page_title': '监控中心',
-        'projects': projects,
-        'selected_year': year,
-        'selected_projects': project_codes,
-        'available_years': [''] + list(range(2019, datetime.now().year + 2)),
+        **filter_config,  # 添加筛选配置
     }
     return render(request, 'monitoring/dashboard.html', context)
 
@@ -1962,6 +2153,7 @@ def archive_monitor(request):
     显示采购、合同的详细归档情况和逾期列表
     """
     from project.services.archive_monitor import ArchiveMonitorService
+    from project.filter_config import get_monitoring_filter_config
     
     # 获取筛选参数
     year = request.GET.get('year', '')
@@ -1992,6 +2184,9 @@ def archive_monitor(request):
     paginator = Paginator(overdue_list, page_size)
     page_obj = paginator.get_page(page)
     
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
+    
     # 获取所有项目用于筛选
     projects = Project.objects.all().order_by('project_name')
     
@@ -2003,10 +2198,8 @@ def archive_monitor(request):
         'module_filter': module_filter,
         'severity_filter': severity_filter,
         'project_filter': project_code,
-        'selected_year': year,
-        'selected_projects': project_codes,
-        'available_years': [''] + list(range(2019, datetime.now().year + 2)),
         'page_title': '归档监控',
+        **filter_config,  # 添加筛选配置
     }
     return render(request, 'monitoring/archive.html', context)
 
@@ -2016,72 +2209,55 @@ def update_monitor(request):
     """
     更新监控页面
     监控各模块数据的更新时效性
+    按照指标体系需求文档第3章设计
     """
     from project.services.update_monitor import (
         get_project_update_status,
         get_module_update_overview,
-        get_outdated_records
+        get_data_activity_analysis
     )
+    from project.filter_config import get_monitoring_filter_config
     
     # 获取筛选参数
     warning_days = int(request.GET.get('warning_days', 40))
-    module_filter = request.GET.get('module', '')  # 项目/采购/合同/付款/结算
-    view_mode = request.GET.get('view', 'overview')  # overview/detail
+    year = request.GET.get('year', '')
+    project_codes = request.GET.getlist('project')
+    only_active = request.GET.get('only_active', 'true').lower() == 'true'
     page = request.GET.get('page', 1)
-    page_size = _get_page_size(request, default=50)
+    page_size = _get_page_size(request, default=20)
     
-    # 获取概览数据
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
+    
+    # 获取模块概览数据
     module_overview = get_module_update_overview(warning_days=warning_days)
     
-    if view_mode == 'detail' and module_filter:
-        # 详细视图：显示指定模块的过期记录列表
-        outdated_records = get_outdated_records(
-            module_name=module_filter,
-            warning_days=warning_days,
-            limit=1000  # 获取更多记录用于分页
-        )
-        
-        # 分页处理
-        paginator = Paginator(outdated_records, page_size)
-        page_obj = paginator.get_page(page)
-        
-        context = {
-            'page_title': '更新监控',
-            'view_mode': view_mode,
-            'module_overview': module_overview,
-            'module_filter': module_filter,
-            'warning_days': warning_days,
-            'outdated_records': page_obj,
-            'page_obj': page_obj,
-        }
-    elif view_mode == 'project':
-        # 按项目分组视图
-        project_status = get_project_update_status(warning_days=warning_days)
-        
-        # 分页处理
-        paginator = Paginator(project_status['projects'], page_size)
-        page_obj = paginator.get_page(page)
-        
-        context = {
-            'page_title': '更新监控',
-            'view_mode': view_mode,
-            'module_overview': module_overview,
-            'warning_days': warning_days,
-            'project_status': project_status,
-            'projects_page': page_obj,
-            'page_obj': page_obj,
-        }
-    else:
-        # 概览视图
-        project_status = get_project_update_status(warning_days=warning_days)
-        
-        context = {
-            'page_title': '更新监控',
-            'view_mode': view_mode,
-            'module_overview': module_overview,
-            'warning_days': warning_days,
-            'project_status': project_status,
-        }
+    # 获取项目更新状态（按照需求文档3.2.1的表格设计）
+    project_codes_filter = [p for p in project_codes if p]  # 过滤空值
+    project_status = get_project_update_status(
+        warning_days=warning_days,
+        project_codes=project_codes_filter if project_codes_filter else None,
+        only_active=only_active
+    )
+    
+    # 获取数据活跃度分析（需求文档3.2.2）
+    activity_analysis = get_data_activity_analysis(days_range=30)
+    
+    # 分页处理项目列表
+    paginator = Paginator(project_status['projects'], page_size)
+    page_obj = paginator.get_page(page)
+    
+    context = {
+        'page_title': '更新监控',
+        'module_overview': module_overview,
+        'project_status': project_status['summary'],
+        'projects': page_obj,
+        'page_obj': page_obj,
+        'activity_analysis': activity_analysis,
+        'warning_days': warning_days,
+        'only_active': only_active,
+        **filter_config,  # 添加筛选配置
+    }
     
     return render(request, 'monitoring/update.html', context)
 
@@ -2091,22 +2267,35 @@ def completeness_check(request):
     """
     齐全性检查页面
     检查数据的完整性和关联关系
+    包含字段齐全性和关联完整性检查
     """
     from project.services.completeness import (
         get_completeness_overview,
+        check_procurement_field_completeness,
+        check_contract_field_completeness,
         check_contract_completeness,
         check_project_completeness,
         check_payment_settlement_completeness
     )
     
     # 获取筛选参数
-    check_type = request.GET.get('type', 'all')  # all/contract/project/payment
+    check_type = request.GET.get('type', 'all')  # all/field/contract/project/payment
     issue_type_filter = request.GET.get('issue_type', '')  # error/warning/info
-    page = request.GET.get('page', 1)
-    page_size = _get_page_size(request, default=20)
     
-    if check_type == 'contract':
-        # 只检查合同
+    if check_type == 'field':
+        # 只检查字段齐全性
+        procurement_field_result = check_procurement_field_completeness()
+        contract_field_result = check_contract_field_completeness()
+        overview = {
+            'total_issues': 0,
+            'error_count': 0,
+            'warning_count': 0,
+            'info_count': 0,
+            'procurement_field_check': procurement_field_result,
+            'contract_field_check': contract_field_result,
+        }
+    elif check_type == 'contract':
+        # 只检查合同关联
         result = check_contract_completeness()
         overview = {
             'total_issues': len(result['issues']),
@@ -2116,7 +2305,7 @@ def completeness_check(request):
             'contract_check': result,
         }
     elif check_type == 'project':
-        # 只检查项目
+        # 只检查项目关联
         result = check_project_completeness()
         overview = {
             'total_issues': len(result['issues']),
@@ -2172,6 +2361,7 @@ def statistics_view(request):
         get_settlement_statistics,
         get_year_comparison
     )
+    from project.filter_config import get_monitoring_filter_config
     from datetime import datetime
     
     # 获取查询参数
@@ -2188,18 +2378,14 @@ def statistics_view(request):
         comparison_years = [str(current_year - 2), str(current_year - 1), str(current_year)]
     comparison_years = [int(y) for y in comparison_years if y.isdigit()]
     
-    # 获取所有项目用于筛选
-    projects = Project.objects.all().order_by('project_name')
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
     
     context = {
         'page_title': '统计分析',
-        'current_year': current_year,
-        'selected_year': selected_year if selected_year else year_filter,
-        'selected_projects': project_codes,
         'stat_type': stat_type,
-        'available_years': list(range(2019, current_year + 2)),  # 2019到明年
         'comparison_years': comparison_years,
-        'projects': projects,
+        **filter_config,  # 添加筛选配置
     }
     
     # 项目筛选参数
@@ -2233,47 +2419,70 @@ def statistics_view(request):
 @login_required
 def ranking_view(request):
     """
-    绩效排名页面
-    显示项目和个人在采购、归档、合同、结算等维度的绩效排名
-    注意：绩效排名只支持年度筛选，不支持项目筛选
+    业务排名页面
+    显示项目和个人在采购、归档、合同、结算等维度的业务排名
+    按照指标体系需求文档第6章设计
     """
     from project.services.ranking import (
-        get_procurement_ranking,
-        get_archive_ranking,
+        get_procurement_on_time_ranking,
+        get_procurement_cycle_ranking,
+        get_procurement_quantity_ranking,
+        get_archive_timeliness_ranking,
+        get_archive_speed_ranking,
         get_contract_ranking,
         get_settlement_ranking,
         get_comprehensive_ranking
     )
+    from project.filter_config import get_monitoring_filter_config
     from datetime import datetime
     
-    # 获取查询参数 - 绩效排名只支持年度筛选
+    # 获取查询参数
     current_year = datetime.now().year
     selected_year = request.GET.get('year', str(current_year))  # 默认当前年份
-    ranking_type = request.GET.get('type', 'comprehensive')  # comprehensive/procurement/archive/contract/settlement
+    ranking_type = request.GET.get('type', 'comprehensive')
     rank_by = request.GET.get('rank_by', 'project')  # project/person
     
     # 转换年份参数
     year_filter = int(selected_year) if selected_year and selected_year.isdigit() else None
     
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
+    
     context = {
-        'page_title': '绩效排名',
-        'current_year': current_year,
-        'selected_year': selected_year,
+        'page_title': '业务排名',
         'ranking_type': ranking_type,
         'rank_by': rank_by,
-        'available_years': [''] + list(range(2019, current_year + 2)),  # 空选项表示全部
+        **filter_config,  # 添加筛选配置
     }
     
     # 根据排名类型获取数据
-    if ranking_type == 'procurement':
-        # 采购绩效排名
-        context['procurement_ranking'] = get_procurement_ranking(
+    if ranking_type == 'procurement_ontime':
+        # 6.3.1 采购计划准时完成率排名
+        context['procurement_ranking'] = get_procurement_on_time_ranking(
             rank_type=rank_by,
             year=year_filter
         )
-    elif ranking_type == 'archive':
-        # 归档绩效排名
-        context['archive_ranking'] = get_archive_ranking(
+    elif ranking_type == 'procurement_cycle':
+        # 6.3.2 采购周期效率排名
+        context['procurement_ranking'] = get_procurement_cycle_ranking(
+            rank_type=rank_by,
+            year=year_filter
+        )
+    elif ranking_type == 'procurement_quantity':
+        # 6.3.3 采购完成数量排名
+        context['procurement_ranking'] = get_procurement_quantity_ranking(
+            rank_type=rank_by,
+            year=year_filter
+        )
+    elif ranking_type == 'archive_timeliness':
+        # 6.4.1 归档及时率排名
+        context['archive_ranking'] = get_archive_timeliness_ranking(
+            rank_type=rank_by,
+            year=year_filter
+        )
+    elif ranking_type == 'archive_speed':
+        # 6.4.2 归档速度排名
+        context['archive_ranking'] = get_archive_speed_ranking(
             rank_type=rank_by,
             year=year_filter
         )
@@ -2289,7 +2498,7 @@ def ranking_view(request):
             rank_type=rank_by
         )
     else:
-        # 综合绩效排名
+        # 6.6 综合业务排名
         context['comprehensive_ranking'] = get_comprehensive_ranking(year=year_filter)
     
     return render(request, 'monitoring/ranking.html', context)

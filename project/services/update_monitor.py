@@ -1,8 +1,9 @@
 """
 更新监控服务
 监控各模块数据的更新时效性
+按照指标体系需求文档第3章设计
 """
-from django.db.models import F, Q
+from django.db.models import F, Q, Max
 from django.utils import timezone
 from datetime import timedelta
 from project.models import Project
@@ -12,120 +13,183 @@ from payment.models import Payment
 from settlement.models import Settlement
 
 
-def get_project_update_status(warning_days=40):
+def get_project_update_status(warning_days=40, project_codes=None, only_active=True):
     """
     获取各项目各模块最近更新状态
+    按照需求文档3.2.1设计：展示表格形式，含颜色标识
     
     Args:
         warning_days: 超过多少天未更新则预警，默认40天
+        project_codes: 要筛选的项目编码列表，None表示全部
+        only_active: 是否仅显示进行中的项目，默认True
     
     Returns:
         dict: 包含各项目的更新状态信息
     """
     today = timezone.now().date()
-    warning_date = today - timedelta(days=warning_days)
+    mild_warning_days = 30  # 30-40天：黄色预警
     
-    # 获取所有项目
+    # 获取项目
     projects = Project.objects.all()
+    if project_codes:
+        projects = projects.filter(project_code__in=project_codes)
+    if only_active:
+        projects = projects.filter(status='进行中')
     
     project_status_list = []
-    total_warning_count = 0
+    warning_projects = 0
+    normal_projects = 0
     
     for project in projects:
         project_info = {
             'project_code': project.project_code,
             'project_name': project.project_name,
+            'project_status': project.status,
             'modules': {},
-            'has_warning': False
+            'overall_status': 'normal',  # normal/warning/error
+            'warning_count': 0
         }
         
-        # 检查项目本身的更新状态
-        project_days = (today - project.updated_at.date()).days if project.updated_at is not None else None
-        project_info['modules']['项目信息'] = {
-            'last_update': project.updated_at.date() if project.updated_at is not None else None,
-            'days_ago': project_days,
-            'is_warning': project_days and project_days > warning_days,
-            'count': 1
-        }
-        if project_days and project_days > warning_days:
-            project_info['has_warning'] = True
-            total_warning_count += 1
+        module_warnings = 0
         
         # 检查采购模块
         procurements = project.procurements.all()
         if procurements.exists():
-            latest_procurement = procurements.order_by('-updated_at').first()
-            days_ago = None
-            last_update = None
-            if latest_procurement and latest_procurement.updated_at is not None:
-                days_ago = (today - latest_procurement.updated_at.date()).days
-                last_update = latest_procurement.updated_at.date()
+            latest = procurements.order_by('-updated_at').first()
+            days_ago = (today - latest.updated_at.date()).days if latest and latest.updated_at else None
+            
+            # 确定状态
+            status = 'normal'
+            if days_ago is not None:
+                if days_ago > warning_days:
+                    status = 'error'  # 红色
+                    module_warnings += 1
+                elif days_ago > mild_warning_days:
+                    status = 'warning'  # 黄色
+            
             project_info['modules']['采购'] = {
-                'last_update': last_update,
+                'last_update': latest.updated_at.date() if latest and latest.updated_at else None,
                 'days_ago': days_ago,
-                'is_warning': days_ago and days_ago > warning_days,
-                'count': procurements.count()
+                'status': status,
+                'count': procurements.count(),
+                'latest_code': latest.procurement_code if latest else None
             }
-            if days_ago and days_ago > warning_days:
-                project_info['has_warning'] = True
-                total_warning_count += 1
+        else:
+            project_info['modules']['采购'] = {
+                'last_update': None,
+                'days_ago': None,
+                'status': 'no_data',
+                'count': 0,
+                'latest_code': None
+            }
         
         # 检查合同模块
         contracts = project.contracts.all()
         if contracts.exists():
-            latest_contract = contracts.order_by('-updated_at').first()
-            days_ago = None
-            last_update = None
-            if latest_contract and latest_contract.updated_at is not None:
-                days_ago = (today - latest_contract.updated_at.date()).days
-                last_update = latest_contract.updated_at.date()
+            latest = contracts.order_by('-updated_at').first()
+            days_ago = (today - latest.updated_at.date()).days if latest and latest.updated_at else None
+            
+            status = 'normal'
+            if days_ago is not None:
+                if days_ago > warning_days:
+                    status = 'error'
+                    module_warnings += 1
+                elif days_ago > mild_warning_days:
+                    status = 'warning'
+            
             project_info['modules']['合同'] = {
-                'last_update': last_update,
+                'last_update': latest.updated_at.date() if latest and latest.updated_at else None,
                 'days_ago': days_ago,
-                'is_warning': days_ago and days_ago > warning_days,
-                'count': contracts.count()
+                'status': status,
+                'count': contracts.count(),
+                'latest_code': latest.contract_code if latest else None
             }
-            if days_ago and days_ago > warning_days:
-                project_info['has_warning'] = True
-                total_warning_count += 1
+        else:
+            project_info['modules']['合同'] = {
+                'last_update': None,
+                'days_ago': None,
+                'status': 'no_data',
+                'count': 0,
+                'latest_code': None
+            }
         
-        # 检查付款模块（通过合同关联）
+        # 检查付款模块
         payments = Payment.objects.filter(contract__project=project)
         if payments.exists():
-            latest_payment = payments.order_by('-updated_at').first()
-            days_ago = (today - latest_payment.updated_at.date()).days if latest_payment and latest_payment.updated_at is not None else None
+            latest = payments.order_by('-created_at').first()  # 付款按创建时间
+            days_ago = (today - latest.created_at.date()).days if latest and latest.created_at else None
+            
+            status = 'normal'
+            if days_ago is not None:
+                if days_ago > warning_days:
+                    status = 'error'
+                    module_warnings += 1
+                elif days_ago > mild_warning_days:
+                    status = 'warning'
+            
             project_info['modules']['付款'] = {
-                'last_update': latest_payment.updated_at.date() if latest_payment and latest_payment.updated_at is not None else None,
+                'last_update': latest.created_at.date() if latest and latest.created_at else None,
                 'days_ago': days_ago,
-                'is_warning': days_ago and days_ago > warning_days,
-                'count': payments.count()
+                'status': status,
+                'count': payments.count(),
+                'latest_code': latest.payment_code if latest else None
             }
-            if days_ago and days_ago > warning_days:
-                project_info['has_warning'] = True
-                total_warning_count += 1
+        else:
+            project_info['modules']['付款'] = {
+                'last_update': None,
+                'days_ago': None,
+                'status': 'no_data',
+                'count': 0,
+                'latest_code': None
+            }
         
-        # 检查结算模块（通过主合同关联）
+        # 检查结算模块
         settlements = Settlement.objects.filter(main_contract__project=project)
         if settlements.exists():
-            latest_settlement = settlements.order_by('-updated_at').first()
-            days_ago = (today - latest_settlement.updated_at.date()).days if latest_settlement and latest_settlement.updated_at is not None else None
+            latest = settlements.order_by('-updated_at').first()
+            days_ago = (today - latest.updated_at.date()).days if latest and latest.updated_at else None
+            
+            status = 'normal'
+            if days_ago is not None:
+                if days_ago > warning_days:
+                    status = 'error'
+                    module_warnings += 1
+                elif days_ago > mild_warning_days:
+                    status = 'warning'
+            
             project_info['modules']['结算'] = {
-                'last_update': latest_settlement.updated_at.date() if latest_settlement and latest_settlement.updated_at is not None else None,
+                'last_update': latest.updated_at.date() if latest and latest.updated_at else None,
                 'days_ago': days_ago,
-                'is_warning': days_ago and days_ago > warning_days,
-                'count': settlements.count()
+                'status': status,
+                'count': settlements.count(),
+                'latest_code': latest.settlement_code if latest else None
             }
-            if days_ago and days_ago > warning_days:
-                project_info['has_warning'] = True
-                total_warning_count += 1
+        else:
+            project_info['modules']['结算'] = {
+                'last_update': None,
+                'days_ago': None,
+                'status': 'no_data',
+                'count': 0,
+                'latest_code': None
+            }
+        
+        # 确定整体状态
+        project_info['warning_count'] = module_warnings
+        if module_warnings > 0:
+            project_info['overall_status'] = 'warning'
+            warning_projects += 1
+        else:
+            normal_projects += 1
         
         project_status_list.append(project_info)
     
     # 统计信息
     summary = {
         'total_projects': projects.count(),
-        'warning_count': total_warning_count,
+        'normal_projects': normal_projects,
+        'warning_projects': warning_projects,
         'warning_days': warning_days,
+        'mild_warning_days': mild_warning_days,
         'check_date': today
     }
     
@@ -138,73 +202,118 @@ def get_project_update_status(warning_days=40):
 def get_module_update_overview(warning_days=40):
     """
     获取各模块整体更新概览
+    简化版，用于总体统计
     
     Args:
         warning_days: 超过多少天未更新则预警，默认40天
     
     Returns:
-        dict: 各模块的更新统计信息
+        list: 各模块的更新统计信息列表
     """
     today = timezone.now().date()
     warning_date = today - timedelta(days=warning_days)
     
-    modules_overview = {}
-    
-    # 项目模块
-    projects = Project.objects.all()
-    project_warnings = projects.filter(updated_at__date__lt=warning_date).count()
-    modules_overview['项目'] = {
-        'total': projects.count(),
-        'warning': project_warnings,
-        'normal': projects.count() - project_warnings
-    }
+    modules_overview = []
     
     # 采购模块
     procurements = Procurement.objects.all()
-    procurement_warnings = procurements.filter(updated_at__date__lt=warning_date).count()
-    modules_overview['采购'] = {
-        'total': procurements.count(),
-        'warning': procurement_warnings,
-        'normal': procurements.count() - procurement_warnings
-    }
+    procurement_outdated = procurements.filter(updated_at__date__lt=warning_date).count()
+    modules_overview.append({
+        'module_name': '采购',
+        'module_code': 'procurement',
+        'total_count': procurements.count(),
+        'outdated_count': procurement_outdated,
+        'normal_count': procurements.count() - procurement_outdated,
+        'update_rate': round((procurements.count() - procurement_outdated) / procurements.count() * 100, 1) if procurements.count() > 0 else 100
+    })
     
     # 合同模块
     contracts = Contract.objects.all()
-    contract_warnings = contracts.filter(updated_at__date__lt=warning_date).count()
-    modules_overview['合同'] = {
-        'total': contracts.count(),
-        'warning': contract_warnings,
-        'normal': contracts.count() - contract_warnings
-    }
+    contract_outdated = contracts.filter(updated_at__date__lt=warning_date).count()
+    modules_overview.append({
+        'module_name': '合同',
+        'module_code': 'contract',
+        'total_count': contracts.count(),
+        'outdated_count': contract_outdated,
+        'normal_count': contracts.count() - contract_outdated,
+        'update_rate': round((contracts.count() - contract_outdated) / contracts.count() * 100, 1) if contracts.count() > 0 else 100
+    })
     
     # 付款模块
     payments = Payment.objects.all()
-    payment_warnings = payments.filter(updated_at__date__lt=warning_date).count()
-    modules_overview['付款'] = {
-        'total': payments.count(),
-        'warning': payment_warnings,
-        'normal': payments.count() - payment_warnings
-    }
+    payment_outdated = payments.filter(created_at__date__lt=warning_date).count()
+    modules_overview.append({
+        'module_name': '付款',
+        'module_code': 'payment',
+        'total_count': payments.count(),
+        'outdated_count': payment_outdated,
+        'normal_count': payments.count() - payment_outdated,
+        'update_rate': round((payments.count() - payment_outdated) / payments.count() * 100, 1) if payments.count() > 0 else 100
+    })
     
     # 结算模块
     settlements = Settlement.objects.all()
-    settlement_warnings = settlements.filter(updated_at__date__lt=warning_date).count()
-    modules_overview['结算'] = {
-        'total': settlements.count(),
-        'warning': settlement_warnings,
-        'normal': settlements.count() - settlement_warnings
-    }
+    settlement_outdated = settlements.filter(updated_at__date__lt=warning_date).count()
+    modules_overview.append({
+        'module_name': '结算',
+        'module_code': 'settlement',
+        'total_count': settlements.count(),
+        'outdated_count': settlement_outdated,
+        'normal_count': settlements.count() - settlement_outdated,
+        'update_rate': round((settlements.count() - settlement_outdated) / settlements.count() * 100, 1) if settlements.count() > 0 else 100
+    })
+    
+    return modules_overview
+
+
+def get_data_activity_analysis(days_range=30):
+    """
+    获取数据活跃度分析
+    按照需求文档3.2.2设计：评估项目数据的更新活跃程度
+    
+    Args:
+        days_range: 统计最近多少天的数据，默认30天
+    
+    Returns:
+        dict: 数据活跃度统计信息
+    """
+    today = timezone.now().date()
+    start_date = today - timedelta(days=days_range)
+    
+    # 统计各模块在时间段内的更新次数
+    procurement_updates = Procurement.objects.filter(updated_at__date__gte=start_date).count()
+    contract_updates = Contract.objects.filter(updated_at__date__gte=start_date).count()
+    payment_updates = Payment.objects.filter(created_at__date__gte=start_date).count()
+    settlement_updates = Settlement.objects.filter(updated_at__date__gte=start_date).count()
+    
+    total_updates = procurement_updates + contract_updates + payment_updates + settlement_updates
+    
+    # 识别沉默项目（不同时间段无更新）
+    silent_30 = Project.objects.filter(updated_at__date__lt=today - timedelta(days=30), status='进行中').count()
+    silent_60 = Project.objects.filter(updated_at__date__lt=today - timedelta(days=60), status='进行中').count()
+    silent_90 = Project.objects.filter(updated_at__date__lt=today - timedelta(days=90), status='进行中').count()
     
     return {
-        'modules': modules_overview,
-        'warning_days': warning_days,
-        'check_date': today
+        'days_range': days_range,
+        'total_updates': total_updates,
+        'daily_avg_updates': round(total_updates / days_range, 1) if days_range > 0 else 0,
+        'module_updates': {
+            '采购': procurement_updates,
+            '合同': contract_updates,
+            '付款': payment_updates,
+            '结算': settlement_updates
+        },
+        'silent_projects': {
+            '30天无更新': silent_30,
+            '60天无更新': silent_60,
+            '90天以上无更新': silent_90
+        }
     }
 
 
 def get_outdated_records(module_name, warning_days=40, limit=50):
     """
-    获取指定模块的过期记录列表
+    获取指定模块的过期记录列表（保留原功能）
     
     Args:
         module_name: 模块名称（项目/采购/合同/付款/结算）
@@ -229,13 +338,22 @@ def get_outdated_records(module_name, warning_days=40, limit=50):
         return []
     
     Model = model_map[module_name]
-    records = Model.objects.filter(
-        updated_at__date__lt=warning_date
-    ).order_by('updated_at')[:limit]
+    
+    # 付款模块使用created_at，其他使用updated_at
+    if module_name == '付款':
+        records = Model.objects.filter(created_at__date__lt=warning_date).order_by('created_at')[:limit]
+    else:
+        records = Model.objects.filter(updated_at__date__lt=warning_date).order_by('updated_at')[:limit]
     
     result = []
     for record in records:
-        days_ago = (today - record.updated_at.date()).days if record.updated_at is not None else None
+        # 获取更新时间
+        if module_name == '付款':
+            update_time = record.created_at
+        else:
+            update_time = record.updated_at
+            
+        days_ago = (today - update_time.date()).days if update_time is not None else None
         
         # 根据不同模型获取名称和编号
         if module_name == '项目':
@@ -260,7 +378,7 @@ def get_outdated_records(module_name, warning_days=40, limit=50):
         result.append({
             'code': code,
             'name': name,
-            'last_update': record.updated_at.date() if record.updated_at is not None else None,
+            'last_update': update_time.date() if update_time is not None else None,
             'days_ago': days_ago,
             'updated_by': record.updated_by if hasattr(record, 'updated_by') else ''
         })

@@ -35,9 +35,15 @@ class ArchiveMonitorService:
         contract_stats = self._get_contract_archive_stats()
         settlement_stats = self._get_settlement_archive_stats()
         overall_rate = self._calculate_overall_rate(
-            procurement_stats, 
-            contract_stats, 
+            procurement_stats,
+            contract_stats,
             settlement_stats
+        )
+        
+        # 计算归档及时率
+        overall_timely_rate = self._calculate_overall_timely_rate(
+            procurement_stats,
+            contract_stats
         )
         
         return {
@@ -45,6 +51,7 @@ class ArchiveMonitorService:
             'contract': contract_stats,
             'settlement': settlement_stats,
             'overall_rate': overall_rate,
+            'overall_timely_rate': overall_timely_rate,
             'last_updated': timezone.now()
         }
     
@@ -56,10 +63,13 @@ class ArchiveMonitorService:
         - 应归档项数 = 已完成公示的采购项目数（有result_publicity_release_date的记录）
         - 已归档项数 = 有archive_date的记录数
         - 逾期标准 = 公示后40天
+        - 及时归档标准 = 在公示后40天内完成归档
         
         Returns:
             dict: 采购归档统计数据
         """
+        from django.db.models import Avg, F, ExpressionWrapper, fields
+        
         # 基础查询集
         base_qs = Procurement.objects.filter(result_publicity_release_date__isnull=False)
         
@@ -75,7 +85,32 @@ class ArchiveMonitorService:
         total = base_qs.count()
         
         # 已归档数量
-        archived = base_qs.filter(archive_date__isnull=False).count()
+        archived_qs = base_qs.filter(archive_date__isnull=False)
+        archived = archived_qs.count()
+        
+        # 计算归档及时率（在40天内完成归档的比例）
+        timely_archived = 0
+        avg_archive_days = 0
+        
+        if archived > 0:
+            # 统计及时归档的数量
+            for proc in archived_qs:
+                if proc.archive_date and proc.result_publicity_release_date:
+                    days_to_archive = (proc.archive_date - proc.result_publicity_release_date).days
+                    if days_to_archive <= 40:
+                        timely_archived += 1
+            
+            # 计算平均归档周期
+            archive_days_list = []
+            for proc in archived_qs:
+                if proc.archive_date and proc.result_publicity_release_date:
+                    days = (proc.archive_date - proc.result_publicity_release_date).days
+                    archive_days_list.append(days)
+            
+            if archive_days_list:
+                avg_archive_days = round(sum(archive_days_list) / len(archive_days_list), 1)
+        
+        timely_rate = round((timely_archived / archived * 100), 2) if archived > 0 else 0
         
         # 逾期统计（公示后40天）
         if total > 0:
@@ -117,6 +152,9 @@ class ArchiveMonitorService:
             'archived': archived,
             'unarchived': total - archived,
             'rate': round((archived / total * 100), 2) if total > 0 else 0,
+            'timely_archived': timely_archived,
+            'timely_rate': timely_rate,
+            'avg_archive_days': avg_archive_days,
             'overdue': overdue,
             'overdue_breakdown': {
                 'severe': severe_overdue,  # 红色：30天以上
@@ -133,6 +171,7 @@ class ArchiveMonitorService:
         - 只统计主合同（不统计补充协议和解除协议）
         - 应归档项数 = 已签订的主合同数
         - 逾期标准 = 签订后30天
+        - 及时归档标准 = 在签订后30天内完成归档
         
         Returns:
             dict: 合同归档统计数据
@@ -155,7 +194,32 @@ class ArchiveMonitorService:
         total = base_qs.count()
         
         # 已归档数量
-        archived = base_qs.filter(archive_date__isnull=False).count()
+        archived_qs = base_qs.filter(archive_date__isnull=False)
+        archived = archived_qs.count()
+        
+        # 计算归档及时率（在30天内完成归档的比例）
+        timely_archived = 0
+        avg_archive_days = 0
+        
+        if archived > 0:
+            # 统计及时归档的数量
+            for contract in archived_qs:
+                if contract.archive_date and contract.signing_date:
+                    days_to_archive = (contract.archive_date - contract.signing_date).days
+                    if days_to_archive <= 30:
+                        timely_archived += 1
+            
+            # 计算平均归档周期
+            archive_days_list = []
+            for contract in archived_qs:
+                if contract.archive_date and contract.signing_date:
+                    days = (contract.archive_date - contract.signing_date).days
+                    archive_days_list.append(days)
+            
+            if archive_days_list:
+                avg_archive_days = round(sum(archive_days_list) / len(archive_days_list), 1)
+        
+        timely_rate = round((timely_archived / archived * 100), 2) if archived > 0 else 0
         
         # 逾期统计（签订后30天）
         if total > 0:
@@ -197,6 +261,9 @@ class ArchiveMonitorService:
             'archived': archived,
             'unarchived': total - archived,
             'rate': round((archived / total * 100), 2) if total > 0 else 0,
+            'timely_archived': timely_archived,
+            'timely_rate': timely_rate,
+            'avg_archive_days': avg_archive_days,
             'overdue': overdue,
             'overdue_breakdown': {
                 'severe': severe_overdue,
@@ -247,6 +314,26 @@ class ArchiveMonitorService:
         
         if total_items > 0:
             return round((total_archived / total_items * 100), 2)
+        return 0
+    
+    def _calculate_overall_timely_rate(self, procurement_stats, contract_stats):
+        """
+        计算总体归档及时率
+        
+        综合采购和合同的归档及时率
+        
+        Args:
+            procurement_stats: 采购归档统计
+            contract_stats: 合同归档统计
+            
+        Returns:
+            float: 总体归档及时率
+        """
+        total_archived = procurement_stats['archived'] + contract_stats['archived']
+        total_timely = procurement_stats['timely_archived'] + contract_stats['timely_archived']
+        
+        if total_archived > 0:
+            return round((total_timely / total_archived * 100), 2)
         return 0
     
     def get_overdue_list(self, module=None, severity=None, project_id=None):

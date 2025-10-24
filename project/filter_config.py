@@ -77,6 +77,17 @@ def get_contract_filter_config(request):
                     'current_value': request.GET.get('contract_name', '')
                 },
                 {
+                    'name': 'contract_type',
+                    'label': '合同类型',
+                    'type': 'select',
+                    'options': [
+                        {'value': '主合同', 'label': '主合同'},
+                        {'value': '补充协议', 'label': '补充协议'},
+                        {'value': '解除协议', 'label': '解除协议'}
+                    ],
+                    'current_value': request.GET.getlist('contract_type')  # 多选值
+                },
+                {
                     'name': 'contract_source',
                     'label': '合同来源',
                     'type': 'select',
@@ -107,18 +118,65 @@ def get_contract_filter_config(request):
                     'current_value': request.GET.get('party_b', '')
                 },
                 {
-                    'name': 'party_b_contact',
-                    'label': '乙方联系人',
-                    'type': 'text',
-                    'placeholder': '输入联系人或电话',
-                    'current_value': request.GET.get('party_b_contact', '')
-                },
-                {
                     'name': 'contract_officer',
                     'label': '合同签订经办人',
                     'type': 'text',
                     'placeholder': '输入经办人姓名',
                     'current_value': request.GET.get('contract_officer', '')
+                }
+            ]
+        },
+        {
+            'title': '甲方联系信息',
+            'icon': 'fas fa-user-tie',
+            'filters': [
+                {
+                    'name': 'party_a_legal_representative',
+                    'label': '甲方法定代表人',
+                    'type': 'text',
+                    'placeholder': '输入法定代表人信息',
+                    'current_value': request.GET.get('party_a_legal_representative', '')
+                },
+                {
+                    'name': 'party_a_contact_person',
+                    'label': '甲方联系人',
+                    'type': 'text',
+                    'placeholder': '输入联系人信息',
+                    'current_value': request.GET.get('party_a_contact_person', '')
+                },
+                {
+                    'name': 'party_a_manager',
+                    'label': '甲方负责人',
+                    'type': 'text',
+                    'placeholder': '输入负责人信息',
+                    'current_value': request.GET.get('party_a_manager', '')
+                }
+            ]
+        },
+        {
+            'title': '乙方联系信息',
+            'icon': 'fas fa-user-friends',
+            'filters': [
+                {
+                    'name': 'party_b_legal_representative',
+                    'label': '乙方法定代表人',
+                    'type': 'text',
+                    'placeholder': '输入法定代表人信息',
+                    'current_value': request.GET.get('party_b_legal_representative', '')
+                },
+                {
+                    'name': 'party_b_contact_person',
+                    'label': '乙方联系人',
+                    'type': 'text',
+                    'placeholder': '输入联系人信息',
+                    'current_value': request.GET.get('party_b_contact_person', '')
+                },
+                {
+                    'name': 'party_b_manager',
+                    'label': '乙方负责人',
+                    'type': 'text',
+                    'placeholder': '输入负责人信息',
+                    'current_value': request.GET.get('party_b_manager', '')
                 }
             ]
         },
@@ -448,6 +506,57 @@ def get_payment_filter_config(request):
             ]
         }
     ]
+    
+    return {
+        'quick_filters': quick_filters,
+        'advanced_filter_groups': advanced_filter_groups,
+        'search_query': request.GET.get('q', '')
+    }
+
+
+def get_monitoring_filter_config(request):
+    """获取监控中心的筛选配置"""
+    from .models import Project
+    from datetime import datetime
+    
+    # 获取可用年份列表
+    current_year = datetime.now().year
+    available_years = list(range(2019, current_year + 2))
+    
+    # 获取年份参数，默认为当前年份
+    selected_year = request.GET.get('year', str(current_year))
+    
+    quick_filters = [
+        {
+            'name': 'year',
+            'type': 'select',
+            'placeholder': '选择年份',
+            'width': '130px',
+            'current_value': [selected_year] if selected_year else [],
+            'options': [
+                {'value': '', 'label': '全部年度'}
+            ] + [
+                {'value': str(year), 'label': f'{year}年'}
+                for year in available_years
+            ]
+        },
+        {
+            'name': 'project',
+            'type': 'select',
+            'placeholder': '所有项目',
+            'width': '200px',
+            'current_value': request.GET.getlist('project'),
+            'options': [
+                {'value': '', 'label': '全部项目'}
+            ] + [
+                {'value': p.project_code, 'label': p.project_name}
+                for p in Project.objects.all().order_by('project_name')
+            ]
+        }
+    ]
+    
+    # 监控中心暂不需要高级筛选
+    advanced_filter_groups = []
     
     return {
         'quick_filters': quick_filters,

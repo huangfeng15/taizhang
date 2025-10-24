@@ -118,13 +118,47 @@
                 <label>乙方：</label>
                 <span>{{ contract.party_b|default:"-" }}</span>
             </div>
-            <div class="detail-item">
-                <label>乙方负责人及联系方式：</label>
-                <span>{{ contract.party_b_contact|default:"-" }}</span>
+        </div>
+        
+        <!-- 甲方联系信息 -->
+        <div style="margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 6px;">
+            <h4 style="margin-bottom: 12px; color: #666; font-size: 14px;">
+                <i class="fas fa-user-tie"></i> 甲方联系信息
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>法定代表人及联系方式：</label>
+                    <span>{{ contract.party_a_legal_representative|default:"-" }}</span>
+                </div>
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>联系人及联系方式：</label>
+                    <span>{{ contract.party_a_contact_person|default:"-" }}</span>
+                </div>
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>负责人及联系方式：</label>
+                    <span>{{ contract.party_a_manager|default:"-" }}</span>
+                </div>
             </div>
-            <div class="detail-item">
-                <label>合同文本内乙方联系人：</label>
-                <span>{{ contract.party_b_contact_in_contract|default:"-" }}</span>
+        </div>
+        
+        <!-- 乙方联系信息 -->
+        <div style="margin-top: 16px; padding: 16px; background: #f0f7ff; border-radius: 6px;">
+            <h4 style="margin-bottom: 12px; color: #666; font-size: 14px;">
+                <i class="fas fa-user-friends"></i> 乙方联系信息
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>法定代表人及联系方式：</label>
+                    <span>{{ contract.party_b_legal_representative|default:"-" }}</span>
+                </div>
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>联系人及联系方式：</label>
+                    <span>{{ contract.party_b_contact_person|default:"-" }}</span>
+                </div>
+                <div class="detail-item" style="border: none; padding: 8px 0;">
+                    <label>负责人及联系方式：</label>
+                    <span>{{ contract.party_b_manager|default:"-" }}</span>
+                </div>
             </div>
         </div>
     </div>

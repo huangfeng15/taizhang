@@ -1,6 +1,7 @@
 """
 齐全性检查服务
 检查数据的完整性和关联关系
+按照指标体系需求文档设计，展示采购和合同字段的齐全率
 """
 from django.db.models import Q, Count
 from project.models import Project
@@ -10,9 +11,226 @@ from payment.models import Payment
 from settlement.models import Settlement
 
 
+def check_procurement_field_completeness():
+    """
+    检查采购字段齐全性
+    按照需求文档，检查26个关键字段的填写情况
+    
+    Returns:
+        dict: 采购字段齐全性统计
+    """
+    # 定义需要检查的26个字段
+    required_fields = [
+        'procurement_code',  # 招采编号
+        'project_name',  # 采购项目名称
+        'procurement_unit',  # 采购单位
+        'winning_bidder',  # 中标单位
+        'winning_contact',  # 中标单位联系人及方式
+        'procurement_method',  # 采购方式
+        'procurement_category',  # 采购类别
+        'budget_amount',  # 采购预算金额(元)
+        'control_price',  # 采购控制价（元）
+        'winning_amount',  # 中标金额（元）
+        'planned_completion_date',  # 计划结束采购时间
+        'candidate_publicity_end_date',  # 候选人公示结束时间
+        'result_publicity_release_date',  # 结果公示发布时间
+        'notice_issue_date',  # 中标通知书发放日期
+        'procurement_officer',  # 采购经办人
+        'demand_department',  # 需求部门
+        'demand_contact',  # 申请人联系电话（需求部门）
+        'requirement_approval_date',  # 采购需求书审批完成日期（OA）
+        'procurement_platform',  # 采购平台
+        'qualification_review_method',  # 资格审查方式
+        'bid_evaluation_method',  # 评标谈判方式
+        'bid_awarding_method',  # 定标方法
+        'announcement_release_date',  # 公告发布时间
+        'registration_deadline',  # 报名截止时间
+        'bid_opening_date',  # 开标时间
+        'evaluation_committee',  # 评标委员会成员
+    ]
+    
+    all_procurements = Procurement.objects.all()
+    total_count = all_procurements.count()
+    
+    if total_count == 0:
+        return {
+            'total_count': 0,
+            'completeness_rate': 100.0,
+            'field_stats': [],
+            'incomplete_records': []
+        }
+    
+    # 统计每个字段的填写情况
+    field_stats = []
+    for field_name in required_fields:
+        filled_count = 0
+        for procurement in all_procurements:
+            value = getattr(procurement, field_name, None)
+            # 判断字段是否已填写（非空且不是空字符串）
+            if value is not None and value != '':
+                filled_count += 1
+        
+        fill_rate = (filled_count / total_count) * 100 if total_count > 0 else 0
+        field_stats.append({
+            'field_name': field_name,
+            'field_label': Procurement._meta.get_field(field_name).verbose_name,
+            'filled_count': filled_count,
+            'fill_rate': round(fill_rate, 2)
+        })
+    
+    # 计算每条采购记录的齐全率
+    incomplete_records = []
+    for procurement in all_procurements:
+        filled_fields = 0
+        missing_fields = []
+        
+        for field_name in required_fields:
+            value = getattr(procurement, field_name, None)
+            if value is not None and value != '':
+                filled_fields += 1
+            else:
+                field_label = Procurement._meta.get_field(field_name).verbose_name
+                missing_fields.append(field_label)
+        
+        completeness = (filled_fields / len(required_fields)) * 100
+        
+        # 只记录齐全率低于100%的记录
+        if completeness < 100:
+            incomplete_records.append({
+                'code': procurement.procurement_code,
+                'name': procurement.project_name,
+                'completeness': round(completeness, 2),
+                'filled_count': filled_fields,
+                'total_fields': len(required_fields),
+                'missing_fields': missing_fields[:5],  # 只显示前5个缺失字段
+                'missing_count': len(missing_fields)
+            })
+    
+    # 按齐全率排序，最低的在前
+    incomplete_records.sort(key=lambda x: x['completeness'])
+    
+    # 计算总体齐全率
+    total_filled = sum(stat['filled_count'] for stat in field_stats)
+    total_cells = total_count * len(required_fields)
+    overall_completeness = (total_filled / total_cells) * 100 if total_cells > 0 else 100.0
+    
+    return {
+        'total_count': total_count,
+        'completeness_rate': round(overall_completeness, 2),
+        'field_count': len(required_fields),
+        'field_stats': field_stats,
+        'incomplete_records': incomplete_records[:50],  # 只返回前50条
+        'incomplete_count': len(incomplete_records)
+    }
+
+
+def check_contract_field_completeness():
+    """
+    检查合同字段齐全性
+    按照需求文档，检查17个关键字段的填写情况
+    
+    Returns:
+        dict: 合同字段齐全性统计
+    """
+    # 定义需要检查的17个字段
+    required_fields = [
+        'contract_sequence',  # 合同序号
+        'contract_code',  # 合同编号
+        'contract_name',  # 合同名称
+        'contract_officer',  # 合同签订经办人
+        'contract_type',  # 合同类型
+        'party_a',  # 甲方
+        'party_b',  # 乙方
+        'contract_amount',  # 含税签约合同价（元）
+        'signing_date',  # 合同签订日期
+        'party_a_legal_representative',  # 甲方法定代表人及联系方式
+        'party_a_contact_person',  # 甲方联系人及联系方式
+        'party_a_manager',  # 甲方负责人及联系方式
+        'party_b_legal_representative',  # 乙方法定代表人及联系方式
+        'party_b_contact_person',  # 乙方联系人及联系方式
+        'party_b_manager',  # 乙方负责人及联系方式
+        'duration',  # 合同工期/服务期限
+        'payment_method',  # 支付方式
+    ]
+    
+    all_contracts = Contract.objects.all()
+    total_count = all_contracts.count()
+    
+    if total_count == 0:
+        return {
+            'total_count': 0,
+            'completeness_rate': 100.0,
+            'field_stats': [],
+            'incomplete_records': []
+        }
+    
+    # 统计每个字段的填写情况
+    field_stats = []
+    for field_name in required_fields:
+        filled_count = 0
+        for contract in all_contracts:
+            value = getattr(contract, field_name, None)
+            # 判断字段是否已填写（非空且不是空字符串）
+            if value is not None and value != '':
+                filled_count += 1
+        
+        fill_rate = (filled_count / total_count) * 100 if total_count > 0 else 0
+        field_stats.append({
+            'field_name': field_name,
+            'field_label': Contract._meta.get_field(field_name).verbose_name,
+            'filled_count': filled_count,
+            'fill_rate': round(fill_rate, 2)
+        })
+    
+    # 计算每条合同记录的齐全率
+    incomplete_records = []
+    for contract in all_contracts:
+        filled_fields = 0
+        missing_fields = []
+        
+        for field_name in required_fields:
+            value = getattr(contract, field_name, None)
+            if value is not None and value != '':
+                filled_fields += 1
+            else:
+                field_label = Contract._meta.get_field(field_name).verbose_name
+                missing_fields.append(field_label)
+        
+        completeness = (filled_fields / len(required_fields)) * 100
+        
+        # 只记录齐全率低于100%的记录
+        if completeness < 100:
+            incomplete_records.append({
+                'code': contract.contract_code,
+                'name': contract.contract_name,
+                'completeness': round(completeness, 2),
+                'filled_count': filled_fields,
+                'total_fields': len(required_fields),
+                'missing_fields': missing_fields[:5],  # 只显示前5个缺失字段
+                'missing_count': len(missing_fields)
+            })
+    
+    # 按齐全率排序，最低的在前
+    incomplete_records.sort(key=lambda x: x['completeness'])
+    
+    # 计算总体齐全率
+    total_filled = sum(stat['filled_count'] for stat in field_stats)
+    total_cells = total_count * len(required_fields)
+    overall_completeness = (total_filled / total_cells) * 100 if total_cells > 0 else 100.0
+    
+    return {
+        'total_count': total_count,
+        'completeness_rate': round(overall_completeness, 2),
+        'field_count': len(required_fields),
+        'field_stats': field_stats,
+        'incomplete_records': incomplete_records[:50],  # 只返回前50条
+        'incomplete_count': len(incomplete_records)
+    }
+
+
 def check_contract_completeness():
     """
-    检查合同数据齐全性
+    检查合同数据关联齐全性（保留原有功能用于关联检查）
     
     Returns:
         dict: 包含各类齐全性检查结果
@@ -343,17 +561,23 @@ def check_payment_settlement_completeness():
 def get_completeness_overview():
     """
     获取整体齐全性检查概览
+    包含字段齐全性和关联完整性检查
     
     Returns:
         dict: 所有检查的汇总结果
     """
-    contract_result = check_contract_completeness()
+    # 字段齐全性检查
+    procurement_field_result = check_procurement_field_completeness()
+    contract_field_result = check_contract_field_completeness()
+    
+    # 关联完整性检查
+    contract_relation_result = check_contract_completeness()
     project_result = check_project_completeness()
     payment_result = check_payment_settlement_completeness()
     
     # 汇总所有问题
     all_issues = (
-        contract_result['issues'] + 
+        contract_relation_result['issues'] + 
         project_result['issues'] + 
         payment_result['issues']
     )
@@ -367,7 +591,11 @@ def get_completeness_overview():
         'error_count': total_error_count,
         'warning_count': total_warning_count,
         'info_count': total_info_count,
-        'contract_check': contract_result,
+        # 字段齐全性
+        'procurement_field_check': procurement_field_result,
+        'contract_field_check': contract_field_result,
+        # 关联完整性
+        'contract_check': contract_relation_result,
         'project_check': project_result,
         'payment_check': payment_result
     }

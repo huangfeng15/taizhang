@@ -5,65 +5,84 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<style>
+.field-stats-table {
+    font-size: 0.9rem;
+}
+.progress-thin {
+    height: 8px;
+}
+.completeness-badge {
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+}
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="monitoring-completeness">
-    <div class="page-header">
-        <h1><i class="fas fa-check-double"></i> {{ page_title }}</h1>
-        <p class="text-muted">检查数据的完整性和关联关系</p>
+    <div class="content-header">
+        <h1 class="content-title"><i class="fas fa-check-double"></i> {{ page_title }}</h1>
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">首页</a>
+            <span>/</span>
+            <a href="{% url 'monitoring_dashboard' %}">监控中心</a>
+            <span>/</span>
+            <span>齐全性检查</span>
+        </div>
     </div>
 
     <!-- 筛选器 -->
     <div class="card mb-3">
         <div class="card-body">
-            <form method="get" class="filter-bar">
-                <div class="filter-item">
-                    <label>检查类型:</label>
-                    <select name="type" class="form-select" style="width: 150px;">
+            <form method="get" class="filter-bar" style="display: flex; gap: 12px; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="margin: 0; font-weight: 600;">检查类型:</label>
+                    <select name="type" class="form-select" style="width: 200px;" onchange="this.form.submit()">
                         <option value="all" {% if check_type == 'all' %}selected{% endif %}>全部检查</option>
-                        <option value="contract" {% if check_type == 'contract' %}selected{% endif %}>合同检查</option>
-                        <option value="project" {% if check_type == 'project' %}selected{% endif %}>项目检查</option>
-                        <option value="payment" {% if check_type == 'payment' %}selected{% endif %}>付款检查</option>
+                        <option value="field" {% if check_type == 'field' %}selected{% endif %}>字段齐全性</option>
+                        <option value="contract" {% if check_type == 'contract' %}selected{% endif %}>合同关联</option>
+                        <option value="project" {% if check_type == 'project' %}selected{% endif %}>项目关联</option>
+                        <option value="payment" {% if check_type == 'payment' %}selected{% endif %}>付款结算</option>
                     </select>
                 </div>
-                <div class="filter-item">
-                    <label>问题类型:</label>
-                    <select name="issue_type" class="form-select" style="width: 120px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="margin: 0; font-weight: 600;">问题类型:</label>
+                    <select name="issue_type" class="form-select" style="width: 120px;" onchange="this.form.submit()">
                         <option value="">全部</option>
                         <option value="error" {% if issue_type_filter == 'error' %}selected{% endif %}>错误</option>
                         <option value="warning" {% if issue_type_filter == 'warning' %}selected{% endif %}>警告</option>
                         <option value="info" {% if issue_type_filter == 'info' %}selected{% endif %}>信息</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> 查询
-                </button>
             </form>
         </div>
     </div>
 
-    <!-- 总览统计 -->
+    <!-- 字段齐全性总览 -->
+    {% if check_type == 'all' or check_type == 'field' %}
     <div class="stats-grid mb-3">
         <div class="stat-card">
             <div class="card-body">
                 <div class="stat-icon bg-primary">
-                    <i class="fas fa-clipboard-list"></i>
+                    <i class="fas fa-shopping-cart"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>问题总数</h3>
-                    <div class="stat-value">{{ overview.total_issues }}</div>
+                    <h3>采购齐全率</h3>
+                    <div class="stat-value">{{ overview.procurement_field_check.completeness_rate }}%</div>
+                    <small class="text-muted">{{ overview.procurement_field_check.field_count }}个字段</small>
                 </div>
             </div>
         </div>
         <div class="stat-card">
             <div class="card-body">
-                <div class="stat-icon bg-danger">
-                    <i class="fas fa-exclamation-circle"></i>
+                <div class="stat-icon bg-success">
+                    <i class="fas fa-file-contract"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>错误</h3>
-                    <div class="stat-value text-danger">{{ overview.error_count }}</div>
+                    <h3>合同齐全率</h3>
+                    <div class="stat-value">{{ overview.contract_field_check.completeness_rate }}%</div>
+                    <small class="text-muted">{{ overview.contract_field_check.field_count }}个字段</small>
                 </div>
             </div>
         </div>
@@ -73,8 +92,9 @@
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>警告</h3>
-                    <div class="stat-value text-warning">{{ overview.warning_count }}</div>
+                    <h3>关联问题</h3>
+                    <div class="stat-value text-warning">{{ overview.error_count }}</div>
+                    <small class="text-muted">需要修复</small>
                 </div>
             </div>
         </div>
@@ -84,18 +104,227 @@
                     <i class="fas fa-info-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>信息</h3>
+                    <h3>提示信息</h3>
                     <div class="stat-value text-info">{{ overview.info_count }}</div>
+                    <small class="text-muted">建议关注</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 合同检查结果 -->
+    <!-- 采购字段齐全性 -->
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-shopping-cart"></i> 采购字段齐全性
+                <span class="badge bg-light text-dark completeness-badge float-end">
+                    总体齐全率: {{ overview.procurement_field_check.completeness_rate }}%
+                </span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                <i class="fas fa-info-circle"></i> 
+                检查 {{ overview.procurement_field_check.total_count }} 条采购记录的 {{ overview.procurement_field_check.field_count }} 个关键字段填写情况
+            </p>
+            
+            <!-- 字段统计表 -->
+            <h6 class="mb-2">字段填写统计</h6>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-hover field-stats-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">字段名称</th>
+                            <th style="width: 15%;">填写数量</th>
+                            <th style="width: 40%;">填写率</th>
+                            <th style="width: 15%;">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in overview.procurement_field_check.field_stats %}
+                        <tr>
+                            <td>{{ stat.field_label }}</td>
+                            <td>{{ stat.filled_count }} / {{ overview.procurement_field_check.total_count }}</td>
+                            <td>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar {% if stat.fill_rate >= 90 %}bg-success{% elif stat.fill_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ stat.fill_rate }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ stat.fill_rate }}%</small>
+                            </td>
+                            <td>
+                                {% if stat.fill_rate >= 90 %}
+                                <span class="badge bg-success">优秀</span>
+                                {% elif stat.fill_rate >= 70 %}
+                                <span class="badge bg-warning">良好</span>
+                                {% else %}
+                                <span class="badge bg-danger">待改进</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 不完整记录 -->
+            {% if overview.procurement_field_check.incomplete_records %}
+            <h6 class="mb-2">数据不完整的采购记录 (共{{ overview.procurement_field_check.incomplete_count }}条，显示前50条)</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>招采编号</th>
+                            <th>采购项目名称</th>
+                            <th>齐全率</th>
+                            <th>已填/总数</th>
+                            <th>缺失字段</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in overview.procurement_field_check.incomplete_records %}
+                        <tr>
+                            <td><a href="{% url 'procurement_detail' record.code %}">{{ record.code }}</a></td>
+                            <td>{{ record.name }}</td>
+                            <td>
+                                <span class="badge {% if record.completeness >= 80 %}bg-success{% elif record.completeness >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ record.completeness }}%
+                                </span>
+                            </td>
+                            <td>{{ record.filled_count }} / {{ record.total_fields }}</td>
+                            <td>
+                                <small class="text-muted">
+                                    {% for field in record.missing_fields %}
+                                    {{ field }}{% if not forloop.last %}、{% endif %}
+                                    {% endfor %}
+                                    {% if record.missing_count > 5 %}
+                                    等{{ record.missing_count }}个字段
+                                    {% endif %}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> 所有采购记录字段填写完整！
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 合同字段齐全性 -->
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-file-contract"></i> 合同字段齐全性
+                <span class="badge bg-light text-dark completeness-badge float-end">
+                    总体齐全率: {{ overview.contract_field_check.completeness_rate }}%
+                </span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                <i class="fas fa-info-circle"></i> 
+                检查 {{ overview.contract_field_check.total_count }} 条合同记录的 {{ overview.contract_field_check.field_count }} 个关键字段填写情况
+            </p>
+            
+            <!-- 字段统计表 -->
+            <h6 class="mb-2">字段填写统计</h6>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-hover field-stats-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">字段名称</th>
+                            <th style="width: 15%;">填写数量</th>
+                            <th style="width: 40%;">填写率</th>
+                            <th style="width: 15%;">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in overview.contract_field_check.field_stats %}
+                        <tr>
+                            <td>{{ stat.field_label }}</td>
+                            <td>{{ stat.filled_count }} / {{ overview.contract_field_check.total_count }}</td>
+                            <td>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar {% if stat.fill_rate >= 90 %}bg-success{% elif stat.fill_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ stat.fill_rate }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ stat.fill_rate }}%</small>
+                            </td>
+                            <td>
+                                {% if stat.fill_rate >= 90 %}
+                                <span class="badge bg-success">优秀</span>
+                                {% elif stat.fill_rate >= 70 %}
+                                <span class="badge bg-warning">良好</span>
+                                {% else %}
+                                <span class="badge bg-danger">待改进</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 不完整记录 -->
+            {% if overview.contract_field_check.incomplete_records %}
+            <h6 class="mb-2">数据不完整的合同记录 (共{{ overview.contract_field_check.incomplete_count }}条，显示前50条)</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>合同编号</th>
+                            <th>合同名称</th>
+                            <th>齐全率</th>
+                            <th>已填/总数</th>
+                            <th>缺失字段</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in overview.contract_field_check.incomplete_records %}
+                        <tr>
+                            <td><a href="{% url 'contract_detail' record.code %}">{{ record.code }}</a></td>
+                            <td>{{ record.name }}</td>
+                            <td>
+                                <span class="badge {% if record.completeness >= 80 %}bg-success{% elif record.completeness >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ record.completeness }}%
+                                </span>
+                            </td>
+                            <td>{{ record.filled_count }} / {{ record.total_fields }}</td>
+                            <td>
+                                <small class="text-muted">
+                                    {% for field in record.missing_fields %}
+                                    {{ field }}{% if not forloop.last %}、{% endif %}
+                                    {% endfor %}
+                                    {% if record.missing_count > 5 %}
+                                    等{{ record.missing_count }}个字段
+                                    {% endif %}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> 所有合同记录字段填写完整！
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 合同关联检查结果 -->
+    {% if check_type == 'all' or check_type == 'contract' %}
     {% if overview.contract_check %}
     <div class="card mb-3">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-file-contract"></i> 合同数据检查</h5>
+            <h5 class="mb-0"><i class="fas fa-link"></i> 合同关联完整性检查</h5>
         </div>
         <div class="card-body">
             {% if overview.contract_check.issues %}
@@ -106,7 +335,7 @@
                             <th>问题类型</th>
                             <th>问题描述</th>
                             <th>数量</th>
-                            <th>示例</th>
+                            <th>记录详情</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -114,23 +343,24 @@
                         <tr>
                             <td>
                                 {% if issue.type == 'error' %}
-                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> 错误</span>
+                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
                                 {% elif issue.type == 'warning' %}
-                                <span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
+                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
                                 {% else %}
-                                <span class="badge badge-info"><i class="fas fa-info-circle"></i> 信息</span>
+                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
                                 {% endif %}
                             </td>
                             <td>{{ issue.description }}</td>
-                            <td><span class="badge badge-secondary">{{ issue.count }}</span></td>
+                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
                             <td>
-                                {% if issue.examples %}
                                 <small class="text-muted">
-                                    {% for example in issue.examples|slice:":3" %}
-                                    {{ example }}{% if not forloop.last %}, {% endif %}
+                                    {% for record in issue.records|slice:":3" %}
+                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
                                     {% endfor %}
+                                    {% if issue.count > 3 %}
+                                    <br>等{{ issue.count }}条
+                                    {% endif %}
                                 </small>
-                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -139,18 +369,20 @@
             </div>
             {% else %}
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 合同数据完整性检查通过，未发现问题！
+                <i class="fas fa-check-circle"></i> 合同关联完整性检查通过，未发现问题！
             </div>
             {% endif %}
         </div>
     </div>
     {% endif %}
+    {% endif %}
 
     <!-- 项目检查结果 -->
+    {% if check_type == 'all' or check_type == 'project' %}
     {% if overview.project_check %}
     <div class="card mb-3">
         <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="fas fa-project-diagram"></i> 项目数据检查</h5>
+            <h5 class="mb-0"><i class="fas fa-project-diagram"></i> 项目关联完整性检查</h5>
         </div>
         <div class="card-body">
             {% if overview.project_check.issues %}
@@ -161,7 +393,7 @@
                             <th>问题类型</th>
                             <th>问题描述</th>
                             <th>数量</th>
-                            <th>示例</th>
+                            <th>记录详情</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -169,23 +401,24 @@
                         <tr>
                             <td>
                                 {% if issue.type == 'error' %}
-                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> 错误</span>
+                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
                                 {% elif issue.type == 'warning' %}
-                                <span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
+                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
                                 {% else %}
-                                <span class="badge badge-info"><i class="fas fa-info-circle"></i> 信息</span>
+                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
                                 {% endif %}
                             </td>
                             <td>{{ issue.description }}</td>
-                            <td><span class="badge badge-secondary">{{ issue.count }}</span></td>
+                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
                             <td>
-                                {% if issue.examples %}
                                 <small class="text-muted">
-                                    {% for example in issue.examples|slice:":3" %}
-                                    {{ example }}{% if not forloop.last %}, {% endif %}
+                                    {% for record in issue.records|slice:":3" %}
+                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
                                     {% endfor %}
+                                    {% if issue.count > 3 %}
+                                    <br>等{{ issue.count }}条
+                                    {% endif %}
                                 </small>
-                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -194,18 +427,20 @@
             </div>
             {% else %}
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 项目数据完整性检查通过，未发现问题！
+                <i class="fas fa-check-circle"></i> 项目关联完整性检查通过，未发现问题！
             </div>
             {% endif %}
         </div>
     </div>
     {% endif %}
+    {% endif %}
 
     <!-- 付款结算检查结果 -->
+    {% if check_type == 'all' or check_type == 'payment' %}
     {% if overview.payment_check %}
     <div class="card mb-3">
         <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="fas fa-money-check-alt"></i> 付款结算检查</h5>
+            <h5 class="mb-0"><i class="fas fa-money-check-alt"></i> 付款结算完整性检查</h5>
         </div>
         <div class="card-body">
             {% if overview.payment_check.issues %}
@@ -216,7 +451,7 @@
                             <th>问题类型</th>
                             <th>问题描述</th>
                             <th>数量</th>
-                            <th>示例</th>
+                            <th>记录详情</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -224,23 +459,24 @@
                         <tr>
                             <td>
                                 {% if issue.type == 'error' %}
-                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> 错误</span>
+                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
                                 {% elif issue.type == 'warning' %}
-                                <span class="badge badge-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
+                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
                                 {% else %}
-                                <span class="badge badge-info"><i class="fas fa-info-circle"></i> 信息</span>
+                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
                                 {% endif %}
                             </td>
                             <td>{{ issue.description }}</td>
-                            <td><span class="badge badge-secondary">{{ issue.count }}</span></td>
+                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
                             <td>
-                                {% if issue.examples %}
                                 <small class="text-muted">
-                                    {% for example in issue.examples|slice:":3" %}
-                                    {{ example }}{% if not forloop.last %}, {% endif %}
+                                    {% for record in issue.records|slice:":3" %}
+                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
                                     {% endfor %}
+                                    {% if issue.count > 3 %}
+                                    <br>等{{ issue.count }}条
+                                    {% endif %}
                                 </small>
-                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -249,11 +485,12 @@
             </div>
             {% else %}
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 付款结算数据完整性检查通过，未发现问题！
+                <i class="fas fa-check-circle"></i> 付款结算完整性检查通过，未发现问题！
             </div>
             {% endif %}
         </div>
     </div>
+    {% endif %}
     {% endif %}
 
     <!-- 操作提示 -->
@@ -261,6 +498,8 @@
         <div class="card-body">
             <h6><i class="fas fa-lightbulb"></i> 检查说明</h6>
             <ul class="mb-0">
+                <li><strong>字段齐全性</strong>：检查采购和合同的关键字段填写情况，齐全率 = 已填字段数 / 总字段数</li>
+                <li><strong>关联完整性</strong>：检查数据之间的关联关系是否正确</li>
                 <li><strong>错误</strong>：必须修复的数据问题，可能影响系统正常运行</li>
                 <li><strong>警告</strong>：建议修复的数据问题，可能影响数据准确性</li>
                 <li><strong>信息</strong>：需要关注的数据情况，不影响系统运行</li>

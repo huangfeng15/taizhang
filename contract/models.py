@@ -110,18 +110,48 @@ class Contract(BaseModel):
         help_text='合同乙方（供应商）'
     )
     
-    party_b_contact = models.CharField(
+    # ===== 甲方联系信息 =====
+    party_a_legal_representative = models.CharField(
+        '甲方法定代表人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='甲方法定代表人姓名及联系方式'
+    )
+    
+    party_a_contact_person = models.CharField(
+        '甲方联系人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='甲方日常联系人及联系方式'
+    )
+    
+    party_a_manager = models.CharField(
+        '甲方负责人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='甲方项目负责人及联系方式'
+    )
+    
+    # ===== 乙方联系信息 =====
+    party_b_legal_representative = models.CharField(
+        '乙方法定代表人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='乙方法定代表人姓名及联系方式'
+    )
+    
+    party_b_contact_person = models.CharField(
+        '乙方联系人及联系方式',
+        max_length=200,
+        blank=True,
+        help_text='乙方日常联系人及联系方式'
+    )
+    
+    party_b_manager = models.CharField(
         '乙方负责人及联系方式',
         max_length=200,
         blank=True,
-        help_text='例如: 李经理 13900139000'
-    )
-    
-    party_b_contact_in_contract = models.CharField(
-        '合同文本内乙方联系人及方式',
-        max_length=200,
-        blank=True,
-        help_text='合同文本中记录的乙方联系方式'
+        help_text='乙方项目负责人及联系方式'
     )
     
     # ===== 金额与时间 =====

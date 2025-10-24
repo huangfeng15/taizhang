@@ -1312,7 +1312,7 @@
     min-height: 100vh;
 }
 
-/* 绩效排名页面专用样式 */
+/* 业务排名页面专用样式 */
 .monitoring-ranking {
     padding: 30px;
     background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);

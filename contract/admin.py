@@ -29,11 +29,13 @@ class HasProcurementFilter(admin.SimpleListFilter):
 class ContractAdmin(admin.ModelAdmin):
     list_display = [
         'contract_sequence', 'contract_code', 'contract_name', 'contract_type',
-        'contract_source', 'party_a', 'party_b', 'party_b_contact',
+        'contract_source', 'party_a', 'party_b',
         'contract_amount', 'signing_date', 'get_procurement_display'
     ]
     search_fields = [
         'contract_code', 'contract_name', 'party_a', 'party_b',
+        'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
+        'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
         'procurement__procurement_code', 'procurement__project_name'
     ]
     list_filter = [
@@ -61,20 +63,28 @@ class ContractAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('基本信息', {
-            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'contract_type', 'contract_source')
+            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'contract_type', 'contract_source', 'contract_officer')
         }),
         ('关联信息', {
             'fields': ('parent_contract', 'procurement', 'project'),
             'description': '采购合同必须关联采购项目；直接签订合同无需关联采购'
         }),
-        ('合同方信息', {
-            'fields': ('party_a', 'party_b', 'party_b_contact', 'party_b_contact_in_contract')
+        ('合同双方', {
+            'fields': ('party_a', 'party_b')
+        }),
+        ('甲方联系信息', {
+            'fields': ('party_a_legal_representative', 'party_a_contact_person', 'party_a_manager'),
+            'classes': ('collapse',)
+        }),
+        ('乙方联系信息', {
+            'fields': ('party_b_legal_representative', 'party_b_contact_person', 'party_b_manager'),
+            'classes': ('collapse',)
         }),
         ('金额与时间', {
             'fields': ('contract_amount', 'signing_date', 'duration')
         }),
         ('其他信息', {
-            'fields': ('contract_officer', 'payment_method', 'performance_guarantee_return_date', 'archive_date'),
+            'fields': ('payment_method', 'performance_guarantee_return_date', 'archive_date'),
             'classes': ('collapse',)
         }),
         ('审计信息', {

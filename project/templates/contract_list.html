@@ -57,8 +57,12 @@
                     <th data-column="contract_source">合同来源</th>
                     <th data-column="party_a">甲方</th>
                     <th data-column="party_b">乙方</th>
-                    <th data-column="party_b_contact">乙方负责人及联系方式</th>
-                    <th data-column="party_b_contact_in_contract">合同文本内乙方联系人</th>
+                    <th data-column="party_a_legal_representative">甲方法定代表人</th>
+                    <th data-column="party_a_contact_person">甲方联系人</th>
+                    <th data-column="party_a_manager">甲方负责人</th>
+                    <th data-column="party_b_legal_representative">乙方法定代表人</th>
+                    <th data-column="party_b_contact_person">乙方联系人</th>
+                    <th data-column="party_b_manager">乙方负责人</th>
                     <th data-column="contract_amount">合同金额(元)</th>
                     <th data-column="total_paid_amount">累计付款金额(元)</th>
                     <th data-column="has_settlement">是否已结算</th>
@@ -108,8 +112,12 @@
                     </td>
                     <td data-column="party_a">{{ contract.party_a|default:"-" }}</td>
                     <td data-column="party_b">{{ contract.party_b|default:"-" }}</td>
-                    <td data-column="party_b_contact">{{ contract.party_b_contact|default:"-" }}</td>
-                    <td data-column="party_b_contact_in_contract">{{ contract.party_b_contact_in_contract|default:"-" }}</td>
+                    <td data-column="party_a_legal_representative">{{ contract.party_a_legal_representative|default:"-" }}</td>
+                    <td data-column="party_a_contact_person">{{ contract.party_a_contact_person|default:"-" }}</td>
+                    <td data-column="party_a_manager">{{ contract.party_a_manager|default:"-" }}</td>
+                    <td data-column="party_b_legal_representative">{{ contract.party_b_legal_representative|default:"-" }}</td>
+                    <td data-column="party_b_contact_person">{{ contract.party_b_contact_person|default:"-" }}</td>
+                    <td data-column="party_b_manager">{{ contract.party_b_manager|default:"-" }}</td>
                     <td data-column="contract_amount">
                         {% if contract.contract_amount %}
                             ¥{{ contract.contract_amount|floatformat:2 }}
@@ -224,7 +232,12 @@
         'contract_name': '合同名称',
         'party_a': '甲方',
         'party_b': '乙方',
-        'party_b_contact': '乙方联系人',
+        'party_a_legal_representative': '甲方法定代表人',
+        'party_a_contact_person': '甲方联系人',
+        'party_a_manager': '甲方负责人',
+        'party_b_legal_representative': '乙方法定代表人',
+        'party_b_contact_person': '乙方联系人',
+        'party_b_manager': '乙方负责人',
         'contract_officer': '经办人',
         'has_settlement': '结算状态',
         'payment_ratio_range': '付款比例',
@@ -247,8 +260,12 @@
         { key: 'contract_source', label: '合同来源', required: false },
         { key: 'party_a', label: '甲方', required: false },
         { key: 'party_b', label: '乙方', required: false },
-        { key: 'party_b_contact', label: '乙方负责人及联系方式', required: false },
-        { key: 'party_b_contact_in_contract', label: '合同文本内乙方联系人', required: false },
+        { key: 'party_a_legal_representative', label: '甲方法定代表人', required: false },
+        { key: 'party_a_contact_person', label: '甲方联系人', required: false },
+        { key: 'party_a_manager', label: '甲方负责人', required: false },
+        { key: 'party_b_legal_representative', label: '乙方法定代表人', required: false },
+        { key: 'party_b_contact_person', label: '乙方联系人', required: false },
+        { key: 'party_b_manager', label: '乙方负责人', required: false },
         { key: 'contract_amount', label: '合同金额', required: false },
         { key: 'total_paid_amount', label: '累计付款金额', required: false },
         { key: 'has_settlement', label: '是否已结算', required: false },

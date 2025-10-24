@@ -340,26 +340,30 @@
         
         <!-- 筛选器 - 右上角（年度对比时不显示） -->
         {% if stat_type != 'comparison' %}
-        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; min-width: 500px;">
-            <label for="yearSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">年份：</label>
-            <select id="yearSelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;" onchange="applyFilters()">
-                {% for year in available_years %}
-                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
+        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
+            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                <!-- 保留统计类型参数 -->
+                <input type="hidden" name="type" value="{{ stat_type }}">
+                
+                {% for filter in quick_filters %}
+                    {% if filter.type == 'select' %}
+                        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                            {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
+                        </label>
+                        <select name="{{ filter.name }}"
+                                class="form-control form-control-sm"
+                                onchange="this.form.submit()"
+                                style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
+                            {% for option in filter.options %}
+                                <option value="{{ option.value }}"
+                                        {% if option.value in filter.current_value or filter.current_value == option.value %}selected{% endif %}>
+                                    {{ option.label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
                 {% endfor %}
-            </select>
-            
-            <label for="projectSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">项目：</label>
-            <select id="projectSelect" class="form-control form-control-sm" style="width: 200px; border-radius: 4px;" multiple size="1">
-                {% for project in projects %}
-                <option value="{{ project.project_code }}" {% if project.project_code in selected_projects %}selected{% endif %}>
-                    {{ project.project_name }}
-                </option>
-                {% endfor %}
-            </select>
-            
-            <button type="button" class="btn btn-primary btn-sm" onclick="applyFilters()" style="white-space: nowrap;">
-                <i class="fas fa-filter"></i> 筛选
-            </button>
+            </form>
         </div>
         {% endif %}
     </div>
@@ -1020,35 +1024,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="{% static 'js/charts.js' %}"></script>
 <script>
-// 应用筛选器
-function applyFilters() {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // 年份参数
-    const year = document.getElementById('yearSelect').value;
-    urlParams.set('year', year);
-    
-    // 项目参数
-    const projectSelect = document.getElementById('projectSelect');
-    urlParams.delete('project'); // 先删除所有project参数
-    const selectedProjects = Array.from(projectSelect.selectedOptions)
-        .map(option => option.value)
-        .filter(value => value !== ''); // 过滤掉"全部项目"选项
-    
-    selectedProjects.forEach(code => {
-        urlParams.append('project', code);
-    });
-    
-    window.location.search = urlParams.toString();
-}
-
-// 年份切换（兼容旧代码）
-function changeYear(year) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('year', year);
-    window.location.search = urlParams.toString();
-}
-
 // Chart.js 配置
 Chart.defaults.font.family = "'Segoe UI', 'Microsoft YaHei', sans-serif";
 

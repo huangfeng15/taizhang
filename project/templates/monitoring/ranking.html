@@ -22,11 +22,16 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .ranking-card h3 {
-    font-size: 1.2rem;
-    margin-bottom: 15px;
+    font-size: 1.3rem;
+    margin-bottom: 10px;
     color: #333;
     border-bottom: 2px solid #007bff;
     padding-bottom: 10px;
+}
+.ranking-card .subtitle {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 15px;
 }
 .ranking-table {
     margin-top: 15px;
@@ -53,17 +58,19 @@
     height: 20px;
     border-radius: 10px;
 }
-.year-selector {
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.badge-success {
+    background-color: #28a745;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.85rem;
 }
-.rank-by-selector {
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.badge-warning {
+    background-color: #ffc107;
+    color: #333;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.85rem;
 }
 </style>
 {% endblock %}
@@ -73,61 +80,87 @@
     <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
         <div>
             <h1><i class="fas fa-trophy"></i> {{ page_title }}</h1>
-            <p class="text-muted">查看项目和个人在采购、归档、合同、结算等维度的绩效排名</p>
+            <p class="text-muted">通过对项目和个人的工作绩效进行排名展示，激励团队成员提高工作效率和质量</p>
         </div>
         
         <!-- 筛选器 - 右上角 -->
-        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; min-width: 400px;">
-            <label for="yearSelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">年份：</label>
-            <select id="yearSelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;" onchange="changeYear(this.value)">
-                {% for year in available_years %}
-                <option value="{{ year }}" {% if year|stringformat:"s" == selected_year %}selected{% endif %}>
-                    {% if year %}{{ year }}年{% else %}全部{% endif %}
-                </option>
+        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
+            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                {% for filter in quick_filters %}
+                    {% if filter.type == 'select' %}
+                        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                            {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
+                        </label>
+                        <select name="{{ filter.name }}"
+                                class="form-control form-control-sm"
+                                onchange="this.form.submit()"
+                                style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
+                            {% for option in filter.options %}
+                                <option value="{{ option.value }}"
+                                        {% if option.value in filter.current_value or filter.current_value == option.value %}selected{% endif %}>
+                                    {{ option.label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
                 {% endfor %}
-            </select>
-            
-            <label for="rankBySelect" style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">维度：</label>
-            <select id="rankBySelect" class="form-control form-control-sm" style="width: 110px; border-radius: 4px;" onchange="changeRankBy(this.value)">
-                <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
-                <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
-            </select>
+                
+                <!-- 排名维度选择 -->
+                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">维度：</label>
+                <select name="rank_by" class="form-control form-control-sm" onchange="this.form.submit()" style="width: 120px; border-radius: 4px;">
+                    <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
+                    <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
+                </select>
+                
+                <!-- 保留其他参数 -->
+                <input type="hidden" name="type" value="{{ ranking_type }}">
+            </form>
         </div>
     </div>
 
     <!-- 排名类型切换 -->
     <div class="ranking-nav">
         <div class="btn-group" role="group">
-            <a href="?type=comprehensive&year={{ selected_year }}&rank_by={{ rank_by }}"
+            <a href="?type=comprehensive&year={{ request.GET.year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'comprehensive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-star"></i> 综合排名
             </a>
-            <a href="?type=procurement&year={{ selected_year }}&rank_by={{ rank_by }}"
-               class="btn btn-sm {% if ranking_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-shopping-cart"></i> 采购绩效
+            <a href="?type=procurement_ontime&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+               class="btn btn-sm {% if ranking_type == 'procurement_ontime' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-clock"></i> 采购准时率
             </a>
-            <a href="?type=archive&year={{ selected_year }}&rank_by={{ rank_by }}"
-               class="btn btn-sm {% if ranking_type == 'archive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-archive"></i> 归档绩效
+            <a href="?type=procurement_cycle&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+               class="btn btn-sm {% if ranking_type == 'procurement_cycle' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-tachometer-alt"></i> 采购周期
             </a>
-            <a href="?type=contract&year={{ selected_year }}&rank_by={{ rank_by }}"
+            <a href="?type=procurement_quantity&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+               class="btn btn-sm {% if ranking_type == 'procurement_quantity' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-list-ol"></i> 采购数量
+            </a>
+            <a href="?type=archive_timeliness&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+               class="btn btn-sm {% if ranking_type == 'archive_timeliness' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-archive"></i> 归档及时率
+            </a>
+            <a href="?type=archive_speed&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+               class="btn btn-sm {% if ranking_type == 'archive_speed' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <i class="fas fa-hourglass-half"></i> 归档速度
+            </a>
+            <a href="?type=contract&year={{ request.GET.year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-file-contract"></i> 合同签订
             </a>
-            <a href="?type=settlement&year={{ selected_year }}&rank_by={{ rank_by }}"
+            <a href="?type=settlement&year={{ request.GET.year }}&rank_by={{ rank_by }}"
                class="btn btn-sm {% if ranking_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-calculator"></i> 结算完成
             </a>
         </div>
     </div>
 
-    <!-- 综合排名 -->
+    <!-- 综合业务排名 -->
     {% if ranking_type == 'comprehensive' and comprehensive_ranking %}
     <div class="ranking-card">
-        <h3><i class="fas fa-star"></i> 综合绩效排名 
-            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
-        </h3>
-        <p class="text-muted">综合考虑采购完成率、归档率、合同数量、结算数量等多个维度</p>
+        <h3><i class="fas fa-star"></i> 综合业务排名</h3>
+        <p class="subtitle">综合考虑采购准时完成率(30%)、采购周期效率(20%)、归档及时率(30%)、数据齐全率(20%)等多个维度</p>
         
         <div class="table-responsive ranking-table">
             <table class="table table-hover">
@@ -135,11 +168,11 @@
                     <tr>
                         <th width="80">排名</th>
                         <th>项目名称</th>
-                        <th>采购完成率</th>
-                        <th>归档完成率</th>
-                        <th>合同数量</th>
-                        <th>结算数量</th>
                         <th>综合得分</th>
+                        <th>采购得分</th>
+                        <th>周期得分</th>
+                        <th>归档得分</th>
+                        <th>数据质量</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -153,23 +186,11 @@
                             {% endif %}
                         </td>
                         <td><strong>{{ item.name }}</strong></td>
-                        <td>
-                            <div class="progress progress-bar-custom">
-                                <div class="progress-bar bg-success" style="width: {{ item.procurement_rate }}%">
-                                    {{ item.procurement_rate }}%
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="progress progress-bar-custom">
-                                <div class="progress-bar bg-info" style="width: {{ item.archive_rate }}%">
-                                    {{ item.archive_rate }}%
-                                </div>
-                            </div>
-                        </td>
-                        <td>{{ item.contract_count }}</td>
-                        <td>{{ item.settlement_count }}</td>
-                        <td><strong class="text-primary">{{ item.score }}</strong></td>
+                        <td><strong class="text-primary" style="font-size: 1.1rem;">{{ item.comprehensive_score }}</strong></td>
+                        <td>{{ item.procurement_score }}</td>
+                        <td>{{ item.procurement_cycle_score }}</td>
+                        <td>{{ item.archive_score }}</td>
+                        <td>{{ item.data_quality_score }}</td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -182,26 +203,22 @@
     </div>
     {% endif %}
 
-    <!-- 采购绩效排名 -->
-    {% if ranking_type == 'procurement' and procurement_ranking %}
+    <!-- 采购计划准时完成率排名 -->
+    {% if ranking_type == 'procurement_ontime' and procurement_ranking %}
     <div class="ranking-card">
-        <h3><i class="fas fa-shopping-cart"></i> 采购绩效排名 
-            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
-        </h3>
-        <p class="text-muted">按{{ rank_by|yesno:"项目,个人" }}统计采购完成数量、准时率、平均周期等指标</p>
+        <h3><i class="fas fa-clock"></i> 采购计划准时完成率排名</h3>
+        <p class="subtitle">准时完成率 = 按时或提前完成的采购数 ÷ 总采购数 × 100%（按时标准：平台公示完成日期 ≤ 计划完成日期）</p>
         
         <div class="table-responsive ranking-table">
             <table class="table table-hover">
                 <thead>
                     <tr>
                         <th width="80">排名</th>
-                        <th>{% if rank_by == 'project' %}项目名称{% else %}采购人{% endif %}</th>
-                        <th>总数量</th>
-                        <th>完成数量</th>
-                        <th>准时率</th>
-                        {% if rank_by == 'project' %}
-                        <th>平均周期(天)</th>
-                        {% endif %}
+                        <th>{% if rank_by == 'project' %}项目名称{% else %}采购经办人{% endif %}</th>
+                        <th>采购总数</th>
+                        <th>准时完成数</th>
+                        <th>准时完成率</th>
+                        <th>平均提前/延期</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -216,21 +233,23 @@
                         </td>
                         <td><strong>{{ item.name }}</strong></td>
                         <td>{{ item.total_count }}</td>
-                        <td>{{ item.completed_count }}</td>
+                        <td>{{ item.on_time_count }}</td>
                         <td>
                             <div class="progress progress-bar-custom">
                                 <div class="progress-bar 
-                                    {% if item.on_time_rate >= 80 %}bg-success
-                                    {% elif item.on_time_rate >= 60 %}bg-warning
+                                    {% if item.on_time_rate >= 90 %}bg-success
+                                    {% elif item.on_time_rate >= 70 %}bg-warning
                                     {% else %}bg-danger{% endif %}" 
                                     style="width: {{ item.on_time_rate }}%">
                                     {{ item.on_time_rate }}%
                                 </div>
                             </div>
                         </td>
-                        {% if rank_by == 'project' %}
-                        <td>{{ item.avg_cycle_days }}</td>
-                        {% endif %}
+                        <td>
+                            <span class="{% if '提前' in item.advance_text %}badge-success{% elif '延期' in item.advance_text %}badge-warning{% endif %}">
+                                {{ item.advance_text }}
+                            </span>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -243,13 +262,99 @@
     </div>
     {% endif %}
 
-    <!-- 归档绩效排名 -->
-    {% if ranking_type == 'archive' and archive_ranking %}
+    <!-- 采购周期效率排名 -->
+    {% if ranking_type == 'procurement_cycle' and procurement_ranking %}
     <div class="ranking-card">
-        <h3><i class="fas fa-archive"></i> 归档绩效排名 
-            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
-        </h3>
-        <p class="text-muted">统计采购、合同、结算的归档完成情况</p>
+        <h3><i class="fas fa-tachometer-alt"></i> 采购周期效率排名</h3>
+        <p class="subtitle">采购周期 = 平台公示完成日期 - 需求书审批完成日期（周期越短排名越高）</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>{% if rank_by == 'project' %}项目名称{% else %}采购经办人{% endif %}</th>
+                        <th>采购总数</th>
+                        <th>平均周期（天）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in procurement_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>
+                            <span class="badge {% if item.avg_cycle_days <= 30 %}badge-success{% elif item.avg_cycle_days <= 45 %}badge-warning{% else %}bg-secondary text-white{% endif %}">
+                                {{ item.avg_cycle_days }}天
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 采购完成数量排名 -->
+    {% if ranking_type == 'procurement_quantity' and procurement_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-list-ol"></i> 采购完成数量排名</h3>
+        <p class="subtitle">月均完成数量 = 统计周期内完成的采购总数 ÷ 月数（完成标准：已完成平台公示的采购项目）</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>{% if rank_by == 'project' %}项目名称{% else %}采购经办人{% endif %}</th>
+                        <th>完成总数</th>
+                        <th>月均完成数</th>
+                        <th>总金额（万元）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in procurement_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td><strong class="text-primary">{{ item.monthly_avg }}笔/月</strong></td>
+                        <td>{{ item.total_amount|floatformat:0|default:"0" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 归档及时率排名 -->
+    {% if ranking_type == 'archive_timeliness' and archive_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-archive"></i> 归档及时率排名</h3>
+        <p class="subtitle">归档及时率 = 及时归档数 ÷ 应归档总数 × 100%（采购资料：40天内；合同资料：30天内）</p>
         
         <div class="table-responsive ranking-table">
             <table class="table table-hover">
@@ -257,12 +362,12 @@
                     <tr>
                         <th width="80">排名</th>
                         <th>项目名称</th>
-                        <th>总数量</th>
-                        <th>已归档</th>
-                        <th>归档率</th>
+                        <th>应归档数</th>
+                        <th>及时归档数</th>
+                        <th>归档及时率</th>
+                        <th>平均归档周期</th>
                         <th>采购归档</th>
                         <th>合同归档</th>
-                        <th>结算归档</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -277,21 +382,21 @@
                         </td>
                         <td><strong>{{ item.name }}</strong></td>
                         <td>{{ item.total_count }}</td>
-                        <td>{{ item.archived_count }}</td>
+                        <td>{{ item.timely_count }}</td>
                         <td>
                             <div class="progress progress-bar-custom">
                                 <div class="progress-bar 
-                                    {% if item.archive_rate >= 80 %}bg-success
-                                    {% elif item.archive_rate >= 50 %}bg-warning
+                                    {% if item.timely_rate >= 90 %}bg-success
+                                    {% elif item.timely_rate >= 70 %}bg-warning
                                     {% else %}bg-danger{% endif %}" 
-                                    style="width: {{ item.archive_rate }}%">
-                                    {{ item.archive_rate }}%
+                                    style="width: {{ item.timely_rate }}%">
+                                    {{ item.timely_rate }}%
                                 </div>
                             </div>
                         </td>
-                        <td><small>{{ item.procurement.archived }}/{{ item.procurement.total }}</small></td>
-                        <td><small>{{ item.contract.archived }}/{{ item.contract.total }}</small></td>
-                        <td><small>{{ item.settlement.archived }}/{{ item.settlement.total }}</small></td>
+                        <td>{{ item.avg_cycle_days }}天</td>
+                        <td><small>{{ item.procurement.timely }}/{{ item.procurement.total }}</small></td>
+                        <td><small>{{ item.contract.timely }}/{{ item.contract.total }}</small></td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -304,13 +409,56 @@
     </div>
     {% endif %}
 
+    <!-- 归档速度排名 -->
+    {% if ranking_type == 'archive_speed' and archive_ranking %}
+    <div class="ranking-card">
+        <h3><i class="fas fa-hourglass-half"></i> 归档速度排名</h3>
+        <p class="subtitle">平均归档周期 = 所有归档周期的平均值（周期越短排名越高）</p>
+        
+        <div class="table-responsive ranking-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">排名</th>
+                        <th>项目名称</th>
+                        <th>归档总数</th>
+                        <th>平均归档周期（天）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in archive_ranking %}
+                    <tr class="rank-{{ item.rank }}">
+                        <td>
+                            {% if item.medal %}
+                            <span class="rank-medal">{{ item.medal }}</span>
+                            {% else %}
+                            <span class="rank-number">{{ item.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.total_count }}</td>
+                        <td>
+                            <span class="badge {% if item.avg_cycle_days <= 20 %}badge-success{% elif item.avg_cycle_days <= 35 %}badge-warning{% else %}bg-secondary text-white{% endif %}">
+                                {{ item.avg_cycle_days }}天
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- 合同签订排名 -->
     {% if ranking_type == 'contract' and contract_ranking %}
     <div class="ranking-card">
-        <h3><i class="fas fa-file-contract"></i> 合同签订排名 
-            {% if selected_year %}({{ selected_year }}年){% else %}(全部){% endif %}
-        </h3>
-        <p class="text-muted">按项目统计合同签订数量和金额</p>
+        <h3><i class="fas fa-file-contract"></i> 合同签订排名</h3>
+        <p class="subtitle">按项目统计合同签订数量和金额</p>
         
         <div class="table-responsive ranking-table">
             <table class="table table-hover">
@@ -319,7 +467,7 @@
                         <th width="80">排名</th>
                         <th>项目名称</th>
                         <th>合同数量</th>
-                        <th>合同总额(元)</th>
+                        <th>合同总额（元）</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -350,8 +498,8 @@
     <!-- 结算完成排名 -->
     {% if ranking_type == 'settlement' and settlement_ranking %}
     <div class="ranking-card">
-        <h3><i class="fas fa-calculator"></i> 结算完成排名 (全部)</h3>
-        <p class="text-muted">按项目统计结算完成数量和金额</p>
+        <h3><i class="fas fa-calculator"></i> 结算完成排名</h3>
+        <p class="subtitle">按项目统计结算完成数量和金额</p>
         
         <div class="table-responsive ranking-table">
             <table class="table table-hover">
@@ -360,7 +508,7 @@
                         <th width="80">排名</th>
                         <th>项目名称</th>
                         <th>结算数量</th>
-                        <th>结算总额(元)</th>
+                        <th>结算总额（元）</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -388,23 +536,28 @@
     </div>
     {% endif %}
 
+    <!-- 说明文档 -->
+    <div class="ranking-card" style="background-color: #f8f9fa;">
+        <h3><i class="fas fa-info-circle"></i> 排名说明</h3>
+        <div style="color: #666; line-height: 1.8;">
+            <p><strong>排名原则：</strong></p>
+            <ul>
+                <li>🥇🥈🥉 标识前三名</li>
+                <li>支持按项目和按个人两个维度查看排名</li>
+                <li>支持按年度筛选数据</li>
+                <li>默认展示TOP10，可查看完整排名</li>
+            </ul>
+            <p><strong>各项指标说明：</strong></p>
+            <ul>
+                <li><strong>综合排名：</strong>综合考虑采购准时完成率(30%)、采购周期效率(20%)、归档及时率(30%)、数据齐全率(20%)</li>
+                <li><strong>采购准时率：</strong>按时或提前完成的采购数占总数的百分比</li>
+                <li><strong>采购周期：</strong>从需求审批到公示完成的平均天数，周期越短排名越高</li>
+                <li><strong>采购数量：</strong>按月均完成数量排名，体现工作量</li>
+                <li><strong>归档及时率：</strong>在规定时间内完成归档的比例（采购40天，合同30天）</li>
+                <li><strong>归档速度：</strong>平均归档周期，周期越短排名越高</li>
+            </ul>
+        </div>
+    </div>
+
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// 年份切换
-function changeYear(year) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('year', year);
-    window.location.search = urlParams.toString();
-}
-
-// 排名维度切换
-function changeRankBy(rankBy) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('rank_by', rankBy);
-    window.location.search = urlParams.toString();
-}
-</script>
 {% endblock %}
