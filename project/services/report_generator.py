@@ -88,7 +88,7 @@ class BaseReportGenerator:
         total_amount = queryset.aggregate(Sum('contract_amount'))['contract_amount__sum'] or Decimal('0')
         
         # 按合同类型统计
-        by_type = list(queryset.values('contract_type').annotate(
+        by_type = list(queryset.values('file_positioning').annotate(
             count=Count('id'),
             total_amount=Sum('contract_amount')
         ).order_by('-count'))

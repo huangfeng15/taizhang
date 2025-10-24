@@ -10,7 +10,7 @@ def get_contract_filter_config(request):
     
     # 获取多选参数
     project_values = request.GET.getlist('project')
-    contract_type_values = request.GET.getlist('contract_type')
+    file_positioning_values = request.GET.getlist('file_positioning')
     
     # 快速筛选配置(3-5个最常用字段)
     quick_filters = [
@@ -26,14 +26,14 @@ def get_contract_filter_config(request):
             ]
         },
         {
-            'name': 'contract_type',
+            'name': 'file_positioning',
             'type': 'select',
-            'placeholder': '所有类型',
+            'placeholder': '所有文件定位',
             'width': '150px',
-            'current_value': contract_type_values,  # 多选值
+            'current_value': file_positioning_values,  # 多选值
             'options': [
                 {'value': value, 'label': label}
-                for value, label in Contract._meta.get_field('contract_type').choices
+                for value, label in Contract._meta.get_field('file_positioning').choices
             ]
         },
         {
@@ -77,15 +77,15 @@ def get_contract_filter_config(request):
                     'current_value': request.GET.get('contract_name', '')
                 },
                 {
-                    'name': 'contract_type',
-                    'label': '合同类型',
+                    'name': 'file_positioning',
+                    'label': '文件定位',
                     'type': 'select',
                     'options': [
                         {'value': '主合同', 'label': '主合同'},
                         {'value': '补充协议', 'label': '补充协议'},
                         {'value': '解除协议', 'label': '解除协议'}
                     ],
-                    'current_value': request.GET.getlist('contract_type')  # 多选值
+                    'current_value': request.GET.getlist('file_positioning')  # 多选值
                 },
                 {
                     'name': 'contract_source',
@@ -282,11 +282,25 @@ def get_procurement_filter_config(request):
                     'current_value': request.GET.get('procurement_category', '')
                 },
                 {
+                    'name': 'procurement_platform',
+                    'label': '采购平台',
+                    'type': 'text',
+                    'placeholder': '输入采购平台',
+                    'current_value': request.GET.get('procurement_platform', '')
+                },
+                {
                     'name': 'winning_bidder',
                     'label': '中标单位',
                     'type': 'text',
                     'placeholder': '输入中标单位名称',
                     'current_value': request.GET.get('winning_bidder', '')
+                },
+                {
+                    'name': 'winning_contact',
+                    'label': '中标单位联系人及方式',
+                    'type': 'text',
+                    'placeholder': '输入联系人及方式',
+                    'current_value': request.GET.get('winning_contact', '')
                 }
             ]
         },
@@ -325,6 +339,40 @@ def get_procurement_filter_config(request):
             ]
         },
         {
+            'title': '人员信息',
+            'icon': 'fas fa-users',
+            'filters': [
+                {
+                    'name': 'procurement_officer',
+                    'label': '采购经办人',
+                    'type': 'text',
+                    'placeholder': '输入经办人姓名',
+                    'current_value': request.GET.get('procurement_officer', '')
+                },
+                {
+                    'name': 'demand_department',
+                    'label': '需求部门',
+                    'type': 'text',
+                    'placeholder': '输入需求部门',
+                    'current_value': request.GET.get('demand_department', '')
+                },
+                {
+                    'name': 'demand_contact',
+                    'label': '申请人联系电话（需求部门）',
+                    'type': 'text',
+                    'placeholder': '输入联系人及电话',
+                    'current_value': request.GET.get('demand_contact', '')
+                },
+                {
+                    'name': 'evaluation_committee',
+                    'label': '评标委员会成员',
+                    'type': 'text',
+                    'placeholder': '输入委员会成员关键词',
+                    'current_value': request.GET.get('evaluation_committee', '')
+                }
+            ]
+        },
+        {
             'title': '金额范围',
             'icon': 'fas fa-money-bill-wave',
             'filters': [
@@ -336,6 +384,13 @@ def get_procurement_filter_config(request):
                     'max_value': request.GET.get('budget_amount_max', '')
                 },
                 {
+                    'name': 'control_price',
+                    'label': '采购控制价',
+                    'type': 'number',
+                    'min_value': request.GET.get('control_price_min', ''),
+                    'max_value': request.GET.get('control_price_max', '')
+                },
+                {
                     'name': 'winning_amount',
                     'label': '中标金额',
                     'type': 'number',
@@ -345,9 +400,43 @@ def get_procurement_filter_config(request):
             ]
         },
         {
+            'title': '担保信息',
+            'icon': 'fas fa-shield-alt',
+            'filters': [
+                {
+                    'name': 'bid_guarantee',
+                    'label': '投标担保形式及金额',
+                    'type': 'text',
+                    'placeholder': '输入担保信息关键词',
+                    'current_value': request.GET.get('bid_guarantee', '')
+                },
+                {
+                    'name': 'bid_guarantee_return_date',
+                    'label': '投标担保退回日期',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('bid_guarantee_return_date_start', ''),
+                    'end_value': request.GET.get('bid_guarantee_return_date_end', '')
+                },
+                {
+                    'name': 'performance_guarantee',
+                    'label': '履约担保形式及金额',
+                    'type': 'text',
+                    'placeholder': '输入担保信息关键词',
+                    'current_value': request.GET.get('performance_guarantee', '')
+                }
+            ]
+        },
+        {
             'title': '日期范围',
             'icon': 'fas fa-calendar',
             'filters': [
+                {
+                    'name': 'requirement_approval_date',
+                    'label': '采购需求书审批完成日期（OA）',
+                    'type': 'daterange',
+                    'start_value': request.GET.get('requirement_approval_date_start', ''),
+                    'end_value': request.GET.get('requirement_approval_date_end', '')
+                },
                 {
                     'name': 'announcement_release_date',
                     'label': '公告发布时间',
@@ -523,8 +612,8 @@ def get_monitoring_filter_config(request):
     current_year = datetime.now().year
     available_years = list(range(2019, current_year + 2))
     
-    # 获取年份参数，默认为当前年份
-    selected_year = request.GET.get('year', str(current_year))
+    # 获取年份参数（支持空字符串表示全部）
+    selected_year = request.GET.get('year', '')
     
     quick_filters = [
         {
@@ -532,7 +621,7 @@ def get_monitoring_filter_config(request):
             'type': 'select',
             'placeholder': '选择年份',
             'width': '130px',
-            'current_value': [selected_year] if selected_year else [],
+            'current_value': selected_year,  # 改为直接使用字符串值
             'options': [
                 {'value': '', 'label': '全部年度'}
             ] + [

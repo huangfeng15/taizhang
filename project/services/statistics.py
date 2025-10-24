@@ -14,7 +14,7 @@ def get_procurement_statistics(year=None, project_codes=None):
     采购统计
     
     Args:
-        year: 统计年份，默认为当前年份，None表示全部年份
+        year: 统计年份，None表示全部年份，整数表示具体年份
         project_codes: 项目编码列表，None表示全部项目
         
     Returns:
@@ -22,14 +22,12 @@ def get_procurement_statistics(year=None, project_codes=None):
     """
     from procurement.models import Procurement
     
-    if year is None:
-        year = datetime.now().year
-    
     # 基础查询集 - 按结果公示发布时间筛选年份
     queryset = Procurement.objects.all()
     
     # 年份筛选 - 按结果公示发布时间统计
-    if year:
+    # year=None表示全部年份，不进行筛选
+    if year is not None:
         queryset = queryset.filter(result_publicity_release_date__year=year)
     
     # 项目筛选
@@ -104,7 +102,7 @@ def get_procurement_statistics(year=None, project_codes=None):
             })
     
     return {
-        'year': year,
+        'year': year if year is not None else '全部',
         'total_count': total_count,
         'total_budget': float(total_budget),
         'total_winning': float(total_winning),
@@ -123,7 +121,7 @@ def get_contract_statistics(year=None, project_codes=None):
     合同统计
     
     Args:
-        year: 统计年份，默认为当前年份，None表示全部年份
+        year: 统计年份，None表示全部年份，整数表示具体年份
         project_codes: 项目编码列表，None表示全部项目
         
     Returns:
@@ -131,14 +129,12 @@ def get_contract_statistics(year=None, project_codes=None):
     """
     from contract.models import Contract
     
-    if year is None:
-        year = datetime.now().year
-    
     # 基础查询集
     queryset = Contract.objects.all()
     
     # 年份筛选 - 按合同签订时间统计
-    if year:
+    # year=None表示全部年份，不进行筛选
+    if year is not None:
         queryset = queryset.filter(signing_date__year=year)
     
     # 项目筛选
@@ -150,16 +146,16 @@ def get_contract_statistics(year=None, project_codes=None):
     total_amount = queryset.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
     # 按合同类型统计
-    type_stats = queryset.values('contract_type').annotate(
+    type_stats = queryset.values('file_positioning').annotate(
         count=Count('contract_code'),
         amount=Sum('contract_amount')
     ).order_by('-count')
     
     type_distribution = []
     for item in type_stats:
-        if item['contract_type']:
+        if item['file_positioning']:
             type_distribution.append({
-                'type': item['contract_type'],
+                'type': item['file_positioning'],
                 'count': item['count'],
                 'amount': float(item['amount'] or 0),
                 'percentage': round(item['count'] / total_count * 100, 2) if total_count > 0 else 0
@@ -182,12 +178,12 @@ def get_contract_statistics(year=None, project_codes=None):
             })
     
     # 主合同统计
-    main_contracts = queryset.filter(contract_type='主合同')
+    main_contracts = queryset.filter(file_positioning='主合同')
     main_count = main_contracts.count()
     main_amount = main_contracts.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
     # 补充协议统计
-    supplements = queryset.filter(contract_type='补充协议')
+    supplements = queryset.filter(file_positioning='补充协议')
     supplement_count = supplements.count()
     supplement_amount = supplements.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
@@ -213,7 +209,7 @@ def get_contract_statistics(year=None, project_codes=None):
             })
     
     return {
-        'year': year,
+        'year': year if year is not None else '全部',
         'total_count': total_count,
         'total_amount': float(total_amount),
         'main_count': main_count,
@@ -233,7 +229,7 @@ def get_payment_statistics(year=None, project_codes=None):
     付款统计
     
     Args:
-        year: 统计年份，默认为当前年份，None表示全部年份
+        year: 统计年份，None表示全部年份，整数表示具体年份
         project_codes: 项目编码列表，None表示全部项目
         
     Returns:
@@ -243,14 +239,12 @@ def get_payment_statistics(year=None, project_codes=None):
     from contract.models import Contract
     from settlement.models import Settlement
     
-    if year is None:
-        year = datetime.now().year
-    
     # 基础查询集
     queryset = Payment.objects.all()
     
     # 年份筛选 - 按付款时间统计
-    if year:
+    # year=None表示全部年份，不进行筛选
+    if year is not None:
         queryset = queryset.filter(payment_date__year=year)
     
     # 项目筛选
@@ -299,7 +293,7 @@ def get_payment_statistics(year=None, project_codes=None):
     
     # 计算预计剩余支付金额
     # 获取所有主合同
-    main_contracts = Contract.objects.filter(contract_type='主合同')
+    main_contracts = Contract.objects.filter(file_positioning='主合同')
     total_remaining = Decimal('0')
     
     for contract in main_contracts:
@@ -327,7 +321,7 @@ def get_payment_statistics(year=None, project_codes=None):
             total_remaining += remaining
     
     return {
-        'year': year,
+        'year': year if year is not None else '全部',
         'total_count': total_count,
         'total_amount': float(total_amount),
         'avg_amount': float(avg_amount),
@@ -380,12 +374,12 @@ def get_settlement_statistics():
             })
     
     # 计算结算率（已结算的主合同数 / 总主合同数）
-    total_main_contracts = Contract.objects.filter(contract_type='主合同').count()
+    total_main_contracts = Contract.objects.filter(file_positioning='主合同').count()
     settlement_rate = round(total_count / total_main_contracts * 100, 2) if total_main_contracts > 0 else 0
     
     # 待结算合同统计
     pending_settlements = Contract.objects.filter(
-        contract_type='主合同'
+        file_positioning='主合同'
     ).exclude(
         settlement__isnull=False
     )

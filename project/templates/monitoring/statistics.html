@@ -341,7 +341,7 @@
         <!-- 筛选器 - 右上角（年度对比时不显示） -->
         {% if stat_type != 'comparison' %}
         <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
-            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <form method="get" action="" id="filterForm" style="display: flex; align-items: center; gap: 12px; margin: 0;">
                 <!-- 保留统计类型参数 -->
                 <input type="hidden" name="type" value="{{ stat_type }}">
                 
@@ -351,12 +351,12 @@
                             {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
                         </label>
                         <select name="{{ filter.name }}"
-                                class="form-control form-control-sm"
-                                onchange="this.form.submit()"
+                                id="filter_{{ filter.name }}"
+                                class="form-control form-control-sm filter-select"
                                 style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
                             {% for option in filter.options %}
                                 <option value="{{ option.value }}"
-                                        {% if option.value in filter.current_value or filter.current_value == option.value %}selected{% endif %}>
+                                        {% if option.value == filter.current_value %}selected{% endif %}>
                                     {{ option.label }}
                                 </option>
                             {% endfor %}
@@ -371,19 +371,19 @@
     <!-- 统计类型切换 -->
     <div class="stat-nav">
         <div class="btn-group" role="group">
-            <a href="?type=overview&year={{ selected_year }}" class="btn btn-sm {% if stat_type == 'overview' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=overview&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'overview' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-tachometer-alt"></i> 综合概览
             </a>
-            <a href="?type=procurement&year={{ selected_year }}" class="btn btn-sm {% if stat_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=procurement&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-shopping-cart"></i> 采购统计
             </a>
-            <a href="?type=contract&year={{ selected_year }}" class="btn btn-sm {% if stat_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=contract&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-file-contract"></i> 合同统计
             </a>
-            <a href="?type=payment&year={{ selected_year }}" class="btn btn-sm {% if stat_type == 'payment' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=payment&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'payment' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-money-bill-wave"></i> 付款统计
             </a>
-            <a href="?type=settlement&year={{ selected_year }}" class="btn btn-sm {% if stat_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <a href="?type=settlement&year={{ year_filter_value|default:'all' }}" class="btn btn-sm {% if stat_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-calculator"></i> 结算统计
             </a>
             <a href="?type=comparison" class="btn btn-sm {% if stat_type == 'comparison' %}btn-primary{% else %}btn-outline-primary{% endif %}">
@@ -1313,5 +1313,35 @@ Chart.defaults.font.family = "'Segoe UI', 'Microsoft YaHei', sans-serif";
         }
     });
 {% endif %}
+
+// 年份和项目筛选器 - 自动提交表单
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    if (!filterForm) return;
+    
+    const filterSelects = document.querySelectorAll('.filter-select');
+    
+    filterSelects.forEach(function(select) {
+        select.addEventListener('change', function() {
+            console.log('筛选器变化:', select.name, '=', select.value);
+            
+            // 显示加载提示
+            const container = document.querySelector('.monitoring-statistics');
+            if (container) {
+                container.style.opacity = '0.6';
+                container.style.pointerEvents = 'none';
+            }
+            
+            // 立即提交表单
+            filterForm.submit();
+        });
+    });
+    
+    // 调试信息：显示当前筛选器状态
+    console.log('筛选器初始化完成');
+    filterSelects.forEach(function(select) {
+        console.log('筛选器:', select.name, '当前值:', select.value);
+    });
+});
 </script>
 {% endblock %}

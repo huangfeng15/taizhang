@@ -178,7 +178,7 @@ class ArchiveMonitorService:
         """
         # 基础查询集 - 只统计主合同
         base_qs = Contract.objects.filter(
-            contract_type='主合同',
+            file_positioning='主合同',
             signing_date__isnull=False
         )
         
@@ -428,7 +428,7 @@ class ArchiveMonitorService:
         deadline = timezone.now().date() - timedelta(days=30)
         
         queryset = Contract.objects.filter(
-            contract_type='主合同',
+            file_positioning='主合同',
             signing_date__lte=deadline,
             archive_date__isnull=True
         ).select_related('project')

@@ -28,7 +28,7 @@ class HasProcurementFilter(admin.SimpleListFilter):
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
     list_display = [
-        'contract_sequence', 'contract_code', 'contract_name', 'contract_type',
+        'contract_sequence', 'contract_code', 'contract_name', 'file_positioning',
         'contract_source', 'party_a', 'party_b',
         'contract_amount', 'signing_date', 'get_procurement_display'
     ]
@@ -39,7 +39,7 @@ class ContractAdmin(admin.ModelAdmin):
         'procurement__procurement_code', 'procurement__project_name'
     ]
     list_filter = [
-        'contract_type',
+        'file_positioning',
         'contract_source',
         HasProcurementFilter,
         'signing_date',
@@ -63,7 +63,7 @@ class ContractAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('基本信息', {
-            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'contract_type', 'contract_source', 'contract_officer')
+            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'file_positioning', 'contract_source', 'contract_officer')
         }),
         ('关联信息', {
             'fields': ('parent_contract', 'procurement', 'project'),

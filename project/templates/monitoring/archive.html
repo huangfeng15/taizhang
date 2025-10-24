@@ -18,19 +18,19 @@
         
         <!-- 筛选器 - 右上角 -->
         <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
-            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <form method="get" action="" id="archiveFilterForm" style="display: flex; align-items: center; gap: 12px; margin: 0;">
                 {% for filter in quick_filters %}
                     {% if filter.type == 'select' %}
                         <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
                             {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
                         </label>
                         <select name="{{ filter.name }}"
-                                class="form-control form-control-sm"
+                                class="form-control form-control-sm filter-select"
                                 onchange="this.form.submit()"
                                 style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
                             {% for option in filter.options %}
                                 <option value="{{ option.value }}"
-                                        {% if option.value in filter.current_value or filter.current_value == option.value %}selected{% endif %}>
+                                        {% if option.value == filter.current_value %}selected{% endif %}>
                                     {{ option.label }}
                                 </option>
                             {% endfor %}
@@ -139,13 +139,7 @@
     <div class="tab-container">
         <ul class="tab-nav">
             <li class="tab-nav-item">
-                <a href="#tab-overview" class="tab-nav-link active" onclick="switchTab(event, 'tab-overview')">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>综合概览</span>
-                </a>
-            </li>
-            <li class="tab-nav-item">
-                <a href="#tab-procurement" class="tab-nav-link" onclick="switchTab(event, 'tab-procurement')">
+                <a href="#tab-procurement" class="tab-nav-link active" onclick="switchTab(event, 'tab-procurement')">
                     <i class="fas fa-shopping-cart"></i>
                     <span>采购详情</span>
                 </a>
@@ -166,81 +160,8 @@
 
         <!-- 标签页内容 -->
         <div class="tab-content">
-            <!-- 综合概览 -->
-            <div id="tab-overview" class="tab-pane active">
-                <div class="key-metrics-grid">
-                    <div class="key-metric-card">
-                        <div class="key-metric-header">
-                            <div>
-                                <div class="key-metric-title">采购项目总数</div>
-                                <div class="key-metric-value">{{ archive_data.procurement.total }}</div>
-                            </div>
-                            <div class="key-metric-icon">
-                                <i class="fas fa-shopping-cart"></i>
-                            </div>
-                        </div>
-                        <div class="key-metric-trend up">
-                            <i class="fas fa-arrow-up"></i> 已归档 {{ archive_data.procurement.archived }} 项
-                        </div>
-                    </div>
-
-                    <div class="key-metric-card success">
-                        <div class="key-metric-header">
-                            <div>
-                                <div class="key-metric-title">合同项目总数</div>
-                                <div class="key-metric-value">{{ archive_data.contract.total }}</div>
-                            </div>
-                            <div class="key-metric-icon success">
-                                <i class="fas fa-file-contract"></i>
-                            </div>
-                        </div>
-                        <div class="key-metric-trend up">
-                            <i class="fas fa-arrow-up"></i> 已归档 {{ archive_data.contract.archived }} 项
-                        </div>
-                    </div>
-
-                    <div class="key-metric-card warning">
-                        <div class="key-metric-header">
-                            <div>
-                                <div class="key-metric-title">逾期项目总数</div>
-                                <div class="key-metric-value">{{ archive_data.procurement.overdue|add:archive_data.contract.overdue }}</div>
-                            </div>
-                            <div class="key-metric-icon warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                        </div>
-                        <div class="key-metric-trend down">
-                            <i class="fas fa-exclamation-circle"></i> 需要立即关注
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-lg-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-chart-bar"></i> 归档完成情况</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="archiveCompletionChart" style="max-height: 250px;"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-exclamation-circle"></i> 逾期严重程度分布</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="overdueDistributionChart" style="max-height: 250px;"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- 采购详情 -->
-            <div id="tab-procurement" class="tab-pane">
+            <div id="tab-procurement" class="tab-pane active">
                 <div class="compact-stat-card">
                     <div class="stat-header">
                         <i class="fas fa-shopping-cart"></i>
@@ -266,54 +187,46 @@
                     </div>
                 </div>
 
-                <!-- 归档及时性分析 -->
+                <!-- 归档及时性分析 - 紧凑单行布局 -->
                 <div class="row mt-3">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-12">
                         <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5><i class="fas fa-clock"></i> 归档及时性指标</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-number text-success" style="font-size: 36px;">{{ archive_data.procurement.timely_rate }}%</div>
-                                        <div class="stat-label">及时归档率</div>
-                                        <small class="text-muted">40天内完成归档</small>
+                            <div class="card-body" style="padding: 15px 20px;">
+                                <div class="row align-items-center">
+                                    <!-- 归档及时性指标 -->
+                                    <div class="col-md-3">
+                                        <div class="text-center" style="border-right: 2px solid #e9ecef; padding-right: 15px;">
+                                            <div style="color: #52c41a; font-size: 42px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.timely_rate }}%</div>
+                                            <div style="color: #666; font-size: 13px; margin-top: 5px; font-weight: 600;">及时归档率</div>
+                                            <div style="color: #999; font-size: 11px; margin-top: 2px;">40天内 | 平均{{ archive_data.procurement.avg_archive_days }}天</div>
+                                        </div>
                                     </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-number text-info" style="font-size: 36px;">{{ archive_data.procurement.avg_archive_days }}</div>
-                                        <div class="stat-label">平均归档周期</div>
-                                        <small class="text-muted">公示后平均天数</small>
-                                    </div>
-                                </div>
-                                <div class="alert alert-info mt-2 mb-0">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>归档标准：</strong>采购资料应在平台公示结束后40天内完成归档
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-chart-pie"></i> 采购逾期分级统计</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number text-danger" style="font-size: 32px;">{{ archive_data.procurement.overdue_breakdown.severe }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #e74c3c;">严重逾期</div>
-                                        <small class="text-muted">超过30天</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number" style="font-size: 32px; color: #f39c12;">{{ archive_data.procurement.overdue_breakdown.moderate }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #f39c12;">中度逾期</div>
-                                        <small class="text-muted">16-30天</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number" style="font-size: 32px; color: #3498db;">{{ archive_data.procurement.overdue_breakdown.mild }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #3498db;">轻度逾期</div>
-                                        <small class="text-muted">1-15天</small>
+                                    
+                                    <!-- 逾期分级统计 -->
+                                    <div class="col-md-9">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #cf1322; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.severe|default:0 }}</div>
+                                                    <div style="color: #cf1322; font-size: 13px; margin-top: 5px; font-weight: 600;">严重逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">超过30天</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #d46b08; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.moderate|default:0 }}</div>
+                                                    <div style="color: #d46b08; font-size: 13px; margin-top: 5px; font-weight: 600;">中度逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">16-30天</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #0958d9; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.mild|default:0 }}</div>
+                                                    <div style="color: #0958d9; font-size: 13px; margin-top: 5px; font-weight: 600;">轻度逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">1-15天</div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -349,54 +262,46 @@
                     </div>
                 </div>
 
-                <!-- 归档及时性分析 -->
+                <!-- 归档及时性分析 - 紧凑单行布局 -->
                 <div class="row mt-3">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-12">
                         <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5><i class="fas fa-clock"></i> 归档及时性指标</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-number text-success" style="font-size: 36px;">{{ archive_data.contract.timely_rate }}%</div>
-                                        <div class="stat-label">及时归档率</div>
-                                        <small class="text-muted">30天内完成归档</small>
+                            <div class="card-body" style="padding: 15px 20px;">
+                                <div class="row align-items-center">
+                                    <!-- 归档及时性指标 -->
+                                    <div class="col-md-3">
+                                        <div class="text-center" style="border-right: 2px solid #e9ecef; padding-right: 15px;">
+                                            <div style="color: #52c41a; font-size: 42px; font-weight: bold; line-height: 1;">{{ archive_data.contract.timely_rate }}%</div>
+                                            <div style="color: #666; font-size: 13px; margin-top: 5px; font-weight: 600;">及时归档率</div>
+                                            <div style="color: #999; font-size: 11px; margin-top: 2px;">30天内 | 平均{{ archive_data.contract.avg_archive_days }}天</div>
+                                        </div>
                                     </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-number text-info" style="font-size: 36px;">{{ archive_data.contract.avg_archive_days }}</div>
-                                        <div class="stat-label">平均归档周期</div>
-                                        <small class="text-muted">签订后平均天数</small>
-                                    </div>
-                                </div>
-                                <div class="alert alert-info mt-2 mb-0">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>归档标准：</strong>合同资料应在合同签订后30天内完成归档
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-chart-pie"></i> 合同逾期分级统计</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number text-danger" style="font-size: 32px;">{{ archive_data.contract.overdue_breakdown.severe }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #e74c3c;">严重逾期</div>
-                                        <small class="text-muted">超过30天</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number" style="font-size: 32px; color: #f39c12;">{{ archive_data.contract.overdue_breakdown.moderate }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #f39c12;">中度逾期</div>
-                                        <small class="text-muted">16-30天</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="stat-number" style="font-size: 32px; color: #3498db;">{{ archive_data.contract.overdue_breakdown.mild }}</div>
-                                        <div class="stat-label" style="font-size: 14px; color: #3498db;">轻度逾期</div>
-                                        <small class="text-muted">1-15天</small>
+                                    
+                                    <!-- 逾期分级统计 -->
+                                    <div class="col-md-9">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #cf1322; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.severe|default:0 }}</div>
+                                                    <div style="color: #cf1322; font-size: 13px; margin-top: 5px; font-weight: 600;">严重逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">超过30天</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #d46b08; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.moderate|default:0 }}</div>
+                                                    <div style="color: #d46b08; font-size: 13px; margin-top: 5px; font-weight: 600;">中度逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">16-30天</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%); border-radius: 8px; padding: 15px 10px;">
+                                                    <div style="color: #0958d9; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.mild|default:0 }}</div>
+                                                    <div style="color: #0958d9; font-size: 13px; margin-top: 5px; font-weight: 600;">轻度逾期</div>
+                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">1-15天</div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -577,67 +482,7 @@ function switchTab(event, tabId) {
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
-    // 归档完成情况图表
-    const archiveCompletionCtx = document.getElementById('archiveCompletionChart');
-    if (archiveCompletionCtx) {
-        new Chart(archiveCompletionCtx, {
-            type: 'bar',
-            data: {
-                labels: ['采购', '合同'],
-                datasets: [{
-                    label: '已归档',
-                    data: [{{ archive_data.procurement.archived }}, {{ archive_data.contract.archived }}],
-                    backgroundColor: 'rgba(82, 196, 26, 0.8)',
-                }, {
-                    label: '未归档',
-                    data: [{{ archive_data.procurement.total|add:'-'|add:archive_data.procurement.archived }}, 
-                           {{ archive_data.contract.total|add:'-'|add:archive_data.contract.archived }}],
-                    backgroundColor: 'rgba(250, 173, 20, 0.8)',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true }
-                },
-                plugins: {
-                    legend: { position: 'bottom' }
-                }
-            }
-        });
-    }
-
-    // 逾期严重程度分布图表
-    const overdueDistributionCtx = document.getElementById('overdueDistributionChart');
-    if (overdueDistributionCtx) {
-        new Chart(overdueDistributionCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['严重逾期', '中度逾期', '轻度逾期'],
-                datasets: [{
-                    data: [
-                        {{ archive_data.procurement.overdue_breakdown.severe|add:archive_data.contract.overdue_breakdown.severe }},
-                        {{ archive_data.procurement.overdue_breakdown.moderate|add:archive_data.contract.overdue_breakdown.moderate }},
-                        {{ archive_data.procurement.overdue_breakdown.mild|add:archive_data.contract.overdue_breakdown.mild }}
-                    ],
-                    backgroundColor: [
-                        'rgba(255, 77, 79, 0.8)',
-                        'rgba(250, 173, 20, 0.8)',
-                        'rgba(24, 144, 255, 0.8)'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right' }
-                }
-            }
-        });
-    }
+    // 已删除综合概览相关图表代码
 });
 </script>
 {% endblock %}

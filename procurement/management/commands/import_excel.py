@@ -230,13 +230,37 @@ class Command(BaseCommand):
             return 'utf-8-sig'
 
     def _is_template_note_row(self, row):
-        """判断是否为模板说明行（可保留或删除的注释行）"""
+        """判断是否为模板说明行（可保留或删除的注释行）
+        
+        判断标准：
+        1. "模板说明"列有内容
+        2. 且关键数据列（如项目编码、合同编号、招采编号等）为空
+        
+        这样可以避免误判有效数据行为模板说明行
+        """
         if not isinstance(row, dict):
             return False
-        note = row.get('模板说明')
-        if note is None:
+        
+        # 检查模板说明列是否有内容
+        note = row.get('模板说明', '')
+        if not str(note).strip():
             return False
-        return bool(str(note).strip())
+        
+        # 检查关键数据列是否都为空
+        # 如果关键数据列有值，说明这是有效数据行，即使模板说明列有内容也不跳过
+        key_fields = [
+            '项目编码', '招采编号', '合同编号', '付款编号', '评价编号',
+            '项目名称', '采购项目名称', '合同名称'
+        ]
+        
+        for field in key_fields:
+            value = row.get(field, '')
+            if str(value).strip():
+                # 有关键字段有值，这是有效数据行
+                return False
+        
+        # 所有关键字段都为空，且模板说明有内容，判定为模板说明行
+        return True
 
     def _handle_long_table(self, file_path, module, encoding, skip_errors, dry_run, conflict_mode):
         """处理长表格式导入"""
@@ -334,13 +358,13 @@ class Command(BaseCommand):
                 if self._is_template_note_row(row):
                     continue
                 
-                # 获取合同类型
-                contract_type = row.get('合同类型', '主合同').strip()
-                if not contract_type:
-                    contract_type = '主合同'
+                # 获取文件定位（第3列）
+                file_positioning = row.get('文件定位', '主合同').strip()
+                if not file_positioning:
+                    file_positioning = '主合同'
                 
                 # 第一遍只处理主合同
-                if contract_type != '主合同':
+                if file_positioning != '主合同':
                     continue
                 
                 stats['total_rows'] += 1
@@ -389,13 +413,13 @@ class Command(BaseCommand):
                 if self._is_template_note_row(row):
                     continue
                 
-                # 获取合同类型
-                contract_type = row.get('合同类型', '主合同').strip()
-                if not contract_type:
-                    contract_type = '主合同'
+                # 获取文件定位（第3列）
+                file_positioning = row.get('文件定位', '主合同').strip()
+                if not file_positioning:
+                    file_positioning = '主合同'
                 
                 # 第二遍只处理补充协议和解除协议
-                if contract_type not in ['补充协议', '解除协议']:
+                if file_positioning not in ['补充协议', '解除协议']:
                     continue
                 
                 stats['total_rows'] += 1
@@ -981,7 +1005,7 @@ class Command(BaseCommand):
                     'qualification_review_method': row.get('资格审查方式', '').strip(),
                     'bid_evaluation_method': row.get('评标谈判方式', '').strip(),
                     'bid_awarding_method': row.get('定标方法', '').strip(),
-                    'budget_amount': self._parse_decimal(row.get('采购预算金额(元)')),
+                    'budget_amount': self._parse_decimal(row.get('采购预算金额（元）') or row.get('采购预算金额(元)')),
                     'control_price': self._parse_decimal(row.get('采购控制价（元）')),
                     'winning_amount': self._parse_decimal(row.get('中标金额（元）')),
                     'procurement_officer': row.get('采购经办人', '').strip(),
@@ -1065,16 +1089,16 @@ class Command(BaseCommand):
             except Procurement.DoesNotExist:
                 self.stdout.write(self.style.WARNING(f'采购编号不存在: {procurement_code}，将不关联采购'))
         
-        # 获取合同类型（第3列），默认为主合同
-        contract_type = row.get('合同类型', '主合同').strip()
-        if not contract_type:
-            contract_type = '主合同'
+        # 获取文件定位（第3列），默认为主合同
+        file_positioning = row.get('文件定位', '主合同').strip()
+        if not file_positioning:
+            file_positioning = '主合同'
         
-        # 验证合同类型
+        # 验证文件定位
         valid_types = ['主合同', '补充协议', '解除协议']
-        if contract_type not in valid_types:
-            self.stdout.write(self.style.WARNING(f'无效的合同类型: {contract_type}，将设置为主合同'))
-            contract_type = '主合同'
+        if file_positioning not in valid_types:
+            self.stdout.write(self.style.WARNING(f'无效的文件定位: {file_positioning}，将设置为主合同'))
+            file_positioning = '主合同'
         
         # 获取合同来源（先获取用户输入的值）
         contract_source = row.get('合同来源', '').strip()
@@ -1099,16 +1123,16 @@ class Command(BaseCommand):
                         f'主合同序号/编号不存在: {parent_contract_sequence}，将不关联主合同'
                     ))
         
-        # 验证合同类型与关联关系的一致性，并自动继承关联数据
-        if contract_type == '主合同':
+        # 验证文件定位与关联关系的一致性，并自动继承关联数据
+        if file_positioning == '主合同':
             if parent_contract:
                 self.stdout.write(self.style.WARNING('主合同不能关联其他合同，将清除关联关系'))
                 parent_contract = None
-        elif contract_type in ['补充协议', '解除协议']:
+        elif file_positioning in ['补充协议', '解除协议']:
             # 如果是补充协议或解除协议，必须关联主合同
             if not parent_contract:
                 error_msg = (
-                    f'{contract_type}必须关联主合同。'
+                    f'{file_positioning}必须关联主合同。'
                     f'合同编号: {contract_code}, '
                     f'关联主合同编号: {parent_contract_sequence or "未填写"}'
                 )
@@ -1120,21 +1144,21 @@ class Command(BaseCommand):
                 if not procurement and parent_contract.procurement:
                     procurement = parent_contract.procurement
                     self.stdout.write(self.style.SUCCESS(
-                        f'{contract_type}自动继承主合同的采购信息: {procurement.procurement_code}'
+                        f'{file_positioning}自动继承主合同的采购信息: {procurement.procurement_code}'
                     ))
                 
                 # 继承项目信息（如果用户没有填写）
                 if not project and parent_contract.project:
                     project = parent_contract.project
                     self.stdout.write(self.style.SUCCESS(
-                        f'{contract_type}自动继承主合同的项目信息: {project.project_code}'
+                        f'{file_positioning}自动继承主合同的项目信息: {project.project_code}'
                     ))
                 
                 # 继承合同来源（如果用户没有填写）
                 if not contract_source or contract_source == '':
                     contract_source = parent_contract.contract_source
                     self.stdout.write(self.style.SUCCESS(
-                        f'{contract_type}自动继承主合同的合同来源: {contract_source}'
+                        f'{file_positioning}自动继承主合同的合同来源: {contract_source}'
                     ))
         
         # 确保合同来源正确设置（在继承之后再次检查）
@@ -1151,7 +1175,7 @@ class Command(BaseCommand):
                 defaults={
                     'project': project,
                     'contract_name': contract_name,
-                    'contract_type': contract_type,
+                    'file_positioning': file_positioning,
                     'contract_source': contract_source,
                     'parent_contract': parent_contract,
                     'procurement': procurement,
@@ -1159,13 +1183,19 @@ class Command(BaseCommand):
                     'contract_officer': row.get('合同签订经办人', '').strip(),
                     'party_a': row.get('甲方', '').strip(),
                     'party_b': row.get('乙方', '').strip(),
-                    'party_b_contact': row.get('乙方负责人及联系方式', '').strip(),
-                    'party_b_contact_in_contract': row.get('合同文本内乙方联系人及方式', '').strip(),
+                    # 新的联系人字段（迁移0007之后）
+                    'party_a_legal_representative': row.get('甲方法定代表人及联系方式', '').strip(),
+                    'party_a_contact_person': row.get('甲方联系人及联系方式', '').strip(),
+                    'party_a_manager': row.get('甲方负责人及联系方式', '').strip(),
+                    'party_b_legal_representative': row.get('乙方法定代表人及联系方式', '').strip(),
+                    'party_b_contact_person': row.get('乙方联系人及联系方式', '').strip(),
+                    'party_b_manager': row.get('乙方负责人及联系方式', '').strip(),
                     'contract_amount': self._parse_decimal(row.get('含税签约合同价（元）')),
                     'signing_date': self._parse_date(row.get('合同签订日期')),
                     'duration': row.get('合同工期/服务期限', '').strip(),
                     'payment_method': payment_method,
                     'performance_guarantee_return_date': self._parse_date(row.get('履约担保退回时间')),
+                    'archive_date': self._parse_date(row.get('资料归档日期')),
                 }
             )
             return 'created' if created else 'updated'
@@ -1436,6 +1466,9 @@ class Command(BaseCommand):
 
     def _parse_decimal(self, value):
         """解析decimal数值"""
+        # 记录原始值用于调试
+        original_value = value
+        
         if value is None or value == '':
             return None
         
@@ -1444,14 +1477,26 @@ class Command(BaseCommand):
         if isinstance(value, float) and math.isnan(value):
             return None
         
-        value_str = str(value).strip().replace(',', '').replace('，', '')
-        # 明确处理常见的空值标记，包括字符串形式的NaN
-        if not value_str or value_str in ['/', '-', '—', '无', 'N/A', 'n/a', 'NaN', 'nan', 'None']:
+        # 清理数值字符串：移除千位分隔符、货币符号、空格
+        value_str = str(value).strip()
+        value_str = value_str.replace(',', '').replace('，', '')  # 移除中英文逗号
+        value_str = value_str.replace('￥', '').replace('¥', '').replace('$', '')  # 移除货币符号
+        value_str = value_str.replace(' ', '').replace('\u3000', '')  # 移除普通和全角空格
+        
+        # 只有在值为明确的空值标记时才返回None
+        if not value_str or value_str in ['/', '-', '—', '无', 'N/A', 'n/a', 'NaN', 'nan', 'None', 'null']:
             return None
         
+        # 尝试解析为Decimal
         try:
-            return Decimal(value_str)
-        except (InvalidOperation, ValueError):
+            decimal_value = Decimal(value_str)
+            # 记录成功解析的大额金额用于调试（可选）
+            if decimal_value >= 1000000:
+                logger.debug(f'成功解析大额金额: 原始值="{original_value}" -> 清理后="{value_str}" -> 结果={decimal_value}')
+            return decimal_value
+        except (InvalidOperation, ValueError) as e:
+            # 记录解析失败的情况，方便排查问题
+            logger.warning(f'金额解析失败: 原始值="{original_value}" -> 清理后="{value_str}" -> 错误={str(e)}')
             return None
 
     def _parse_date(self, value):

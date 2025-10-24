@@ -53,12 +53,35 @@
                     <th data-column="project_name">采购项目名称</th>
                     <th data-column="project">所属项目</th>
                     <th data-column="procurement_unit">采购单位</th>
-                    <th data-column="procurement_category">采购类别</th>
-                    <th data-column="procurement_method">采购方式</th>
                     <th data-column="winning_bidder">中标单位</th>
+                    <th data-column="winning_contact">中标单位联系人及方式</th>
+                    <th data-column="procurement_method">采购方式</th>
+                    <th data-column="procurement_category">采购类别</th>
                     <th data-column="budget_amount">采购预算金额(元)</th>
-                    <th data-column="winning_amount">中标金额(元)</th>
+                    <th data-column="control_price">采购控制价（元）</th>
+                    <th data-column="winning_amount">中标金额（元）</th>
+                    <th data-column="planned_completion_date">计划结束采购时间</th>
+                    <th data-column="candidate_publicity_end_date">候选人公示结束时间</th>
                     <th data-column="result_publicity_release_date">结果公示发布时间</th>
+                    <th data-column="notice_issue_date">中标通知书发放日期</th>
+                    <th data-column="procurement_officer">采购经办人</th>
+                    <th data-column="demand_department">需求部门</th>
+                    <th data-column="demand_contact">申请人联系电话（需求部门）</th>
+                    <th data-column="requirement_approval_date">采购需求书审批完成日期（OA）</th>
+                    <th data-column="procurement_platform">采购平台</th>
+                    <th data-column="qualification_review_method">资格审查方式</th>
+                    <th data-column="bid_evaluation_method">评标谈判方式</th>
+                    <th data-column="bid_awarding_method">定标方法</th>
+                    <th data-column="announcement_release_date">公告发布时间</th>
+                    <th data-column="registration_deadline">报名截止时间</th>
+                    <th data-column="bid_opening_date">开标时间</th>
+                    <th data-column="evaluation_committee">评标委员会成员</th>
+                    <th data-column="bid_guarantee">投标担保形式及金额（元）</th>
+                    <th data-column="bid_guarantee_return_date">投标担保退回日期</th>
+                    <th data-column="performance_guarantee">履约担保形式及金额（元）</th>
+                    <th data-column="candidate_publicity_issue">候选人公示期质疑情况</th>
+                    <th data-column="non_bidding_explanation">应招未招说明（由公开转单一或邀请的情况）</th>
+                    <th data-column="archive_date">资料归档日期</th>
                     <th data-column="operations">操作</th>
                 </tr>
             </thead>
@@ -78,12 +101,20 @@
                         {% endif %}
                     </td>
                     <td data-column="procurement_unit">{{ proc.procurement_unit|default:"-" }}</td>
-                    <td data-column="procurement_category">{{ proc.procurement_category|default:"-" }}</td>
-                    <td data-column="procurement_method">{{ proc.procurement_method|default:"-" }}</td>
                     <td data-column="winning_bidder">{{ proc.winning_bidder|default:"-" }}</td>
+                    <td data-column="winning_contact">{{ proc.winning_contact|default:"-" }}</td>
+                    <td data-column="procurement_method">{{ proc.procurement_method|default:"-" }}</td>
+                    <td data-column="procurement_category">{{ proc.procurement_category|default:"-" }}</td>
                     <td data-column="budget_amount">
                         {% if proc.budget_amount %}
                             ¥{{ proc.budget_amount|floatformat:2 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="control_price">
+                        {% if proc.control_price %}
+                            ¥{{ proc.control_price|floatformat:2 }}
                         {% else %}
                             -
                         {% endif %}
@@ -95,7 +126,28 @@
                             -
                         {% endif %}
                     </td>
+                    <td data-column="planned_completion_date">{{ proc.planned_completion_date|default:"-" }}</td>
+                    <td data-column="candidate_publicity_end_date">{{ proc.candidate_publicity_end_date|default:"-" }}</td>
                     <td data-column="result_publicity_release_date">{{ proc.result_publicity_release_date|default:"-" }}</td>
+                    <td data-column="notice_issue_date">{{ proc.notice_issue_date|default:"-" }}</td>
+                    <td data-column="procurement_officer">{{ proc.procurement_officer|default:"-" }}</td>
+                    <td data-column="demand_department">{{ proc.demand_department|default:"-" }}</td>
+                    <td data-column="demand_contact">{{ proc.demand_contact|default:"-" }}</td>
+                    <td data-column="requirement_approval_date">{{ proc.requirement_approval_date|default:"-" }}</td>
+                    <td data-column="procurement_platform">{{ proc.procurement_platform|default:"-" }}</td>
+                    <td data-column="qualification_review_method">{{ proc.qualification_review_method|default:"-" }}</td>
+                    <td data-column="bid_evaluation_method">{{ proc.bid_evaluation_method|default:"-" }}</td>
+                    <td data-column="bid_awarding_method">{{ proc.bid_awarding_method|default:"-" }}</td>
+                    <td data-column="announcement_release_date">{{ proc.announcement_release_date|default:"-" }}</td>
+                    <td data-column="registration_deadline">{{ proc.registration_deadline|default:"-" }}</td>
+                    <td data-column="bid_opening_date">{{ proc.bid_opening_date|default:"-" }}</td>
+                    <td data-column="evaluation_committee" style="max-width: 200px;">{{ proc.evaluation_committee|default:"-" }}</td>
+                    <td data-column="bid_guarantee">{{ proc.bid_guarantee|default:"-" }}</td>
+                    <td data-column="bid_guarantee_return_date">{{ proc.bid_guarantee_return_date|default:"-" }}</td>
+                    <td data-column="performance_guarantee">{{ proc.performance_guarantee|default:"-" }}</td>
+                    <td data-column="candidate_publicity_issue" style="max-width: 200px;">{{ proc.candidate_publicity_issue|default:"-" }}</td>
+                    <td data-column="non_bidding_explanation" style="max-width: 200px;">{{ proc.non_bidding_explanation|default:"-" }}</td>
+                    <td data-column="archive_date">{{ proc.archive_date|default:"-" }}</td>
                     <td data-column="operations">
                         <a href="{% url 'procurement_detail' proc.procurement_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
                             <i class="fas fa-eye"></i>
@@ -174,12 +226,35 @@
         { key: 'project_name', label: '采购项目名称', required: true },
         { key: 'project', label: '所属项目', required: false },
         { key: 'procurement_unit', label: '采购单位', required: false },
-        { key: 'procurement_category', label: '采购类别', required: false },
-        { key: 'procurement_method', label: '采购方式', required: false },
         { key: 'winning_bidder', label: '中标单位', required: false },
+        { key: 'winning_contact', label: '中标单位联系人及方式', required: false },
+        { key: 'procurement_method', label: '采购方式', required: false },
+        { key: 'procurement_category', label: '采购类别', required: false },
         { key: 'budget_amount', label: '采购预算金额(元)', required: false },
-        { key: 'winning_amount', label: '中标金额(元)', required: false },
+        { key: 'control_price', label: '采购控制价（元）', required: false },
+        { key: 'winning_amount', label: '中标金额（元）', required: false },
+        { key: 'planned_completion_date', label: '计划结束采购时间', required: false },
+        { key: 'candidate_publicity_end_date', label: '候选人公示结束时间', required: false },
         { key: 'result_publicity_release_date', label: '结果公示发布时间', required: false },
+        { key: 'notice_issue_date', label: '中标通知书发放日期', required: false },
+        { key: 'procurement_officer', label: '采购经办人', required: false },
+        { key: 'demand_department', label: '需求部门', required: false },
+        { key: 'demand_contact', label: '申请人联系电话（需求部门）', required: false },
+        { key: 'requirement_approval_date', label: '采购需求书审批完成日期（OA）', required: false },
+        { key: 'procurement_platform', label: '采购平台', required: false },
+        { key: 'qualification_review_method', label: '资格审查方式', required: false },
+        { key: 'bid_evaluation_method', label: '评标谈判方式', required: false },
+        { key: 'bid_awarding_method', label: '定标方法', required: false },
+        { key: 'announcement_release_date', label: '公告发布时间', required: false },
+        { key: 'registration_deadline', label: '报名截止时间', required: false },
+        { key: 'bid_opening_date', label: '开标时间', required: false },
+        { key: 'evaluation_committee', label: '评标委员会成员', required: false },
+        { key: 'bid_guarantee', label: '投标担保形式及金额（元）', required: false },
+        { key: 'bid_guarantee_return_date', label: '投标担保退回日期', required: false },
+        { key: 'performance_guarantee', label: '履约担保形式及金额（元）', required: false },
+        { key: 'candidate_publicity_issue', label: '候选人公示期质疑情况', required: false },
+        { key: 'non_bidding_explanation', label: '应招未招说明（由公开转单一或邀请的情况）', required: false },
+        { key: 'archive_date', label: '资料归档日期', required: false },
         { key: 'operations', label: '操作', required: true }
     ];
 

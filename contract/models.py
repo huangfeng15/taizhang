@@ -38,18 +38,18 @@ class Contract(BaseModel):
         help_text='合同的正式名称'
     )
     
-    # ===== 合同类型与关联 =====
-    CONTRACT_TYPE_CHOICES = [
+    # ===== 文件定位与关联 =====
+    FILE_POSITIONING_CHOICES = [
         ('主合同', '主合同'),
         ('补充协议', '补充协议'),
         ('解除协议', '解除协议'),
     ]
-    contract_type = models.CharField(
-        '合同类型',
+    file_positioning = models.CharField(
+        '文件定位',
         max_length=20,
-        choices=CONTRACT_TYPE_CHOICES,
+        choices=FILE_POSITIONING_CHOICES,
         default='主合同',
-        help_text='区分主合同和补充协议'
+        help_text='区分主合同、补充协议和解除协议'
     )
     
     # ===== 合同来源分类 =====
@@ -243,15 +243,15 @@ class Contract(BaseModel):
                 errors['contract_sequence'] = e.message
         
         # 规则1: 补充协议必须关联主合同
-        if self.contract_type == '补充协议' and not self.parent_contract:
+        if self.file_positioning == '补充协议' and not self.parent_contract:
             errors['parent_contract'] = '补充协议必须关联主合同'
         
         # 规则2: 主合同不能关联其他合同
-        if self.contract_type == '主合同' and self.parent_contract:
+        if self.file_positioning == '主合同' and self.parent_contract:
             errors['parent_contract'] = '主合同不能关联其他合同'
         
         # 规则3: 解除协议必须关联主合同
-        if self.contract_type == '解除协议' and not self.parent_contract:
+        if self.file_positioning == '解除协议' and not self.parent_contract:
             errors['parent_contract'] = '解除协议必须关联主合同'
         
         # 规则4: 采购合同必须关联采购项目
@@ -263,7 +263,7 @@ class Contract(BaseModel):
             errors['procurement'] = '直接签订合同不应关联采购项目'
         
         # 规则6: 补充协议继承主合同的来源类型和采购关联
-        if self.contract_type in ['补充协议', '解除协议'] and self.parent_contract:
+        if self.file_positioning in ['补充协议', '解除协议'] and self.parent_contract:
             if self.contract_source != self.parent_contract.contract_source:
                 self.contract_source = self.parent_contract.contract_source
             if self.procurement != self.parent_contract.procurement:
@@ -298,7 +298,7 @@ class Contract(BaseModel):
         base_amount = 0
         
         # 如果是主合同，检查是否有结算
-        if self.contract_type == '主合同':
+        if self.file_positioning == '主合同':
             try:
                 if hasattr(self, 'settlement') and self.settlement and self.settlement.final_amount:
                     # 有结算价，使用结算价
@@ -330,7 +330,7 @@ class Contract(BaseModel):
         """获取主合同+补充协议的总金额"""
         from django.db.models import Sum
         
-        if self.contract_type == '主合同':
+        if self.file_positioning == '主合同':
             total = self.contract_amount or 0
             supplements_total = self.supplements.aggregate(
                 total=Sum('contract_amount')

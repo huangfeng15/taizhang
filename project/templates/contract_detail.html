@@ -55,14 +55,14 @@
                 <span>{{ contract.contract_name }}</span>
             </div>
             <div class="detail-item">
-                <label>合同类型：</label>
+                <label>文件定位：</label>
                 <span>
-                    {% if contract.contract_type == '主合同' %}
-                        <span class="badge badge-success">{{ contract.contract_type }}</span>
-                    {% elif contract.contract_type == '补充协议' %}
-                        <span class="badge badge-info">{{ contract.contract_type }}</span>
+                    {% if contract.file_positioning == '主合同' %}
+                        <span class="badge badge-success">{{ contract.file_positioning }}</span>
+                    {% elif contract.file_positioning == '补充协议' %}
+                        <span class="badge badge-info">{{ contract.file_positioning }}</span>
                     {% else %}
-                        <span class="badge badge-error">{{ contract.contract_type }}</span>
+                        <span class="badge badge-error">{{ contract.file_positioning }}</span>
                     {% endif %}
                 </span>
             </div>
@@ -292,7 +292,7 @@
         <div class="detail-item" style="margin-bottom: 20px; padding: 10px; background: #fff3cd; border-radius: 4px;">
             <label style="color: #856404;">付款比例说明：</label>
             <span style="color: #856404;">
-                {% if contract.contract_type == '主合同' %}
+                {% if contract.file_positioning == '主合同' %}
                     {% if settlement %}
                         按结算价 ¥{{ settlement.final_amount|floatformat:2 }} 计算
                     {% else %}
@@ -449,7 +449,7 @@
                     <tr>
                         <th>合同编号</th>
                         <th>合同名称</th>
-                        <th>合同类型</th>
+                        <th>文件定位</th>
                         <th>合同金额(元)</th>
                         <th>签订日期</th>
                         <th>操作</th>
@@ -461,7 +461,7 @@
                         <td>{{ supplement.contract_code }}</td>
                         <td style="max-width: 300px;">{{ supplement.contract_name }}</td>
                         <td>
-                            <span class="badge badge-info">{{ supplement.contract_type }}</span>
+                            <span class="badge badge-info">{{ supplement.file_positioning }}</span>
                         </td>
                         <td>
                             {% if supplement.contract_amount %}

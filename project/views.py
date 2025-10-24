@@ -109,7 +109,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             'headers': [
                 '项目编码',
                 '关联采购编号',
-                '合同类型',
+                '文件定位',
                 '合同来源',
                 '关联主合同编号',
                 '序号',
@@ -137,8 +137,9 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             'notes': [
                 '【必填字段】合同编号*、合同名称*、甲方*、乙方*、合同签订日期*（标记*号的为必填字段，不能为空）',
                 '【编码规则】合同编号与合同序号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止使用 / 等特殊字符',
-                '【合同类型】仅支持三种类型：主合同、补充协议、解除协议（留空默认为"主合同"）',
+                '【文件定位】仅支持三种类型：主合同、补充协议、解除协议（留空默认为"主合同"）',
                 '【关联规则】补充协议或解除协议必须填写"关联主合同编号"，关联已存在的主合同',
+                '【合同类型】第11列的合同类型用于描述合同性质，如服务类、货物类、工程类等',
                 '【合同来源】可选值：采购合同、直接签订（留空默认为"采购合同"）',
                 '【项目关联】项目编码字段用于关联已存在的项目，必须填写系统中已存在的项目编码',
                 '【采购关联】关联采购编号字段用于关联已存在的采购记录，如无采购可留空',
@@ -452,7 +453,7 @@ def contract_list(request):
     has_comma = ',' in search_query or '，' in search_query
     search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
     project_filter = request.GET.get('project', '')
-    contract_type_filter = request.GET.get('contract_type', '')
+    file_positioning_filter = request.GET.get('file_positioning', '')
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
     
@@ -507,8 +508,8 @@ def contract_list(request):
         contracts = contracts.filter(project__project_code=project_filter)
     
     # 合同类型过滤
-    if contract_type_filter:
-        contracts = contracts.filter(contract_type=contract_type_filter)
+    if file_positioning_filter:
+        contracts = contracts.filter(file_positioning=file_positioning_filter)
     
     # 高级筛选 - 文本字段支持逗号且、空格或
     def apply_text_filter(queryset, field_name, filter_value):
@@ -573,7 +574,7 @@ def contract_list(request):
     
     # 预加载补充协议数据
     supplements_data = {}
-    main_contracts = [c for c in contracts if c.contract_type == '主合同']
+    main_contracts = [c for c in contracts if c.file_positioning == '主合同']
     if main_contracts:
         main_contract_codes = [c.contract_code for c in main_contracts]
         supplements = Contract.objects.filter(
@@ -611,7 +612,7 @@ def contract_list(request):
             contract_info['settlement_amount'] = latest_payment.settlement_amount
         
         # 同时也检查settlement模块(如果存在)
-        if contract.contract_type == '主合同' and contract.contract_code in settlement_dict:
+        if contract.file_positioning == '主合同' and contract.contract_code in settlement_dict:
             settlement = settlement_dict[contract.contract_code]
             contract_info['has_settlement'] = True
             # 优先使用settlement模块的结算价,如果没有则使用付款记录的
@@ -619,7 +620,7 @@ def contract_list(request):
                 contract_info['settlement_amount'] = settlement.final_amount
         
         # 计算累计付款比例
-        if contract.contract_type == '主合同':
+        if contract.file_positioning == '主合同':
             # 主合同的付款比例计算
             if contract_info['has_settlement'] and contract_info['settlement_amount']:
                 # 有结算价，使用结算价作为基数
@@ -682,8 +683,8 @@ def contract_list(request):
         'projects': projects,
         'search_query': search_query,
         'project_filter': project_filter,
-        'contract_type_filter': contract_type_filter,
-        'contract_types': Contract._meta.get_field('contract_type').choices,
+        'file_positioning_filter': file_positioning_filter,
+        'file_positionings': Contract._meta.get_field('file_positioning').choices,
         **filter_config,  # 添加筛选配置
     }
     return render(request, 'contract_list.html', context)
@@ -693,7 +694,7 @@ def contract_list_enhanced(request):
     """增强版合同列表页面 - 支持Vue.js交互"""
     # 获取所有合同数据（使用 only() 优化查询字段）
     contracts = Contract.objects.select_related('project').only(
-        'contract_code', 'contract_name', 'contract_type', 'contract_source',
+        'contract_code', 'contract_name', 'file_positioning', 'contract_source',
         'party_b', 'contract_amount', 'signing_date',
         'project__project_code', 'project__project_name'
     ).order_by('-signing_date')
@@ -703,7 +704,7 @@ def contract_list_enhanced(request):
         {
             'contract_code': c.contract_code,
             'contract_name': c.contract_name,
-            'contract_type': c.contract_type,
+            'file_positioning': c.file_positioning,
             'contract_source': c.contract_source,
             'party_b': c.party_b,
             'contract_amount': float(c.contract_amount) if c.contract_amount else None,
@@ -753,7 +754,7 @@ def contract_detail(request, contract_code):
     
     # 获取结算信息（如果是主合同）
     settlement = None
-    if contract.contract_type == '主合同':
+    if contract.file_positioning == '主合同':
         try:
             settlement = getattr(contract, 'settlement', None)
         except:
@@ -761,7 +762,7 @@ def contract_detail(request, contract_code):
     
     # 获取补充协议（如果是主合同）
     supplements = []
-    if contract.contract_type == '主合同':
+    if contract.file_positioning == '主合同':
         supplements = getattr(contract, 'supplements', Contract.objects.none()).all().order_by('signing_date')
     
     # 获取履约评价
@@ -1792,7 +1793,7 @@ def _generate_project_excel(project, user):
                     '项目编码': project.project_code,
                     '项目名称': project.project_name,
                     '关联采购编号': contract.procurement.procurement_code if contract.procurement else '',
-                    '合同类型': contract.contract_type,
+                    '合同类型': contract.file_positioning,
                     '合同来源': contract.contract_source,
                     '关联主合同编号': contract.parent_contract.contract_code if contract.parent_contract else '',
                     '序号': contract.contract_sequence or '',
@@ -1850,7 +1851,7 @@ def _generate_project_excel(project, user):
             
             # 结算工作表
             settlement_data = []
-            main_contracts = Contract.objects.filter(project=project, contract_type='主合同')
+            main_contracts = Contract.objects.filter(project=project, file_positioning='主合同')
             for contract in main_contracts:
                 try:
                     settlement = getattr(contract, 'settlement', None)
@@ -2111,9 +2112,11 @@ def monitoring_dashboard(request):
     # 获取筛选参数
     year = request.GET.get('year', '')
     project_codes = request.GET.getlist('project')
+    # 过滤掉空字符串
+    project_codes = [p for p in project_codes if p]
     export_format = request.GET.get('export', '')  # 导出参数
     
-    # 转换年份
+    # 转换年份 - 空字符串表示全部年份
     year_filter = int(year) if year and year.isdigit() else None
     
     # 创建服务实例
@@ -2158,13 +2161,15 @@ def archive_monitor(request):
     # 获取筛选参数
     year = request.GET.get('year', '')
     project_codes = request.GET.getlist('project')
+    # 过滤掉空字符串
+    project_codes = [p for p in project_codes if p]
     module_filter = request.GET.get('module', '')  # procurement/contract
     severity_filter = request.GET.get('severity', '')  # mild/moderate/severe
     project_code = request.GET.get('project_single', '')  # 单项目筛选（详情页用）
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=50)
     
-    # 转换年份
+    # 转换年份 - 空字符串表示全部年份
     year_filter = int(year) if year and year.isdigit() else None
     
     # 创建服务实例
@@ -2222,6 +2227,8 @@ def update_monitor(request):
     warning_days = int(request.GET.get('warning_days', 40))
     year = request.GET.get('year', '')
     project_codes = request.GET.getlist('project')
+    # 过滤掉空字符串
+    project_codes = [p for p in project_codes if p]
     only_active = request.GET.get('only_active', 'true').lower() == 'true'
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
@@ -2367,8 +2374,23 @@ def statistics_view(request):
     # 获取查询参数
     current_year = datetime.now().year
     selected_year = request.GET.get('year', '')
-    year_filter = int(selected_year) if selected_year and selected_year.isdigit() else current_year
+    
+    # 处理年份参数
+    # 空字符串表示全部年份（year_filter=None）
+    if selected_year == '' or selected_year == 'all':
+        year_filter = None
+        display_year = '全部'
+    elif selected_year and selected_year.isdigit():
+        year_filter = int(selected_year)
+        display_year = f'{year_filter}'
+    else:
+        # 如果没有提供年份参数，默认显示全部
+        year_filter = None
+        display_year = '全部'
+    
     project_codes = request.GET.getlist('project')
+    # 过滤掉空字符串
+    project_codes = [p for p in project_codes if p]
     stat_type = request.GET.get('type', 'overview')  # overview/procurement/contract/payment/settlement/comparison
     
     # 年份对比参数
@@ -2384,6 +2406,9 @@ def statistics_view(request):
     context = {
         'page_title': '统计分析',
         'stat_type': stat_type,
+        'selected_year': display_year,  # 添加选中的年份（用于显示）
+        'year_filter_value': selected_year if selected_year else 'all',  # 用于表单的实际值
+        'available_years': list(range(2019, current_year + 2)),  # 添加可用年份列表
         'comparison_years': comparison_years,
         **filter_config,  # 添加筛选配置
     }
@@ -2391,7 +2416,13 @@ def statistics_view(request):
     # 项目筛选参数
     project_filter = project_codes if project_codes else None
     
-    if stat_type == 'procurement':
+    if stat_type == 'overview':
+        # 综合概览 - 加载所有统计数据
+        context['procurement_stats'] = get_procurement_statistics(year_filter, project_filter)
+        context['contract_stats'] = get_contract_statistics(year_filter, project_filter)
+        context['payment_stats'] = get_payment_statistics(year_filter, project_filter)
+        context['settlement_stats'] = get_settlement_statistics()
+    elif stat_type == 'procurement':
         # 采购统计
         context['procurement_stats'] = get_procurement_statistics(year_filter, project_filter)
     elif stat_type == 'contract':
@@ -2407,7 +2438,7 @@ def statistics_view(request):
         # 年度对比
         context['comparison_data'] = get_year_comparison(comparison_years, project_filter)
     else:
-        # 综合概览
+        # 默认显示综合概览
         context['procurement_stats'] = get_procurement_statistics(year_filter, project_filter)
         context['contract_stats'] = get_contract_statistics(year_filter, project_filter)
         context['payment_stats'] = get_payment_statistics(year_filter, project_filter)
@@ -2438,12 +2469,18 @@ def ranking_view(request):
     
     # 获取查询参数
     current_year = datetime.now().year
-    selected_year = request.GET.get('year', str(current_year))  # 默认当前年份
+    selected_year = request.GET.get('year', '')
     ranking_type = request.GET.get('type', 'comprehensive')
     rank_by = request.GET.get('rank_by', 'project')  # project/person
     
-    # 转换年份参数
-    year_filter = int(selected_year) if selected_year and selected_year.isdigit() else None
+    # 转换年份参数 - 空字符串表示全部年份
+    if selected_year == '' or selected_year == 'all':
+        year_filter = None
+    elif selected_year and selected_year.isdigit():
+        year_filter = int(selected_year)
+    else:
+        # 如果没有提供年份参数，默认显示全部
+        year_filter = None
     
     # 获取筛选配置
     filter_config = get_monitoring_filter_config(request)

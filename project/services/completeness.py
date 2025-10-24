@@ -138,7 +138,7 @@ def check_contract_field_completeness():
         'contract_code',  # 合同编号
         'contract_name',  # 合同名称
         'contract_officer',  # 合同签订经办人
-        'contract_type',  # 合同类型
+        'file_positioning',  # 合同类型
         'party_a',  # 甲方
         'party_b',  # 乙方
         'contract_amount',  # 含税签约合同价（元）
@@ -239,7 +239,7 @@ def check_contract_completeness():
     
     # 检查1: 补充协议未关联主合同
     supplements_without_parent = Contract.objects.filter(
-        contract_type='补充协议',
+        file_positioning='补充协议',
         parent_contract__isnull=True
     )
     if supplements_without_parent.exists():
@@ -260,7 +260,7 @@ def check_contract_completeness():
     
     # 检查2: 解除协议未关联主合同
     terminations_without_parent = Contract.objects.filter(
-        contract_type='解除协议',
+        file_positioning='解除协议',
         parent_contract__isnull=True
     )
     if terminations_without_parent.exists():
@@ -302,7 +302,7 @@ def check_contract_completeness():
     
     # 检查4: 主合同不应关联其他合同
     main_contracts_with_parent = Contract.objects.filter(
-        contract_type='主合同',
+        file_positioning='主合同',
         parent_contract__isnull=False
     )
     if main_contracts_with_parent.exists():
@@ -460,7 +460,7 @@ def check_payment_settlement_completeness():
     
     # 检查1: 付款超过合同金额
     overpaid_contracts = []
-    for contract in Contract.objects.filter(contract_type='主合同'):
+    for contract in Contract.objects.filter(file_positioning='主合同'):
         total_paid = contract.get_total_paid_amount()
         contract_with_supplements = contract.get_contract_with_supplements_amount()
         
@@ -521,7 +521,7 @@ def check_payment_settlement_completeness():
     
     # 检查3: 主合同没有付款记录
     main_contracts_without_payment = []
-    for contract in Contract.objects.filter(contract_type='主合同'):
+    for contract in Contract.objects.filter(file_positioning='主合同'):
         if contract.get_payment_count() == 0:
             main_contracts_without_payment.append({
                 'code': contract.contract_code,
@@ -539,7 +539,7 @@ def check_payment_settlement_completeness():
             'records': main_contracts_without_payment[:20]
         })
     
-    total_contracts = Contract.objects.filter(contract_type='主合同').count()
+    total_contracts = Contract.objects.filter(file_positioning='主合同').count()
     total_payments = Payment.objects.count()
     total_settlements = Settlement.objects.count()
     
