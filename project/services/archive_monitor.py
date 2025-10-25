@@ -2,12 +2,10 @@
 归档监控服务
 监控采购、合同、结算资料的归档情况
 """
-from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
 from procurement.models import Procurement
 from contract.models import Contract
-from settlement.models import Settlement
 
 
 class ArchiveMonitorService:
@@ -55,6 +53,27 @@ class ArchiveMonitorService:
             'last_updated': timezone.now()
         }
     
+    def _get_filtered_procurements(self):
+        """按当前服务配置返回过滤后的采购查询集。"""
+        qs = Procurement.objects.filter(result_publicity_release_date__isnull=False)
+        if self.year:
+            qs = qs.filter(result_publicity_release_date__year=self.year)
+        if self.project_codes:
+            qs = qs.filter(project__project_code__in=self.project_codes)
+        return qs
+
+    def _get_filtered_contracts(self):
+        """按当前服务配置返回过滤后的合同查询集（主合同）。"""
+        qs = Contract.objects.filter(
+            file_positioning='主合同',
+            signing_date__isnull=False
+        )
+        if self.year:
+            qs = qs.filter(signing_date__year=self.year)
+        if self.project_codes:
+            qs = qs.filter(project__project_code__in=self.project_codes)
+        return qs
+
     def _get_procurement_archive_stats(self):
         """
         采购归档统计
@@ -68,18 +87,7 @@ class ArchiveMonitorService:
         Returns:
             dict: 采购归档统计数据
         """
-        from django.db.models import Avg, F, ExpressionWrapper, fields
-        
-        # 基础查询集
-        base_qs = Procurement.objects.filter(result_publicity_release_date__isnull=False)
-        
-        # 年份筛选 - 按结果公示发布时间统计
-        if self.year:
-            base_qs = base_qs.filter(result_publicity_release_date__year=self.year)
-        
-        # 项目筛选
-        if self.project_codes:
-            base_qs = base_qs.filter(project__project_code__in=self.project_codes)
+        base_qs = self._get_filtered_procurements()
         
         # 应归档总数
         total = base_qs.count()
@@ -176,19 +184,7 @@ class ArchiveMonitorService:
         Returns:
             dict: 合同归档统计数据
         """
-        # 基础查询集 - 只统计主合同
-        base_qs = Contract.objects.filter(
-            file_positioning='主合同',
-            signing_date__isnull=False
-        )
-        
-        # 年份筛选 - 按合同签订时间统计
-        if self.year:
-            base_qs = base_qs.filter(signing_date__year=self.year)
-        
-        # 项目筛选
-        if self.project_codes:
-            base_qs = base_qs.filter(project__project_code__in=self.project_codes)
+        base_qs = self._get_filtered_contracts()
         
         # 应归档总数
         total = base_qs.count()
@@ -336,6 +332,77 @@ class ArchiveMonitorService:
             return round((total_timely / total_archived * 100), 2)
         return 0
     
+    def get_project_archive_performance(self):
+        """
+        获取项目维度的归档表现数据，包含各项目的归档完成率与及时率。
+
+        Returns:
+            list: 每个项目的统计数据
+        """
+        project_stats = {}
+
+        def ensure_entry(project_obj):
+            key = project_obj.project_code if project_obj else '__unassigned__'
+            if key not in project_stats:
+                project_stats[key] = {
+                    'project_code': project_obj.project_code if project_obj else '',
+                    'project_name': project_obj.project_name if project_obj else '未关联项目',
+                    'procurement_total': 0,
+                    'procurement_archived': 0,
+                    'procurement_timely': 0,
+                    'contract_total': 0,
+                    'contract_archived': 0,
+                    'contract_timely': 0,
+                }
+            return project_stats[key]
+
+        # 采购维度
+        for proc in self._get_filtered_procurements().select_related('project'):
+            entry = ensure_entry(proc.project)
+            entry['procurement_total'] += 1
+            if proc.archive_date:
+                entry['procurement_archived'] += 1
+                if proc.result_publicity_release_date and (proc.archive_date - proc.result_publicity_release_date).days <= 40:
+                    entry['procurement_timely'] += 1
+
+        # 合同维度
+        for contract in self._get_filtered_contracts().select_related('project'):
+            entry = ensure_entry(contract.project)
+            entry['contract_total'] += 1
+            if contract.archive_date:
+                entry['contract_archived'] += 1
+                if contract.signing_date and (contract.archive_date - contract.signing_date).days <= 30:
+                    entry['contract_timely'] += 1
+
+        performance_list = []
+        for entry in project_stats.values():
+            procurement_total = entry['procurement_total']
+            contract_total = entry['contract_total']
+            procurement_archived = entry['procurement_archived']
+            contract_archived = entry['contract_archived']
+            procurement_timely = entry['procurement_timely']
+            contract_timely = entry['contract_timely']
+
+            entry['procurement_rate'] = round((procurement_archived / procurement_total * 100), 2) if procurement_total else 0
+            entry['procurement_timely_rate'] = round((procurement_timely / procurement_archived * 100), 2) if procurement_archived else 0
+            entry['contract_rate'] = round((contract_archived / contract_total * 100), 2) if contract_total else 0
+            entry['contract_timely_rate'] = round((contract_timely / contract_archived * 100), 2) if contract_archived else 0
+
+            overall_total = procurement_total + contract_total
+            overall_archived = procurement_archived + contract_archived
+            overall_timely = procurement_timely + contract_timely
+
+            entry['overall_rate'] = round((overall_archived / overall_total * 100), 2) if overall_total else 0
+            entry['overall_timely_rate'] = round((overall_timely / overall_archived * 100), 2) if overall_archived else 0
+            entry['overall_total'] = overall_total
+            entry['overall_archived'] = overall_archived
+            entry['overall_timely'] = overall_timely
+
+            performance_list.append(entry)
+
+        performance_list.sort(key=lambda item: item['overall_rate'], reverse=True)
+        return performance_list
+
     def get_overdue_list(self, module=None, severity=None, project_id=None):
         """
         获取逾期项目列表
@@ -372,18 +439,10 @@ class ArchiveMonitorService:
         """获取采购逾期列表"""
         deadline = timezone.now().date() - timedelta(days=40)
         
-        queryset = Procurement.objects.filter(
+        queryset = self._get_filtered_procurements().filter(
             result_publicity_release_date__lte=deadline,
             archive_date__isnull=True
         ).select_related('project')
-        
-        # 年份筛选
-        if self.year:
-            queryset = queryset.filter(result_publicity_release_date__year=self.year)
-        
-        # 项目筛选（批量）
-        if self.project_codes:
-            queryset = queryset.filter(project__project_code__in=self.project_codes)
         
         # 单项目筛选（用于详情页）
         if project_id:
@@ -427,19 +486,10 @@ class ArchiveMonitorService:
         """获取合同逾期列表"""
         deadline = timezone.now().date() - timedelta(days=30)
         
-        queryset = Contract.objects.filter(
-            file_positioning='主合同',
+        queryset = self._get_filtered_contracts().filter(
             signing_date__lte=deadline,
             archive_date__isnull=True
         ).select_related('project')
-        
-        # 年份筛选
-        if self.year:
-            queryset = queryset.filter(signing_date__year=self.year)
-        
-        # 项目筛选（批量）
-        if self.project_codes:
-            queryset = queryset.filter(project__project_code__in=self.project_codes)
         
         # 单项目筛选（用于详情页）
         if project_id:

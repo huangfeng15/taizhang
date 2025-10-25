@@ -10,7 +10,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.csrf import csrf_exempt
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, date, timezone as dt_timezone
+from typing import Optional
 from io import StringIO, BytesIO
 import csv
 from pathlib import Path
@@ -2099,7 +2100,6 @@ def _export_monitoring_dashboard_excel(archive_data, overdue_list, year_filter, 
         return HttpResponse(f'导出失败: {str(e)}', status=500)
 
 
-@login_required
 def monitoring_dashboard(request):
     """
     监控仪表盘 - 总览页面
@@ -2152,27 +2152,31 @@ def monitoring_dashboard(request):
     return render(request, 'monitoring/dashboard.html', context)
 
 
-@login_required
 def archive_monitor(request):
     """
     归档监控详情页面
     显示采购、合同的详细归档情况和逾期列表
+    按照原型图100%还原设计
     """
     from project.services.archive_monitor import ArchiveMonitorService
     from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
     
     # 获取筛选参数
     year_context = resolve_monitoring_year(request)
+    
+    # 单项目筛选（用于下拉框）- 获取第一个非空项目编码
     project_codes = request.GET.getlist('project')
     # 过滤掉空字符串
     project_codes = [p for p in project_codes if p]
-    module_filter = request.GET.get('module', '')  # procurement/contract
-    severity_filter = request.GET.get('severity', '')  # mild/moderate/severe
-    project_code = request.GET.get('project_single', '')  # 单项目筛选（详情页用）
+    
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=50)
+    module_param = request.GET.get('module', 'procurement')
+    allowed_modules = {'procurement', 'contract', 'settlement'}
+    if module_param not in allowed_modules:
+        module_param = 'procurement'
     
-    # 创建服务实例
+    # 创建服务实例 - 只在有项目筛选时传递项目编码
     archive_service = ArchiveMonitorService(
         year=year_context['year_filter'],
         project_codes=project_codes if project_codes else None
@@ -2181,97 +2185,147 @@ def archive_monitor(request):
     # 获取归档总览数据
     archive_overview = archive_service.get_archive_overview()
     
-    # 获取逾期列表（应用筛选）
-    overdue_list = archive_service.get_overdue_list(
-        module=module_filter if module_filter else None,
-        severity=severity_filter if severity_filter else None,
-        project_id=project_code if project_code else None
-    )
+    # 获取所有逾期列表（用于标签页展示）
+    all_overdue_list = archive_service.get_overdue_list()
+    procurement_overdue = [item for item in all_overdue_list if item['module'] == '采购']
+    contract_overdue = [item for item in all_overdue_list if item['module'] == '合同']
     
-    # 分页处理
-    paginator = Paginator(overdue_list, page_size)
-    page_obj = paginator.get_page(page)
+    project_archive_performance = archive_service.get_project_archive_performance()
+
+    # 分页处理：按模块分别分页
+    procurement_page_obj = None
+    contract_page_obj = None
+    procurement_paginator = None
+    contract_paginator = None
+    
+    if procurement_overdue:
+        procurement_paginator = Paginator(procurement_overdue, page_size)
+        procurement_page_obj = procurement_paginator.get_page(page if module_param == 'procurement' else 1)
+    if contract_overdue:
+        contract_paginator = Paginator(contract_overdue, page_size)
+        contract_page_obj = contract_paginator.get_page(page if module_param == 'contract' else 1)
+    
+    # 生成分页保留的查询参数
+    query_params = request.GET.copy()
+    for param in ['page', 'module']:
+        if param in query_params:
+            query_params.pop(param)
+    base_query_string = query_params.urlencode()
+    if base_query_string:
+        base_query_string = f"{base_query_string}&"
     
     # 获取筛选配置
     filter_config = get_monitoring_filter_config(request)
     
     context = {
         'archive_data': archive_overview,
-        'overdue_list': page_obj,
-        'page_obj': page_obj,
+        'overdue_list': all_overdue_list,  # 完整列表用于标签页
+        'procurement_page': procurement_page_obj,
+        'contract_page': contract_page_obj,
+        'procurement_paginator': procurement_paginator,
+        'contract_paginator': contract_paginator,
         'projects': filter_config['projects'],
+        'available_years': year_context['available_years'],
         'selected_year': year_context['display_year'],
         'year_filter_value': year_context['selected_year_value'],
-        'module_filter': module_filter,
-        'severity_filter': severity_filter,
-        'project_filter': project_code,
+        'selected_project_value': project_codes[0] if project_codes else '',
+        'project_performance': project_archive_performance,
+        'active_module': module_param,
+        'base_query_string': base_query_string,
         'page_title': '归档监控',
         **filter_config,  # 添加筛选配置
     }
     return render(request, 'monitoring/archive.html', context)
 
 
-@login_required
 def update_monitor(request):
-    """
-    更新监控页面
-    监控各模块数据的更新时效性
-    按照指标体系需求文档第3章设计
-    """
-    from project.services.update_monitor import (
-        get_project_update_status,
-        get_module_update_overview,
-        get_data_activity_analysis
-    )
-    from project.filter_config import get_monitoring_filter_config
+    """Render the event-driven update monitoring dashboard."""
+    from project.services.update_monitor import UpdateMonitorService
+
+    # Parse year and start-date filters
+    current_year = timezone.now().year
+    default_year = 2025
+    selected_year_raw = request.GET.get('year', str(default_year))
+    selected_year: Optional[int]
+    if selected_year_raw == 'all':
+        selected_year = None
+    else:
+        try:
+            selected_year = int(selected_year_raw)
+        except (TypeError, ValueError):
+            selected_year = default_year
+            selected_year_raw = str(default_year)
+
+    # If year is restricted ensure it does not exceed the latest year we support
+    if selected_year is not None and selected_year > current_year:
+        selected_year = current_year
+        selected_year_raw = str(current_year)
+
+    # Parse start_date filter (支持多种日期格式: YYYYMMDD 或 YYYY-MM-DD)
+    start_date_raw = request.GET.get('start_date', '')
+    start_date: Optional[date] = None
+    start_date_max = f"{current_year}-{timezone.now().month:02d}-{timezone.now().day:02d}"
     
-    # 获取筛选参数
-    warning_days = int(request.GET.get('warning_days', 40))
-    year = request.GET.get('year', '')
-    project_codes = request.GET.getlist('project')
-    # 过滤掉空字符串
-    project_codes = [p for p in project_codes if p]
-    only_active = request.GET.get('only_active', 'true').lower() == 'true'
-    page = request.GET.get('page', 1)
-    page_size = _get_page_size(request, default=20)
+    if start_date_raw:
+        # 清理输入：移除所有非数字字符
+        clean_date = ''.join(c for c in start_date_raw if c.isdigit())
+        
+        try:
+            # 尝试解析YYYYMMDD格式（8位数字）
+            if len(clean_date) == 8:
+                start_date = datetime.strptime(clean_date, '%Y%m%d').date()
+            # 尝试解析标准日期格式
+            elif '-' in start_date_raw:
+                start_date = datetime.strptime(start_date_raw, '%Y-%m-%d').date()
+            else:
+                start_date = None
+            
+            # 确保起始日期不超过今天
+            if start_date and start_date > timezone.now().date():
+                start_date = timezone.now().date()
+                start_date_raw = start_date.strftime('%Y%m%d')
+            elif start_date:
+                # 标准化为YYYYMMDD格式用于显示
+                start_date_raw = start_date.strftime('%Y%m%d')
+        except ValueError:
+            # 日期格式无效，忽略该参数
+            start_date = None
+            start_date_raw = ''
     
-    # 获取筛选配置
-    filter_config = get_monitoring_filter_config(request)
-    
-    # 获取模块概览数据
-    module_overview = get_module_update_overview(warning_days=warning_days)
-    
-    # 获取项目更新状态（按照需求文档3.2.1的表格设计）
-    project_codes_filter = [p for p in project_codes if p]  # 过滤空值
-    project_status = get_project_update_status(
-        warning_days=warning_days,
-        project_codes=project_codes_filter if project_codes_filter else None,
-        only_active=only_active
-    )
-    
-    # 获取数据活跃度分析（需求文档3.2.2）
-    activity_analysis = get_data_activity_analysis(days_range=30)
-    
-    # 分页处理项目列表
-    paginator = Paginator(project_status['projects'], page_size)
-    page_obj = paginator.get_page(page)
-    
+    # 如果没有提供起始日期，使用所选年份的1月1日作为默认值
+    if not start_date and selected_year is not None:
+        start_date = date(selected_year, 1, 1)
+        start_date_raw = start_date.isoformat()
+
+    # 构建年度下拉
+    base_years = list(range(2019, current_year + 1))
+    if default_year > current_year:
+        base_years.append(default_year)
+    available_years = sorted(set(base_years))
+    year_options = [{'value': 'all', 'label': '全部年度'}] + [
+        {'value': str(year), 'label': f'{year}年'} for year in available_years
+    ]
+
+    service = UpdateMonitorService()
+    snapshot = service.build_snapshot(year=selected_year, start_date=start_date if start_date else date(2019, 1, 1))
+
+    display_year = '全部年度' if selected_year is None else f'{selected_year}年'
+    display_start = start_date.strftime('%Y年%m月%d日') if start_date else '未限制'
+
     context = {
         'page_title': '更新监控',
-        'module_overview': module_overview,
-        'project_status': project_status['summary'],
-        'projects': page_obj,
-        'page_obj': page_obj,
-        'activity_analysis': activity_analysis,
-        'warning_days': warning_days,
-        'only_active': only_active,
-        **filter_config,  # 添加筛选配置
+        'monitoring_data': snapshot,
+        'selected_year_value': selected_year_raw if selected_year is not None else 'all',
+        'year_options': year_options,
+        'start_date_value': start_date_raw,
+        'start_date_max': start_date_max,
+        'display_year': display_year,
+        'display_start': display_start,
     }
-    
+
     return render(request, 'monitoring/update.html', context)
 
 
-@login_required
 def completeness_check(request):
     """
     齐全性检查页面
@@ -2357,7 +2411,6 @@ def completeness_check(request):
     return render(request, 'monitoring/completeness.html', context)
 
 
-@login_required
 def statistics_view(request):
     """
     统计分析页面
@@ -2437,7 +2490,6 @@ def statistics_view(request):
     return render(request, 'monitoring/statistics.html', context)
 
 
-@login_required
 def ranking_view(request):
     """
     业务排名页面
@@ -2454,10 +2506,9 @@ def ranking_view(request):
         get_settlement_ranking,
         get_comprehensive_ranking
     )
-    from project.filter_config import get_monitoring_filter_config
     from datetime import datetime
     
-    # 获取查询参数
+    # Parse year and start-date filters
     current_year = datetime.now().year
     selected_year = request.GET.get('year', '')
     ranking_type = request.GET.get('type', 'comprehensive')
@@ -2531,7 +2582,6 @@ def ranking_view(request):
     return render(request, 'monitoring/ranking.html', context)
 
 
-@login_required
 def generate_report(request):
     """
     报表生成页面

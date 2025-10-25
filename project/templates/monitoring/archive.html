@@ -5,436 +5,826 @@
 {% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-color: #1890ff;
+        --primary-dark: #096dd9;
+        --primary-light: #40a9ff;
+        --bg-color: #f0f2f5;
+        --card-bg: #ffffff;
+        --text-primary: #262626;
+        --text-secondary: #595959;
+        --border-color: #e8e8e8;
+        --success-color: #52c41a;
+        --warning-color: #faad14;
+        --error-color: #ff4d4f;
+        --disabled-color: #bfbfbf;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    body {
+        background-color: var(--bg-color);
+    }
+
+    .dashboard-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    /* 页面头部 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .filters {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        background-color: var(--card-bg);
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+    }
+
+    .filter-group select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        min-width: 180px;
+    }
+
+    /* 核心KPI概览 */
+    .kpi-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .kpi-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border-left: 5px solid var(--primary-color);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+    
+    .kpi-card.is-success { border-left-color: var(--success-color); }
+    .kpi-card.is-warning { border-left-color: var(--warning-color); }
+
+    .kpi-card-title {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+
+    .kpi-card-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .kpi-card-value .unit {
+        font-size: 20px;
+        font-weight: 500;
+        margin-left: 4px;
+    }
+
+    .kpi-card-icon {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 28px;
+        color: var(--primary-light);
+        opacity: 0.7;
+    }
+    
+    .kpi-card.is-success .kpi-card-icon { color: var(--success-color); }
+    .kpi-card.is-warning .kpi-card-icon { color: var(--warning-color); }
+
+    /* 指标分组网格 */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .metric-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .metric-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .metric-card-title {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .metric-card-details-link {
+        font-size: 13px;
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+    
+    .metric-card-details-link:hover {
+        text-decoration: underline;
+    }
+
+    .metric-card-body {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    /* 图表区域 */
+    .chart-area {
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
+    /* 环形图 */
+    .donut-chart {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .donut-chart-center {
+        width: 110px;
+        height: 110px;
+        background: var(--card-bg);
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .donut-chart-value {
+        font-size: 28px;
+        font-weight: 700;
+    }
+    
+    .donut-chart-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    /* 统计数据列表 */
+    .stats-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 12px;
+        background: var(--bg-color);
+        border-radius: 8px;
+    }
+
+    .stat-item-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    .stat-item-value {
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .stat-item-value.is-error {
+        color: var(--error-color);
+    }
+    
+    .stat-item-value.is-disabled {
+        color: var(--disabled-color);
+    }
+    
+    .disabled-note {
+        text-align: center;
+        font-size: 13px;
+        color: var(--text-secondary);
+        padding: 16px;
+        background: var(--bg-color);
+        border-radius: 8px;
+        margin-top: auto;
+    }
+
+    /* 详情数据表格 */
+    .details-section {
+        margin-top: 24px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .data-table th {
+        background-color: var(--bg-color);
+        font-weight: 600;
+    }
+
+    .data-table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .performance-section {
+        margin-top: 24px;
+    }
+
+    .performance-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 12px;
+    }
+
+    .performance-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .sub-stat {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .badge-error { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+    .badge-warning { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+    
+    .text-muted {
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+
+    /* 分页组件 */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-top: 24px;
+    }
+
+    .pagination a,
+    .pagination span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+
+    .pagination a:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .pagination .current {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .pagination .disabled {
+        color: var(--disabled-color);
+        cursor: not-allowed;
+    }
+
+    /* 标签页组件 */
+    .tabs-nav {
+        display: flex;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 24px;
+    }
+
+    .tab-item {
+        padding: 12px 24px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.3s;
+    }
+
+    .tab-item:hover {
+        color: var(--primary-color);
+    }
+
+    .tab-item.active {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+    }
+
+    .tab-pane {
+        display: none;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 1200px) {
+        .metrics-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 16px;
+        }
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filters {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-group select {
+            width: 100%;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="monitoring-dashboard">
-    <div class="monitoring-page__header">
-        <div class="monitoring-page__intro">
-            <h1><i class="fas fa-archive"></i> {{ page_title }}</h1>
-            <p class="text-muted">监控采购和合同资料的归档情况，及时发现逾期项目</p>
-        </div>
-        
-        <!-- 筛选器 - 右上角 -->
-        <div class="monitoring-page__filters">
-            {% include 'components/year_project_filter.html' with available_years=available_years projects=projects selected_year=year_filter_value selected_project=selected_project_value form_id='archive' %}
-        </div>
-    </div>
+<div class="dashboard-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+        <h1 class="page-title">归档监控仪表盘</h1>
+        <div class="filters" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-left: auto; width: auto;">
+            <form method="get"
+                  action="{% url 'archive_monitor' %}"
+                  id="archiveFilterForm"
+                  style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                    年份：
+                </label>
+                <select name="year"
+                        class="form-control form-control-sm filter-select"
+                        onchange="this.form.submit()"
+                        style="width: 140px; border-radius: 4px;">
+                    <option value="all" {% if year_filter_value == "all" %}selected{% endif %}>全部年度</option>
+                    {% for year in available_years %}
+                    <option value="{{ year }}" {% if year_filter_value == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
+                    {% endfor %}
+                </select>
 
-    <!-- 关键指标仪表盘 - 突出显示最重要的数据 -->
-    <div class="dashboard-gauge-container">
-        <div class="gauge-card">
-            <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 160 160">
-                    <defs>
-                        <linearGradient id="gaugeGradientOverall" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
-                    <circle class="gauge-progress primary" cx="80" cy="80" r="70"
-                            stroke-dasharray="440"
-                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.overall_rate }} / 100));"></circle>
-                </svg>
-                <div class="gauge-value">{{ archive_data.overall_rate }}%</div>
-            </div>
-            <div class="gauge-label">综合归档率</div>
-            <div class="gauge-subtitle">总体归档完成度</div>
+                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                    项目：
+                </label>
+                <select name="project"
+                        class="form-control form-control-sm filter-select"
+                        onchange="this.form.submit()"
+                        style="width: 220px; max-width: 240px; border-radius: 4px;">
+                    <option value="" {% if not selected_project_value %}selected{% endif %}>所有项目</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_code }}" {% if selected_project_value == project.project_code %}selected{% endif %}>
+                        {{ project.project_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
+    </header>
 
-        <div class="gauge-card {% if archive_data.overall_timely_rate >= 80 %}success{% elif archive_data.overall_timely_rate >= 60 %}warning{% else %}danger{% endif %}">
-            <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 160 160">
-                    <defs>
-                        <linearGradient id="gaugeGradientTimely" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#52c41a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#73d13d;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
-                    <circle class="gauge-progress {% if archive_data.overall_timely_rate >= 80 %}success{% elif archive_data.overall_timely_rate >= 60 %}warning{% else %}danger{% endif %}" cx="80" cy="80" r="70"
-                            stroke-dasharray="440"
-                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.overall_timely_rate }} / 100));"></circle>
-                </svg>
-                <div class="gauge-value">{{ archive_data.overall_timely_rate }}%</div>
-            </div>
-            <div class="gauge-label">归档及时率</div>
-            <div class="gauge-subtitle">在规定时限内完成</div>
+    <!-- 核心KPI概览 -->
+    <section class="kpi-overview">
+        <div class="kpi-card is-success">
+            <div class="kpi-card-title">总归档成功率</div>
+            <div class="kpi-card-value">{{ archive_data.overall_rate }}<span class="unit">%</span></div>
+            <i class="fas fa-check-circle kpi-card-icon"></i>
         </div>
-
-        <div class="gauge-card {% if archive_data.procurement.rate >= 80 %}success{% elif archive_data.procurement.rate >= 60 %}warning{% endif %}">
-            <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 160 160">
-                    <defs>
-                        <linearGradient id="gaugeGradientProc" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
-                    <circle class="gauge-progress {% if archive_data.procurement.rate >= 80 %}success{% else %}warning{% endif %}" cx="80" cy="80" r="70"
-                            stroke-dasharray="440"
-                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.procurement.rate }} / 100));"></circle>
-                </svg>
-                <div class="gauge-value">{{ archive_data.procurement.rate }}%</div>
-            </div>
-            <div class="gauge-label">采购归档率</div>
-            <div class="gauge-subtitle">已归档 {{ archive_data.procurement.archived }}/{{ archive_data.procurement.total }}</div>
+        <div class="kpi-card is-warning">
+            <div class="kpi-card-title">当日异常总数</div>
+            <div class="kpi-card-value">{{ archive_data.procurement.overdue|add:archive_data.contract.overdue }}</div>
+            <i class="fas fa-exclamation-triangle kpi-card-icon"></i>
         </div>
-
-        <div class="gauge-card {% if archive_data.contract.rate >= 80 %}success{% elif archive_data.contract.rate >= 60 %}warning{% endif %}">
-            <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 160 160">
-                    <defs>
-                        <linearGradient id="gaugeGradientCont" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
-                    <circle class="gauge-progress {% if archive_data.contract.rate >= 80 %}success{% else %}warning{% endif %}" cx="80" cy="80" r="70"
-                            stroke-dasharray="440"
-                            style="stroke-dashoffset: calc(440 - (440 * {{ archive_data.contract.rate }} / 100));"></circle>
-                </svg>
-                <div class="gauge-value">{{ archive_data.contract.rate }}%</div>
-            </div>
-            <div class="gauge-label">合同归档率</div>
-            <div class="gauge-subtitle">已归档 {{ archive_data.contract.archived }}/{{ archive_data.contract.total }}</div>
+        <div class="kpi-card">
+            <div class="kpi-card-title">归档完成率</div>
+            <div class="kpi-card-value">{% if archive_data.overall_rate >= 80 %}良好{% elif archive_data.overall_rate >= 60 %}中等{% else %}较差{% endif %}</div>
+            <i class="fas fa-heartbeat kpi-card-icon"></i>
         </div>
+    </section>
 
-        <div class="gauge-card warning">
-            <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 160 160">
-                    <circle class="gauge-background" cx="80" cy="80" r="70"></circle>
-                </svg>
-                <div class="gauge-value">{{ archive_data.procurement.overdue|add:archive_data.contract.overdue }}</div>
-            </div>
-            <div class="gauge-label">逾期项目</div>
-            <div class="gauge-subtitle">需要立即处理</div>
-        </div>
-    </div>
-
-    <!-- 标签页容器 - 组织多模块数据 -->
-    <div class="tab-container">
-        <ul class="tab-nav">
-            <li class="tab-nav-item">
-                <a href="#tab-procurement" class="tab-nav-link active" onclick="switchTab(event, 'tab-procurement')">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>采购详情</span>
-                </a>
-            </li>
-            <li class="tab-nav-item">
-                <a href="#tab-contract" class="tab-nav-link" onclick="switchTab(event, 'tab-contract')">
-                    <i class="fas fa-file-contract"></i>
-                    <span>合同详情</span>
-                </a>
-            </li>
-            <li class="tab-nav-item">
-                <a href="#tab-overdue" class="tab-nav-link" onclick="switchTab(event, 'tab-overdue')">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>逾期预警 ({{ archive_data.procurement.overdue|add:archive_data.contract.overdue }})</span>
-                </a>
-            </li>
-        </ul>
-
-        <!-- 标签页内容 -->
-        <div class="tab-content">
-            <!-- 采购详情 -->
-            <div id="tab-procurement" class="tab-pane active">
-                <div class="compact-stat-card">
-                    <div class="stat-header">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span>采购归档统计</span>
-                    </div>
-                    <div class="stat-body">
-                        <div class="stat-item">
-                            <div class="stat-number">{{ archive_data.procurement.total }}</div>
-                            <div class="stat-label">应归档</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number text-success">{{ archive_data.procurement.archived }}</div>
-                            <div class="stat-label">已归档</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number text-warning">{{ archive_data.procurement.overdue }}</div>
-                            <div class="stat-label">逾期</div>
-                        </div>
-                        <div class="stat-item primary">
-                            <div class="stat-number">{{ archive_data.procurement.rate }}%</div>
-                            <div class="stat-label">归档率</div>
+    <!-- 指标分组网格 -->
+    <main class="metrics-grid">
+        <!-- 采购归档 -->
+        <div class="metric-card">
+            <header class="metric-card-header">
+                <h3 class="metric-card-title">采购归档完成率</h3>
+                <a href="#tab-procurement" class="metric-card-details-link" onclick="switchToTab('tab-procurement')">查看详情 &rarr;</a>
+            </header>
+            <div class="metric-card-body">
+                <div class="chart-area">
+                    <div class="donut-chart" style="background: conic-gradient(var(--primary-color) 0% {{ archive_data.procurement.rate }}%, var(--border-color) {{ archive_data.procurement.rate }}% 100%);">
+                        <div class="donut-chart-center">
+                            <div class="donut-chart-value">{{ archive_data.procurement.rate }}%</div>
+                            <div class="donut-chart-label">归档率</div>
                         </div>
                     </div>
                 </div>
+                <ul class="stats-list">
+                    <li class="stat-item">
+                        <div class="stat-item-label">总数</div>
+                        <div class="stat-item-value">{{ archive_data.procurement.total }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">已归档</div>
+                        <div class="stat-item-value">{{ archive_data.procurement.archived }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">待归档</div>
+                        <div class="stat-item-value">{{ archive_data.procurement.unarchived }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">逾期数</div>
+                        <div class="stat-item-value is-error">{{ archive_data.procurement.overdue }}</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
 
-                <!-- 归档及时性分析 - 紧凑单行布局 -->
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body" style="padding: 15px 20px;">
-                                <div class="row align-items-center">
-                                    <!-- 归档及时性指标 -->
-                                    <div class="col-md-3">
-                                        <div class="text-center" style="border-right: 2px solid #e9ecef; padding-right: 15px;">
-                                            <div style="color: #52c41a; font-size: 42px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.timely_rate }}%</div>
-                                            <div style="color: #666; font-size: 13px; margin-top: 5px; font-weight: 600;">及时归档率</div>
-                                            <div style="color: #999; font-size: 11px; margin-top: 2px;">40天内 | 平均{{ archive_data.procurement.avg_archive_days }}天</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- 逾期分级统计 -->
-                                    <div class="col-md-9">
-                                        <div class="row text-center">
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #cf1322; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.severe|default:0 }}</div>
-                                                    <div style="color: #cf1322; font-size: 13px; margin-top: 5px; font-weight: 600;">严重逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">超过30天</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #d46b08; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.moderate|default:0 }}</div>
-                                                    <div style="color: #d46b08; font-size: 13px; margin-top: 5px; font-weight: 600;">中度逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">16-30天</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #0958d9; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.procurement.overdue_breakdown.mild|default:0 }}</div>
-                                                    <div style="color: #0958d9; font-size: 13px; margin-top: 5px; font-weight: 600;">轻度逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">1-15天</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+        <!-- 合同归档 -->
+        <div class="metric-card">
+            <header class="metric-card-header">
+                <h3 class="metric-card-title">合同归档完成率</h3>
+                <a href="#tab-contract" class="metric-card-details-link" onclick="switchToTab('tab-contract')">查看详情 &rarr;</a>
+            </header>
+            <div class="metric-card-body">
+                <div class="chart-area">
+                    <div class="donut-chart" style="background: conic-gradient(var(--success-color) 0% {{ archive_data.contract.rate }}%, var(--border-color) {{ archive_data.contract.rate }}% 100%);">
+                        <div class="donut-chart-center">
+                            <div class="donut-chart-value">{{ archive_data.contract.rate }}%</div>
+                            <div class="donut-chart-label">归档率</div>
                         </div>
                     </div>
+                </div>
+                <ul class="stats-list">
+                    <li class="stat-item">
+                        <div class="stat-item-label">总数</div>
+                        <div class="stat-item-value">{{ archive_data.contract.total }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">已归档</div>
+                        <div class="stat-item-value">{{ archive_data.contract.archived }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">待归档</div>
+                        <div class="stat-item-value">{{ archive_data.contract.unarchived }}</div>
+                    </li>
+                    <li class="stat-item">
+                        <div class="stat-item-label">逾期数</div>
+                        <div class="stat-item-value">{{ archive_data.contract.overdue }}</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 结算归档 -->
+        <div class="metric-card">
+            <header class="metric-card-header">
+                <h3 class="metric-card-title">结算归档完成率</h3>
+                <a href="#tab-settlement" class="metric-card-details-link" onclick="switchToTab('tab-settlement')">查看详情 &rarr;</a>
+            </header>
+            <div class="metric-card-body">
+                <div class="chart-area">
+                    <div class="donut-chart" style="background: conic-gradient(var(--disabled-color) 0% 0%, var(--border-color) 0% 100%);">
+                        <div class="donut-chart-center">
+                            <div class="donut-chart-value is-disabled">0%</div>
+                            <div class="donut-chart-label">归档率</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="disabled-note">
+                    <i class="fas fa-info-circle"></i>
+                    结算归档日期字段待补充，暂无数据。
                 </div>
             </div>
+        </div>
+    </main>
 
-            <!-- 合同详情 -->
-            <div id="tab-contract" class="tab-pane">
-                <div class="compact-stat-card">
-                    <div class="stat-header">
-                        <i class="fas fa-file-contract"></i>
-                        <span>合同归档统计</span>
-                    </div>
-                    <div class="stat-body">
-                        <div class="stat-item">
-                            <div class="stat-number">{{ archive_data.contract.total }}</div>
-                            <div class="stat-label">应归档</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number text-success">{{ archive_data.contract.archived }}</div>
-                            <div class="stat-label">已归档</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number text-warning">{{ archive_data.contract.overdue }}</div>
-                            <div class="stat-label">逾期</div>
-                        </div>
-                        <div class="stat-item primary">
-                            <div class="stat-number">{{ archive_data.contract.rate }}%</div>
-                            <div class="stat-label">归档率</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 归档及时性分析 - 紧凑单行布局 -->
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body" style="padding: 15px 20px;">
-                                <div class="row align-items-center">
-                                    <!-- 归档及时性指标 -->
-                                    <div class="col-md-3">
-                                        <div class="text-center" style="border-right: 2px solid #e9ecef; padding-right: 15px;">
-                                            <div style="color: #52c41a; font-size: 42px; font-weight: bold; line-height: 1;">{{ archive_data.contract.timely_rate }}%</div>
-                                            <div style="color: #666; font-size: 13px; margin-top: 5px; font-weight: 600;">及时归档率</div>
-                                            <div style="color: #999; font-size: 11px; margin-top: 2px;">30天内 | 平均{{ archive_data.contract.avg_archive_days }}天</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- 逾期分级统计 -->
-                                    <div class="col-md-9">
-                                        <div class="row text-center">
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #cf1322; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.severe|default:0 }}</div>
-                                                    <div style="color: #cf1322; font-size: 13px; margin-top: 5px; font-weight: 600;">严重逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">超过30天</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #d46b08; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.moderate|default:0 }}</div>
-                                                    <div style="color: #d46b08; font-size: 13px; margin-top: 5px; font-weight: 600;">中度逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">16-30天</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div style="background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%); border-radius: 8px; padding: 15px 10px;">
-                                                    <div style="color: #0958d9; font-size: 36px; font-weight: bold; line-height: 1;">{{ archive_data.contract.overdue_breakdown.mild|default:0 }}</div>
-                                                    <div style="color: #0958d9; font-size: 13px; margin-top: 5px; font-weight: 600;">轻度逾期</div>
-                                                    <div style="color: #999; font-size: 11px; margin-top: 2px;">1-15天</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- 项目归档表现 -->
+    <section class="details-section performance-section">
+        <div class="metric-card">
+            <header class="metric-card-header">
+                <h3 class="metric-card-title">项目归档完成率与及时性</h3>
+                <span class="metric-card-details-link">共 {{ project_performance|length }} 个项目</span>
+            </header>
+            <div class="metric-card-body">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>项目名称</th>
+                                <th>采购归档进度</th>
+                                <th>采购归档率</th>
+                                <th>采购及时率</th>
+                                <th>合同归档进度</th>
+                                <th>合同归档率</th>
+                                <th>合同及时率</th>
+                                <th>综合归档率</th>
+                                <th>综合及时率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if project_performance %}
+                                {% for project in project_performance %}
+                                <tr>
+                                    <td>
+                                        <div>{{ project.project_name }}</div>
+                                        <span class="text-muted">{{ project.project_code|default:"-" }}</span>
+                                    </td>
+                                    <td>{{ project.procurement_archived }}/{{ project.procurement_total }}</td>
+                                    <td>{{ project.procurement_rate|floatformat:1 }}%</td>
+                                    <td>{{ project.procurement_timely_rate|floatformat:1 }}%</td>
+                                    <td>{{ project.contract_archived }}/{{ project.contract_total }}</td>
+                                    <td>{{ project.contract_rate|floatformat:1 }}%</td>
+                                    <td>{{ project.contract_timely_rate|floatformat:1 }}%</td>
+                                    <td>{{ project.overall_rate|floatformat:1 }}%</td>
+                                    <td>{{ project.overall_timely_rate|floatformat:1 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" style="text-align: center; padding: 24px;">暂无项目归档统计数据</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- 逾期预警 -->
-            <div id="tab-overdue" class="tab-pane">
-                <!-- 筛选器 -->
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <form method="get" action="{% url 'archive_monitor' %}" class="form-inline" style="display: flex; align-items: center; gap: 15px; flex-wrap: nowrap;">
-                            <div class="form-group mb-0" style="display: flex; align-items: center; gap: 8px;">
-                                <label class="mb-0" style="white-space: nowrap;">模块：</label>
-                                <select name="module" class="form-control form-control-sm">
-                                    <option value="">全部</option>
-                                    <option value="procurement" {% if module_filter == 'procurement' %}selected{% endif %}>采购</option>
-                                    <option value="contract" {% if module_filter == 'contract' %}selected{% endif %}>合同</option>
-                                </select>
-                            </div>
-                            <div class="form-group mb-0" style="display: flex; align-items: center; gap: 8px;">
-                                <label class="mb-0" style="white-space: nowrap;">严重程度：</label>
-                                <select name="severity" class="form-control form-control-sm">
-                                    <option value="">全部</option>
-                                    <option value="severe" {% if severity_filter == 'severe' %}selected{% endif %}>严重</option>
-                                    <option value="moderate" {% if severity_filter == 'moderate' %}selected{% endif %}>中度</option>
-                                    <option value="mild" {% if severity_filter == 'mild' %}selected{% endif %}>轻度</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm mb-0">
-                                <i class="fas fa-search"></i> 筛选
-                            </button>
-                            <a href="{% url 'archive_monitor' %}" class="btn btn-secondary btn-sm mb-0">
-                                <i class="fas fa-redo"></i> 重置
-                            </a>
-                        </form>
-                    </div>
-                </div>
+    <!-- 详情数据展示 -->
+    <section class="details-section">
+        <div class="metric-card">
+            <div class="metric-card-body">
+                <nav class="tabs-nav">
+                    <div class="tab-item {% if active_module == 'procurement' %}active{% endif %}" onclick="switchTab(event, 'tab-procurement')">采购归档</div>
+                    <div class="tab-item {% if active_module == 'contract' %}active{% endif %}" onclick="switchTab(event, 'tab-contract')">合同归档</div>
+                    <div class="tab-item {% if active_module == 'settlement' %}active{% endif %}" onclick="switchTab(event, 'tab-settlement')">结算归档</div>
+                </nav>
 
-                <!-- 逾期项目列表 -->
-                <div class="card border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <h5><i class="fas fa-exclamation-triangle"></i> 逾期项目列表 
-                            <span class="badge badge-light text-danger float-right">共 {{ page_obj.paginator.count }} 项</span>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        {% if overdue_list %}
-                        <div class="table-responsive table-responsive--elevated">
-                            <table class="table table-hover table-sm" style="width: 100%;">
+                <div class="tabs-content">
+                    <!-- 采购详情 -->
+                    <div id="tab-procurement" class="tab-pane {% if active_module == 'procurement' %}active{% endif %}">
+                        <div class="table-responsive">
+                            <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 50px;">序号</th>
-                                        <th>模块</th>
-                                        <th>编号</th>
-                                        <th>名称</th>
-                                        <th>项目</th>
-                                        <th>参考日期</th>
+                                        <th>采购编码</th>
+                                        <th>项目名称</th>
+                                        <th>公示日期</th>
+                                        <th>归档截止</th>
+                                        <th>资料归档日期</th>
                                         <th>逾期天数</th>
-                                        <th>程度</th>
-                                        <th>经办人</th>
+                                        <th>严重程度</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for item in overdue_list %}
-                                    <tr class="severity-{{ item.severity }}">
-                                        <td>{{ forloop.counter }}</td>
-                                        <td><span class="badge badge-secondary">{{ item.module }}</span></td>
-                                        <td><code style="font-size: 12px;">{{ item.code }}</code></td>
-                                        <td>{{ item.name|truncatechars:30 }}</td>
-                                        <td>
-                                            {% if item.project_code %}
-                                            <small>{{ item.project_code }}</small><br>
-                                            <small class="text-muted">{{ item.project_name|truncatechars:15 }}</small>
-                                            {% else %}
-                                            <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <small>{{ item.reference_date_label }}</small><br>
-                                            <small>{{ item.reference_date }}</small>
-                                        </td>
-                                        <td>
-                                            <strong class="text-danger">{{ item.overdue_days }}</strong>天
-                                            <br><small class="text-muted">(应≤{{ item.deadline_days }}天)</small>
-                                        </td>
-                                        <td>
-                                            {% if item.severity == 'severe' %}
-                                            <span class="badge badge-danger">严重</span>
-                                            {% elif item.severity 
-== 'moderate' %}
-                                            <span class="badge badge-warning">中度</span>
-                                            {% else %}
-                                            <span class="badge badge-info">轻度</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ item.officer|default:"-" }}</td>
-                                    </tr>
-                                    {% endfor %}
+                                    {% if procurement_page and procurement_page.object_list %}
+                                        {% for item in procurement_page %}
+                                        <tr>
+                                            <td>{{ item.code }}</td>
+                                            <td>{{ item.name|truncatechars:30 }}</td>
+                                            <td>{{ item.reference_date|date:"Y-m-d" }}</td>
+                                            <td>{% if item.reference_date %}{{ item.reference_date|date:"Y-m-d" }}后{{ item.deadline_days }}天{% endif %}</td>
+                                            <td>-</td>
+                                            <td>{{ item.overdue_days }}</td>
+                                            <td>
+                                                {% if item.severity == 'severe' %}
+                                                <span class="badge badge-error">严重逾期</span>
+                                                {% elif item.severity == 'moderate' %}
+                                                <span class="badge badge-warning">中度逾期</span>
+                                                {% else %}
+                                                <span class="badge badge-warning">轻微逾期</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="7" style="text-align: center; padding: 40px;">
+                                                <i class="fas fa-check-circle" style="font-size: 48px; color: var(--success-color); margin-bottom: 16px;"></i>
+                                                <p style="color: var(--text-secondary); margin: 0;">暂无逾期采购项目</p>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
                                 </tbody>
                             </table>
                         </div>
-
-                        <!-- 分页 -->
-                        {% if page_obj.has_other_pages %}
-                        <nav aria-label="分页导航" class="mt-4">
-                            <ul class="pagination justify-content-center">
-                                {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">首页</a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">上一页</a>
-                                </li>
-                                {% endif %}
-
-                                <li class="page-item active">
-                                    <span class="page-link">
-                                        第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页
-                                    </span>
-                                </li>
-
-                                {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">下一页</a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if module_filter %}&module={{ module_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}">末页</a>
-                                </li>
-                                {% endif %}
-                            </ul>
+                        {% if procurement_page and procurement_page.paginator.num_pages > 1 %}
+                        <nav class="pagination">
+                            {% if procurement_page.has_previous %}
+                            <a href="?{{ base_query_string }}module=procurement&page=1">&laquo; 首页</a>
+                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.previous_page_number }}">上一页</a>
+                            {% else %}
+                            <span class="disabled">&laquo; 首页</span>
+                            <span class="disabled">上一页</span>
+                            {% endif %}
+                            
+                            <span class="current">{{ procurement_page.number }}</span>
+                            
+                            {% if procurement_page.has_next %}
+                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.next_page_number }}">下一页</a>
+                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.paginator.num_pages }}">末页 &raquo;</a>
+                            {% else %}
+                            <span class="disabled">下一页</span>
+                            <span class="disabled">末页 &raquo;</span>
+                            {% endif %}
                         </nav>
                         {% endif %}
+                    </div>
 
-                        {% else %}
-                        <div class="alert alert-success text-center mb-0">
-                            <i class="fas fa-check-circle fa-3x mb-3"></i>
-                            <h5>太棒了！</h5>
-                            <p>当前筛选条件下没有逾期项目。</p>
+                    <!-- 合同详情 -->
+                    <div id="tab-contract" class="tab-pane {% if active_module == 'contract' %}active{% endif %}">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>合同编码</th>
+                                        <th>合同名称</th>
+                                        <th>签订日期</th>
+                                        <th>归档截止</th>
+                                        <th>资料归档日期</th>
+                                        <th>逾期天数</th>
+                                        <th>严重程度</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if contract_page and contract_page.object_list %}
+                                        {% for item in contract_page %}
+                                        <tr>
+                                            <td>{{ item.code }}</td>
+                                            <td>{{ item.name|truncatechars:30 }}</td>
+                                            <td>{{ item.reference_date|date:"Y-m-d" }}</td>
+                                            <td>{% if item.reference_date %}{{ item.reference_date|date:"Y-m-d" }}后{{ item.deadline_days }}天{% endif %}</td>
+                                            <td>-</td>
+                                            <td>{{ item.overdue_days }}</td>
+                                            <td>
+                                                {% if item.severity == 'severe' %}
+                                                <span class="badge badge-error">严重逾期</span>
+                                                {% elif item.severity == 'moderate' %}
+                                                <span class="badge badge-warning">中度逾期</span>
+                                                {% else %}
+                                                <span class="badge badge-warning">轻微逾期</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="7" style="text-align: center; padding: 40px;">
+                                                <i class="fas fa-check-circle" style="font-size: 48px; color: var(--success-color); margin-bottom: 16px;"></i>
+                                                <p style="color: var(--text-secondary); margin: 0;">暂无逾期合同项目</p>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
                         </div>
+                        {% if contract_page and contract_page.paginator.num_pages > 1 %}
+                        <nav class="pagination">
+                            {% if contract_page.has_previous %}
+                            <a href="?{{ base_query_string }}module=contract&page=1">&laquo; 首页</a>
+                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.previous_page_number }}">上一页</a>
+                            {% else %}
+                            <span class="disabled">&laquo; 首页</span>
+                            <span class="disabled">上一页</span>
+                            {% endif %}
+                            
+                            <span class="current">{{ contract_page.number }}</span>
+                            
+                            {% if contract_page.has_next %}
+                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.next_page_number }}">下一页</a>
+                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.paginator.num_pages }}">末页 &raquo;</a>
+                            {% else %}
+                            <span class="disabled">下一页</span>
+                            <span class="disabled">末页 &raquo;</span>
+                            {% endif %}
+                        </nav>
                         {% endif %}
+                    </div>
+
+                    <!-- 结算详情 -->
+                    <div id="tab-settlement" class="tab-pane {% if active_module == 'settlement' %}active{% endif %}">
+                        <div class="disabled-note" style="margin-bottom: 24px;">
+                            <i class="fas fa-info-circle"></i>
+                            结算归档功能待上线，暂无逾期数据。
+                        </div>
+                        <nav class="pagination">
+                            <span class="disabled">&laquo; 上一页</span>
+                            <span class="current">1</span>
+                            <span class="disabled">下一页 &raquo;</span>
+                        </nav>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- 返回按钮 -->
-    <div class="mt-4">
-        <a href="{% url 'monitoring_dashboard' %}" class="btn btn-secondary">
+    <div style="margin-top: 24px;">
+        <a href="{% url 'monitoring_dashboard' %}" class="btn btn-secondary" style="background: #95a5a6; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block;">
             <i class="fas fa-arrow-left"></i> 返回监控中心
         </a>
     </div>
@@ -442,15 +832,14 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // 标签页切换功能
 function switchTab(event, tabId) {
     event.preventDefault();
     
     // 移除所有活动状态
-    document.querySelectorAll('.tab-nav-link').forEach(link => {
-        link.classList.remove('active');
+    document.querySelectorAll('.tab-item').forEach(item => {
+        item.classList.remove('active');
     });
     document.querySelectorAll('.tab-pane').forEach(pane => {
         pane.classList.remove('active');
@@ -461,9 +850,14 @@ function switchTab(event, tabId) {
     document.getElementById(tabId).classList.add('active');
 }
 
-// 页面加载完成后执行
-document.addEventListener('DOMContentLoaded', function() {
-    // 已删除综合概览相关图表代码
-});
+// 从链接切换到标签页
+function switchToTab(tabId) {
+    const targetTab = document.querySelector(`[onclick*="${tabId}"]`);
+    if (targetTab) {
+        targetTab.click();
+    }
+    // 滚动到详情区域
+    document.querySelector('.details-section').scrollIntoView({ behavior: 'smooth' });
+}
 </script>
 {% endblock %}

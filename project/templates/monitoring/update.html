@@ -4,557 +4,831 @@
 {% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* 更新监控专用样式 */
-.update-table {
-    width: 100%;
-    margin-top: 20px;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+:root {
+    --primary-color: #1890ff;
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-primary: #262626;
+    --text-secondary: #595959;
+    --border-color: #e8e8e8;
+    --success-color: #52c41a;
+    --error-color: #ff4d4f;
+    --warning-color: #faad14;
+    --neutral-color: #f0f0f0;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-.update-table table {
-    width: 100%;
-    border-collapse: collapse;
+.dashboard-container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 24px;
+    background-color: var(--bg-color);
+    font-family: var(--font-family);
 }
 
-.update-table th {
-    background: #f8f9fa;
-    padding: 12px;
-    text-align: center;
-    font-weight: 600;
-    border-bottom: 2px solid #dee2e6;
-    color: #495057;
-}
-
-.update-table td {
-    padding: 10px 12px;
-    text-align: center;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.update-table tbody tr:hover {
-    background: #f8f9fa;
-}
-
-/* 状态徽章样式 */
-.status-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.status-normal {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-warning {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.status-error {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.status-no-data {
-    background: #e9ecef;
-    color: #6c757d;
-}
-
-/* 数据单元格样式 */
-.data-cell {
+.page-header {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
-    gap: 4px;
+    margin-bottom: 24px;
+    gap: 16px;
 }
 
-.data-date {
+.page-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.helper-note {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: var(--card-bg);
+    padding: 14px 18px;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+}
+
+.filter-controls label {
     font-size: 14px;
+    color: var(--text-secondary);
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.data-days {
+.filter-controls select,
+.filter-controls input[type="text"],
+.filter-controls input[type="date"] {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 15px;
+    min-width: 150px;
+    color: var(--text-primary);
+    background: #fff;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.filter-controls input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.filter-controls input[type="text"].error {
+    border-color: var(--error-color);
+}
+
+.date-error {
+    color: var(--error-color);
     font-size: 12px;
-    color: #6c757d;
+    margin-left: 8px;
+    animation: fadeIn 0.3s;
 }
 
-/* 活跃度卡片 */
-.activity-cards {
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.kpi-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.kpi-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--primary-color);
+}
+
+.kpi-card.is-success {
+    border-top-color: var(--success-color);
+}
+
+.kpi-card.is-error {
+    border-top-color: var(--error-color);
+}
+
+.kpi-card-title {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.kpi-card-value {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.kpi-card-value .unit {
+    font-size: 22px;
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+.main-content-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+
+.heatmap-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-bottom: 24px;
+    align-items: center;
+    padding: 16px;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px dashed var(--border-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.legend-color-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.legend-color-box.on-time { background-color: var(--success-color); }
+.legend-color-box.delayed { background-color: var(--error-color); }
+.legend-color-box.no-event {
+    background-color: var(--neutral-color);
+    border: 1px solid #d9d9d9;
+}
+
+.legend-color-box.mixed-event {
+    display: flex;
+    width: 28px;
+    height: 16px;
+    overflow: hidden;
+    border: 1px solid #ccc;
+}
+
+.mixed-bar-on-time { background-color: var(--success-color); height: 100%; }
+.mixed-bar-delayed { background-color: var(--error-color); height: 100%; }
+
+.legend-rule {
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex-basis: 100%;
+}
+
+.legend-rule strong { color: var(--primary-color); }
+
+.project-heatmap-container {
+    display: grid;
+    gap: 24px;
+}
+
+.project-card {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 18px;
+    transition: box-shadow 0.3s;
+    background: #fff;
+}
+
+.project-card:hover { box-shadow: var(--shadow); }
+
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.project-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;         /* 强制在任意字符间断行 */
+    line-height: 1.5;              /* 增加行高以提高可读性 */
+    overflow-wrap: anywhere;       /* 在任何位置换行 */
+    white-space: normal;           /* 允许正常换行 */
+}
+
+.project-code {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.project-timeliness-rate {
+    font-size: 16px;
+    font-weight: bold;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.project-timeliness-rate.good {
+    color: var(--success-color);
+    border-color: rgba(82, 196, 26, 0.3);
+    background: rgba(82, 196, 26, 0.08);
+}
+
+.project-timeliness-rate.bad {
+    color: var(--error-color);
+    border-color: rgba(255, 77, 79, 0.3);
+    background: rgba(255, 77, 79, 0.08);
+}
+
+.project-timeliness-rate.neutral {
+    color: var(--text-secondary);
+    border-color: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: 120px repeat(12, 1fr);
+    gap: 6px;
+}
+
+.grid-header,
+.module-name,
+.month-cell {
+    text-align: center;
+    padding: 10px 6px;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+.grid-header {
+    background-color: #fafafa;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.module-name {
+    background-color: #fafafa;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    word-break: break-word;
+    hyphens: auto;
+    line-height: 1.4;
+}
+
+.month-cell {
+    height: 34px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.month-cell:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.month-cell.on-time { background-color: var(--success-color); color: #fff; }
+.month-cell.delayed { background-color: var(--error-color); color: #fff; }
+.month-cell.no-event { background-color: var(--neutral-color); color: var(--text-secondary); }
+.month-cell.mixed-event { padding: 0; background-color: var(--neutral-color); overflow: hidden; }
+
+.ratio-bar { display: flex; width: 100%; height: 100%; }
+.ratio-bar-on-time { background-color: var(--success-color); }
+.ratio-bar-delayed { background-color: var(--error-color); }
+
+.tooltip {
+    visibility: hidden;
+    min-width: 240px;
+    background-color: rgba(51, 51, 51, 0.95);
+    color: #fff;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 100;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    text-align: left;
+}
+
+.tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(51, 51, 51, 0.95) transparent transparent transparent;
+}
+
+.month-cell:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.tooltip-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 6px;
+}
+
+.tooltip-content p {
+    margin: 4px 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.tooltip-content span {
+    color: rgba(255, 255, 255, 0.65);
+    display: block;
+}
+
+.tooltip-deadline {
+    color: var(--warning-color) !important;
+    font-weight: 600;
+}
+
+.stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 20px;
 }
 
-.activity-card {
-    background: white;
-    padding: 20px;
+.stats-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--primary-color);
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    text-align: center;
+    overflow: hidden;
 }
 
-.activity-card .value {
-    font-size: 32px;
-    font-weight: bold;
-    color: #667eea;
-    margin: 10px 0;
-}
-
-.activity-card .label {
+.toggle-btn {
+    padding: 8px 18px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
     font-size: 14px;
-    color: #6c757d;
+    color: var(--primary-color);
+    transition: background-color 0.3s, color 0.3s;
 }
 
-/* 沉默项目警告 */
-.silent-warning {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 4px;
+.toggle-btn.active { background-color: var(--primary-color); color: #fff; }
+
+.stats-table-wrapper { overflow-x: auto; }
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
 }
 
-.silent-warning strong {
-    color: #856404;
+.stats-table th,
+.stats-table td {
+    padding: 12px 8px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* 模块间高对比度分隔线 */
+.stats-table th.module-separator,
+.stats-table td.module-separator {
+    border-left: 3px solid #bfbfbf;
+}
+
+.stats-table thead {
+    background-color: #fafafa;
+    font-weight: 600;
+}
+
+.stats-table .col-group-header {
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.stats-table .col-subheader {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.stats-table tbody tr:hover { background-color: #f5f5f5; }
+.stats-table .timely { color: var(--success-color); }
+.stats-table .delayed { color: var(--error-color); }
+.stats-table .total { font-weight: bold; }
+.stats-table .row-header {
+    text-align: left;
+    font-weight: bold;
+    color: var(--text-primary);
+    word-break: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    max-width: 200px;
+}
+.stats-table .rate { font-weight: bold; }
+.stats-table .rate.good { color: var(--success-color); }
+.stats-table .rate.average { color: var(--warning-color); }
+.stats-table .rate.bad { color: var(--error-color); }
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    background: #fafafa;
+}
+
+.empty-state i {
+    font-size: 42px;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .heatmap-grid {
+        grid-template-columns: 90px repeat(12, 1fr);
+    }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="monitoring-dashboard">
-    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+<div class="dashboard-container">
+    <header class="page-header">
         <div>
-            <h1><i class="fas fa-sync-alt"></i> {{ page_title }}</h1>
-            <p class="text-muted">监控各项目各模块的数据更新时效性，及时发现数据录入滞后问题</p>
+            <h1 class="page-title"><i class="fas fa-chart-pie"></i> 项目更新准时率</h1>
+            <p class="helper-note">当前统计：{{ display_year }} · 监控起始：{{ display_start }}</p>
         </div>
-        
-        <!-- 筛选器 -->
-        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <form method="get" action="" id="updateFilterForm" style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                {% for filter in quick_filters %}
-                    {% if filter.type == 'select' %}
-                        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                            {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
-                        </label>
-                        <select name="{{ filter.name }}"
-                                class="form-control form-control-sm filter-select"
-                                onchange="this.form.submit()"
-                                style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
-                            {% for option in filter.options %}
-                                <option value="{{ option.value }}"
-                                        {% if option.value == filter.current_value %}selected{% endif %}>
-                                    {{ option.label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    {% endif %}
-                {% endfor %}
-                
-                <label style="display: flex; align-items: center; gap: 5px; margin: 0; cursor: pointer;">
-                    <input type="checkbox" name="only_active" value="true" {% if only_active %}checked{% endif %} onchange="this.form.submit()">
-                    <span style="font-size: 13px; color: #495057;">仅进行中项目</span>
-                </label>
-            </form>
+        <form class="filter-controls" method="get" action="">
+            <label for="yearFilter">
+                <i class="fas fa-calendar-alt"></i> 统计年份
+                <select id="yearFilter" name="year">
+                    {% for option in year_options %}
+                        <option value="{{ option.value }}" {% if option.value == selected_year_value %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label for="startDateFilter">
+                <i class="fas fa-hourglass-start"></i> 监控起始日期
+                <input type="text"
+                       id="startDateFilter"
+                       name="start_date"
+                       value="{{ start_date_value }}"
+                       placeholder="格式: YYYYMMDD 或 YYYY-MM-DD"
+                       maxlength="10"
+                       style="width: 180px;">
+            </label>
+            <button type="submit" class="btn-submit" style="padding: 8px 16px; border: 1px solid var(--primary-color); border-radius: 6px; background: var(--primary-color); color: white; cursor: pointer; font-size: 14px; transition: background 0.3s;">
+                <i class="fas fa-search"></i> 查询
+            </button>
+        </form>
+    </header>
+
+    <section class="kpi-overview">
+        <div class="kpi-card"><div class="kpi-card-title">监控中项目总数</div><div class="kpi-card-value" id="kpi-total-projects">-</div></div>
+        <div class="kpi-card is-success"><div class="kpi-card-title">总体更新准时率</div><div class="kpi-card-value" id="kpi-timeliness-rate">-</div></div>
+        <div class="kpi-card"><div class="kpi-card-title">业务事件总数</div><div class="kpi-card-value" id="kpi-total-events">-</div></div>
+        <div class="kpi-card is-error"><div class="kpi-card-title">累计延迟事件数</div><div class="kpi-card-value" id="kpi-delayed-events">-</div></div>
+    </section>
+
+    <section class="main-content-card">
+        <div id="project-heatmap-container" class="project-heatmap-container"></div>
+        <div class="heatmap-legend">
+            <div class="legend-item"><div class="legend-color-box on-time"></div> 准时更新</div>
+            <div class="legend-item"><div class="legend-color-box delayed"></div> 延迟更新</div>
+            <div class="legend-item"><div class="legend-color-box no-event"></div> 无业务事件</div>
+            <div class="legend-item"><div class="legend-color-box mixed-event"><div class="mixed-bar-on-time" style="width:60%"></div><div class="mixed-bar-delayed" style="width:40%"></div></div> 混合状态</div>
+            <div class="legend-rule"><strong>准时更新规则：</strong>业务发生后<strong>次月月底前</strong>完成录入视为准时，仅统计当前筛选年份数据。</div>
+            <div class="legend-rule"><strong>历史数据规则：</strong>早于"监控起始日期"的历史业务不纳入准时率统计。</div>
+            <div class="legend-rule"><strong>事件触发：</strong>采购(结果公示)、合同(签订日期)、付款(付款日期)、结算(完成日期)。</div>
         </div>
-    </div>
+    </section>
 
-    <!-- 关键指标 -->
-    <div class="alert alert-info mb-3">
-        <i class="fas fa-info-circle"></i>
-        <strong>监控标准：</strong>超过 <span class="badge badge-warning">{{ warning_days }}天</span> 未更新的模块将显示🔴红色预警；
-        <span class="badge badge-warning">30-40天</span> 未更新显示🟡黄色提醒；
-        <span class="badge badge-success">40天内</span>有更新显示✅绿色正常。
-    </div>
-
-    <!-- 总体统计卡片 -->
-    <div class="key-metrics-grid" style="margin-bottom: 30px;">
-        <div class="key-metric-card">
-            <div class="key-metric-header">
-                <div>
-                    <div class="key-metric-title">监控项目数</div>
-                    <div class="key-metric-value">{{ project_status.total_projects }}</div>
-                </div>
-                <div class="key-metric-icon">
-                    <i class="fas fa-folder-open"></i>
-                </div>
-            </div>
-            <div class="key-metric-trend">
-                <i class="fas fa-database"></i> 总项目数
-            </div>
-        </div>
-
-        <div class="key-metric-card success">
-            <div class="key-metric-header">
-                <div>
-                    <div class="key-metric-title">正常项目</div>
-                    <div class="key-metric-value">{{ project_status.normal_projects }}</div>
-                </div>
-                <div class="key-metric-icon success">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-            </div>
-            <div class="key-metric-trend up">
-                <i class="fas fa-arrow-up"></i> 数据及时更新
+    <section class="main-content-card">
+        <div class="stats-header">
+            <h2 class="stats-title"><i class="fas fa-table"></i> 详细统计数据</h2>
+            <div class="view-toggle">
+                <button id="view-by-project" class="toggle-btn active" type="button">按项目统计</button>
+                <button id="view-by-person" class="toggle-btn" type="button">按人员统计</button>
             </div>
         </div>
-
-        <div class="key-metric-card warning">
-            <div class="key-metric-header">
-                <div>
-                    <div class="key-metric-title">需关注项目</div>
-                    <div class="key-metric-value">{{ project_status.warning_projects }}</div>
-                </div>
-                <div class="key-metric-icon warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-            </div>
-            <div class="key-metric-trend down">
-                <i class="fas fa-exclamation-circle"></i> 存在过期数据
-            </div>
-        </div>
-    </div>
-
-    <!-- 数据活跃度分析 -->
-    {% if activity_analysis %}
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-chart-line"></i> 数据活跃度分析（最近30天）</h5>
-        </div>
-        <div class="card-body">
-            <div class="activity-cards">
-                <div class="activity-card">
-                    <div class="label">总更新次数</div>
-                    <div class="value">{{ activity_analysis.total_updates }}</div>
-                    <div class="label">次</div>
-                </div>
-                <div class="activity-card">
-                    <div class="label">日均更新</div>
-                    <div class="value">{{ activity_analysis.daily_avg_updates }}</div>
-                    <div class="label">次/天</div>
-                </div>
-                <div class="activity-card">
-                    <div class="label">30天无更新</div>
-                    <div class="value" style="color: #ffc107;">{{ activity_analysis.silent_projects.30天无更新 }}</div>
-                    <div class="label">个项目</div>
-                </div>
-                <div class="activity-card">
-                    <div class="label">60天无更新</div>
-                    <div class="value" style="color: #fd7e14;">{{ activity_analysis.silent_projects.60天无更新 }}</div>
-                    <div class="label">个项目</div>
-                </div>
-                <div class="activity-card">
-                    <div class="label">90天以上无更新</div>
-                    <div class="value" style="color: #dc3545;">{{ activity_analysis.silent_projects.90天以上无更新 }}</div>
-                    <div class="label">个项目</div>
-                </div>
-            </div>
-            
-            {% if activity_analysis.silent_projects.30天无更新 > 0 or activity_analysis.silent_projects.60天无更新 > 0 %}
-            <div class="silent-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                <strong>沉默项目提醒：</strong>
-                发现 <strong>{{ activity_analysis.silent_projects.30天无更新 }}</strong> 个项目超过30天未更新，
-                <strong>{{ activity_analysis.silent_projects.60天无更新 }}</strong> 个项目超过60天未更新，
-                请及时跟进录入最新数据。
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 各模块数据状态概览 -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 各模块数据状态</h5>
-        </div>
-        <div class="card-body">
-            <div class="row" style="display: flex; flex-wrap: nowrap; justify-content: space-between;">
-                
-                <div class="col-3" style="flex: 0 0 24%; max-width: 24%; padding: 0 5px;">
-                    <div class="card border-success" style="margin-bottom: 0;">
-                        <div class="card-body text-center" style="padding: 15px 10px;">
-                            <h6 style="margin-bottom: 8px; font-size: 15px;">采购</h6>
-                            <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: #28a745;">
-                                {{ module_overview.0.total_count|default:0 }}
-                            </div>
-                            <div style="font-size: 13px; color: #6c757d;">
-                                <span class="badge badge-success">{{ module_overview.0.normal_count|default:0 }} 正常</span>
-                                {% if module_overview.0.outdated_count > 0 %}
-                                <span class="badge badge-warning">{{ module_overview.0.outdated_count }} 过期</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-3" style="flex: 0 0 24%; max-width: 24%; padding: 0 5px;">
-                    <div class="card border-success" style="margin-bottom: 0;">
-                        <div class="card-body text-center" style="padding: 15px 10px;">
-                            <h6 style="margin-bottom: 8px; font-size: 15px;">合同</h6>
-                            <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: #007bff;">
-                                {{ module_overview.1.total_count|default:0 }}
-                            </div>
-                            <div style="font-size: 13px; color: #6c757d;">
-                                <span class="badge badge-success">{{ module_overview.1.normal_count|default:0 }} 正常</span>
-                                {% if module_overview.1.outdated_count > 0 %}
-                                <span class="badge badge-warning">{{ module_overview.1.outdated_count }} 过期</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-3" style="flex: 0 0 24%; max-width: 24%; padding: 0 5px;">
-                    <div class="card border-success" style="margin-bottom: 0;">
-                        <div class="card-body text-center" style="padding: 15px 10px;">
-                            <h6 style="margin-bottom: 8px; font-size: 15px;">付款</h6>
-                            <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: #ffc107;">
-                                {{ module_overview.2.total_count|default:0 }}
-                            </div>
-                            <div style="font-size: 13px; color: #6c757d;">
-                                <span class="badge badge-success">{{ module_overview.2.normal_count|default:0 }} 正常</span>
-                                {% if module_overview.2.outdated_count > 0 %}
-                                <span class="badge badge-warning">{{ module_overview.2.outdated_count }} 过期</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-3" style="flex: 0 0 24%; max-width: 24%; padding: 0 5px;">
-                    <div class="card border-success" style="margin-bottom: 0;">
-                        <div class="card-body text-center" style="padding: 15px 10px;">
-                            <h6 style="margin-bottom: 8px; font-size: 15px;">结算</h6>
-                            <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: #17a2b8;">
-                                {{ module_overview.3.total_count|default:0 }}
-                            </div>
-                            <div style="font-size: 13px; color: #6c757d;">
-                                <span class="badge badge-success">{{ module_overview.3.normal_count|default:0 }} 正常</span>
-                                {% if module_overview.3.outdated_count > 0 %}
-                                <span class="badge badge-warning">{{ module_overview.3.outdated_count }} 过期</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-    </div>
-
-    <!-- 最近更新日期监控表 - 按照需求文档3.2.1设计 -->
-    <div class="card">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="fas fa-table"></i> 最近更新日期监控表</h5>
-        </div>
-        <div class="card-body p-0">
-            <div class="update-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">序号</th>
-                            <th style="width: 200px;">项目名称</th>
-                            <th style="width: 100px;">项目状态</th>
-                            <th>采购更新</th>
-                            <th>合同更新</th>
-                            <th>付款更新</th>
-                            <th>结算更新</th>
-                            <th style="width: 120px;">整体状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for project in projects %}
-                        <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td style="text-align: left;">
-                                <a href="{% url 'project_detail' project.project_code %}" style="text-decoration: none; color: #007bff;">
-                                    {{ project.project_name }}
-                                </a>
-                            </td>
-                            <td>
-                                <span class="badge {% if project.project_status == '进行中' %}badge-primary{% else %}badge-secondary{% endif %}">
-                                    {{ project.project_status }}
-                                </span>
-                            </td>
-                            
-                            <!-- 采购模块 -->
-                            <td>
-                                {% if project.modules.采购.last_update %}
-                                <div class="data-cell">
-                                    <span class="data-date">{{ project.modules.采购.last_update }}</span>
-                                    <span class="data-days">({{ project.modules.采购.days_ago }}天)</span>
-                                    {% if project.modules.采购.status == 'normal' %}
-                                        <span style="font-size: 18px;">✅</span>
-                                    {% elif project.modules.采购.status == 'warning' %}
-                                        <span style="font-size: 18px;">🟡</span>
-                                    {% elif project.modules.采购.status == 'error' %}
-                                        <span style="font-size: 18px;">🔴</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="status-badge status-no-data">未录入</span>
-                                {% endif %}
-                            </td>
-                            
-                            <!-- 合同模块 -->
-                            <td>
-                                {% if project.modules.合同.last_update %}
-                                <div class="data-cell">
-                                    <span class="data-date">{{ project.modules.合同.last_update }}</span>
-                                    <span class="data-days">({{ project.modules.合同.days_ago }}天)</span>
-                                    {% if project.modules.合同.status == 'normal' %}
-                                        <span style="font-size: 18px;">✅</span>
-                                    {% elif project.modules.合同.status == 'warning' %}
-                                        <span style="font-size: 18px;">🟡</span>
-                                    {% elif project.modules.合同.status == 'error' %}
-                                        <span style="font-size: 18px;">🔴</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="status-badge status-no-data">未录入</span>
-                                {% endif %}
-                            </td>
-                            
-                            <!-- 付款模块 -->
-                            <td>
-                                {% if project.modules.付款.last_update %}
-                                <div class="data-cell">
-                                    <span class="data-date">{{ project.modules.付款.last_update }}</span>
-                                    <span class="data-days">({{ project.modules.付款.days_ago }}天)</span>
-                                    {% if project.modules.付款.status == 'normal' %}
-                                        <span style="font-size: 18px;">✅</span>
-                                    {% elif project.modules.付款.status == 'warning' %}
-                                        <span style="font-size: 18px;">🟡</span>
-                                    {% elif project.modules.付款.status == 'error' %}
-                                        <span style="font-size: 18px;">🔴</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="status-badge status-no-data">未录入</span>
-                                {% endif %}
-                            </td>
-                            
-                            <!-- 结算模块 -->
-                            <td>
-                                {% if project.modules.结算.last_update %}
-                                <div class="data-cell">
-                                    <span class="data-date">{{ project.modules.结算.last_update }}</span>
-                                    <span class="data-days">({{ project.modules.结算.days_ago }}天)</span>
-                                    {% if project.modules.结算.status == 'normal' %}
-                                        <span style="font-size: 18px;">✅</span>
-                                    {% elif project.modules.结算.status == 'warning' %}
-                                        <span style="font-size: 18px;">🟡</span>
-                                    {% elif project.modules.结算.status == 'error' %}
-                                        <span style="font-size: 18px;">🔴</span>
-                                    {% endif %}
-                                </div>
-                                {% else %}
-                                <span class="status-badge status-no-data">-</span>
-                                {% endif %}
-                            </td>
-                            <!-- 整体状态 -->
-                            <td>
-                                {% if project.overall_status == 'normal' %}
-                                    <span class="status-badge status-normal">正常</span>
-                                {% else %}
-                                    <span class="status-badge status-error">需关注</span>
-                                    <div style="font-size: 11px; color: #721c24; margin-top: 4px;">
-                                        {{ project.warning_count }}个模块预警
-                                    </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" style="text-align: center; padding: 40px;">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3" style="display: block;"></i>
-                                <p class="text-muted">暂无符合条件的项目数据</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- 分页 -->
-            {% if page_obj.has_other_pages %}
-            <div style="padding: 15px;">
-                <nav aria-label="分页导航">
-                    <ul class="pagination justify-content-center mb-0">
-                        {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1&warning_days={{ warning_days }}&only_active={{ only_active|yesno:'true,false' }}">首页</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&warning_days={{ warning_days }}&only_active={{ only_active|yesno:'true,false' }}">上一页</a>
-                        </li>
-                        {% endif %}
-
-                        <li class="page-item active">
-                            <span class="page-link">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
-                        </li>
-
-                        {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&warning_days={{ warning_days }}&only_active={{ only_active|yesno:'true,false' }}">下一页</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&warning_days={{ warning_days }}&only_active={{ only_active|yesno:'true,false' }}">末页</a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- 说明卡片 -->
-    <div class="card mt-4">
-        <div class="card-body">
-            <h6><i class="fas fa-info-circle"></i> 使用说明</h6>
-            <ul class="mb-0" style="font-size: 14px; color: #6c757d;">
-                <li><strong>最近更新日期：</strong>显示各模块最新一条记录的创建或更新时间</li>
-                <li><strong>距今天数：</strong>从最近更新日期到今天的间隔天数</li>
-                <li><strong>预警规则：</strong>
-                    <span class="badge badge-success">✅ 绿色</span> = 40天内有更新（正常）；
-                    <span class="badge badge-warning">🟡 黄色</span> = 30-40天未更新（提醒关注）；
-                    <span class="badge badge-danger">🔴 红色</span> = 超过40天未更新（需要立即处理）
-                </li>
-                <li><strong>整体状态：</strong>只要有一个模块出现🔴红色预警，项目整体状态即为"需关注"</li>
-                <li><strong>仅进行中项目：</strong>勾选后只显示状态为"进行中"的项目，已完成项目不参与预警</li>
-                <li><strong>交互功能：</strong>点击项目名称可查看该项目的详细信息</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- 返回按钮 -->
-    <div class="mt-4 mb-4">
-        <a href="{% url 'monitoring_dashboard' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> 返回监控中心
-        </a>
-    </div>
+        <div id="statistics-table-container" class="stats-table-wrapper"></div>
+    </section>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+{{ monitoring_data|json_script:"update-monitoring-data" }}
 <script>
-// 页面加载完成后执行
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('更新监控页面加载完成');
-    
-    // 可以添加一些交互功能
-    // 例如：点击单元格显示详细信息
-});
+(function() {
+    const dataElement = document.getElementById('update-monitoring-data');
+    const monitoringData = dataElement ? JSON.parse(dataElement.textContent) : null;
+    if (!monitoringData) {
+        console.warn('未获取到监控数据');
+        return;
+    }
+
+    const moduleMap = (monitoringData.moduleDefinitions || []).reduce((acc, item) => {
+        acc[item.key] = item.name;
+        return acc;
+    }, {});
+    const moduleKeys = monitoringData.statistics?.moduleKeys || Object.keys(moduleMap);
+
+    const yearFilter = document.getElementById('yearFilter');
+    const startDateFilter = document.getElementById('startDateFilter');
+    const heatmapContainer = document.getElementById('project-heatmap-container');
+    const statsContainer = document.getElementById('statistics-table-container');
+    const viewByProjectBtn = document.getElementById('view-by-project');
+    const viewByPersonBtn = document.getElementById('view-by-person');
+
+    let currentStatsView = 'project';
+
+    const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+
+    function renderKpis() {
+        const { totalProjects, overallTimelinessRate, totalEvents, delayedEvents } = monitoringData.kpis || {};
+        const formatRate = (value) => (value === null || value === undefined) ? '--' : `${value.toFixed(1)}<span class="unit">%</span>`;
+        document.getElementById('kpi-total-projects').textContent = totalProjects ?? 0;
+        document.getElementById('kpi-timeliness-rate').innerHTML = formatRate(overallTimelinessRate);
+        document.getElementById('kpi-total-events').textContent = totalEvents ?? 0;
+        document.getElementById('kpi-delayed-events').textContent = delayedEvents ?? 0;
+    }
+
+    function buildTooltip(moduleName, monthInfo) {
+        const timely = monthInfo.timely || 0;
+        const delayed = monthInfo.delayed || 0;
+        const parts = [
+            `<div class="tooltip-title">${escapeHtml(moduleName)} · ${monthInfo.month}月</div>`,
+            `<div class="tooltip-content"><p>准时事件: <span>${timely}</span></p><p>延迟事件: <span>${delayed}</span></p><hr>`
+        ];
+        (monthInfo.events || []).forEach((event) => {
+            const handlerLine = event.handler ? `<span>经办人: ${escapeHtml(event.handler)}</span>` : '';
+            parts.push(
+                `<p>发生: ${escapeHtml(event.eventDate)} ｜ 录入: ${escapeHtml(event.updateDate)}<br>` +
+                `<strong class="tooltip-deadline">截止: ${escapeHtml(event.deadlineDate)}</strong><br>${handlerLine}</p>`
+            );
+        });
+        parts.push('</div>');
+        return parts.join('');
+    }
+
+    function renderHeatmap() {
+        heatmapContainer.innerHTML = '';
+        const projects = monitoringData.projects || [];
+        if (!projects.length) {
+            heatmapContainer.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><div>在当前筛选条件下暂无业务事件数据</div></div>`;
+            return;
+        }
+        projects.forEach((project) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = 'project-card';
+
+            const rate = project.timelinessRate;
+            const rateClass = rate === null || rate === undefined ? 'neutral' : (rate >= 80 ? 'good' : 'bad');
+            const rateDisplay = rate === null || rate === undefined ? '--' : `${rate.toFixed(1)}%`;
+            projectCard.innerHTML = `
+                <div class="project-header">
+                    <div class="project-info">
+                        <div class="project-name">${escapeHtml(project.projectName)}</div>
+                        <div class="project-code">${escapeHtml(project.projectCode)}</div>
+                    </div>
+                    <div class="project-timeliness-rate ${rateClass}">准时率: ${rateDisplay}</div>
+                </div>`;
+
+            const heatmapGrid = document.createElement('div');
+            heatmapGrid.className = 'heatmap-grid';
+            let headerCells = '<div class="grid-header"></div>';
+            for (let month = 1; month <= 12; month += 1) {
+                headerCells += `<div class="grid-header">${month}月</div>`;
+            }
+            heatmapGrid.innerHTML = headerCells;
+
+            (project.modules || []).forEach((module) => {
+                heatmapGrid.innerHTML += `<div class="module-name">${escapeHtml(module.moduleName)}</div>`;
+                (module.months || []).forEach((monthInfo) => {
+                    const status = monthInfo.status || 'no-event';
+                    const timelyRatio = monthInfo.timelyRatio || 0;
+                    let cellContent = '';
+                    if (status === 'mixed') {
+                        cellContent = `<div class="ratio-bar"><div class="ratio-bar-on-time" style="width:${timelyRatio}%"></div><div class="ratio-bar-delayed" style="width:${100 - timelyRatio}%"></div></div>`;
+                    } else if (status === 'on-time') {
+                        cellContent = '<i class="fas fa-check" style="color:#fff;"></i>';
+                    } else if (status === 'delayed') {
+                        cellContent = '<i class="fas fa-exclamation" style="color:#fff;"></i>';
+                    }
+                    const tooltipHtml = buildTooltip(module.moduleName, monthInfo);
+                    heatmapGrid.innerHTML += `<div class="month-cell ${status}">${cellContent}<div class="tooltip">${tooltipHtml}</div></div>`;
+                });
+            });
+
+            projectCard.appendChild(heatmapGrid);
+            heatmapContainer.appendChild(projectCard);
+        });
+    }
+
+    function renderStatisticsTable(viewKey) {
+        const statsSource = monitoringData.statistics || {};
+        const data = viewKey === 'person' ? (statsSource.byPerson || {}) : (statsSource.byProject || {});
+        if (!Object.keys(data).length) {
+            statsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-user-clock"></i><div>暂无可统计的数据</div></div>`;
+            return;
+        }
+        const headerName = viewKey === 'person' ? '经办人' : '项目';
+        const moduleHeaders = moduleKeys
+            .map((key, index) => `<th colspan="4" class="col-group-header${index > 0 ? ' module-separator' : ''}">${escapeHtml(moduleMap[key] || (key === 'total' ? '总计' : key))}</th>`)
+            .join('');
+        const subHeaderRow = moduleKeys
+            .map((key, index) => `<th class="col-subheader${index > 0 ? ' module-separator' : ''}">准时</th><th class="col-subheader">延迟</th><th class="col-subheader">总数</th><th class="col-subheader">准时率</th>`)
+            .join('');
+
+        const tableRows = Object.keys(data).sort().map((label) => {
+            const rowCells = moduleKeys.map((moduleKey, index) => {
+                const cell = data[label]?.[moduleKey] || { timely: 0, delayed: 0, total: 0 };
+                const rate = cell.total > 0 ? (cell.timely / cell.total) * 100 : null;
+                let rateClass = 'neutral';
+                if (rate !== null) {
+                    if (rate >= 90) rateClass = 'good';
+                    else if (rate >= 60) rateClass = 'average';
+                    else rateClass = 'bad';
+                }
+                const rateDisplay = rate === null ? '-' : `${rate.toFixed(1)}%`;
+                const separatorClass = index > 0 ? ' module-separator' : '';
+                return `<td class="timely${separatorClass}">${cell.timely}</td><td class="delayed">${cell.delayed}</td><td class="total">${cell.total}</td><td class="rate ${rateClass}">${rateDisplay}</td>`;
+            }).join('');
+            return `<tr><td class="row-header">${escapeHtml(label)}</td>${rowCells}</tr>`;
+        }).join('');
+
+        statsContainer.innerHTML = `
+            <table class="stats-table">
+                <thead>
+                    <tr><th rowspan="2">${headerName}</th>${moduleHeaders}</tr>
+                    <tr>${subHeaderRow}</tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+            </table>`;
+    }
+
+    function renderView(viewType) {
+        currentStatsView = viewType;
+        renderStatisticsTable(viewType);
+        if (viewType === 'project') {
+            viewByProjectBtn.classList.add('active');
+            viewByPersonBtn.classList.remove('active');
+        } else {
+            viewByPersonBtn.classList.add('active');
+            viewByProjectBtn.classList.remove('active');
+        }
+    }
+
+    function init() {
+        renderKpis();
+        renderHeatmap();
+        renderView(currentStatsView);
+        viewByProjectBtn.addEventListener('click', () => currentStatsView !== 'project' && renderView('project'));
+        viewByPersonBtn.addEventListener('click', () => currentStatsView !== 'person' && renderView('person'));
+        // 年份筛选：立即提交
+        if (yearFilter) {
+            yearFilter.addEventListener('change', () => yearFilter.form.submit());
+        }
+        
+        // 监控起始日期：防抖+验证后提交
+        if (startDateFilter) {
+            let debounceTimer = null;
+            
+            // 验证日期格式（YYYYMMDD 或 YYYY-MM-DD）
+            const isValidDate = (value) => {
+                if (!value) return false;
+                const clean = value.replace(/\D/g, '');
+                if (clean.length !== 8) return false;
+                
+                const year = parseInt(clean.substring(0, 4));
+                const month = parseInt(clean.substring(4, 6));
+                const day = parseInt(clean.substring(6, 8));
+                
+                return year >= 1900 && year <= 2100 &&
+                       month >= 1 && month <= 12 &&
+                       day >= 1 && day <= 31;
+            };
+            
+            // 显示错误提示
+            const showError = (msg) => {
+                startDateFilter.style.borderColor = 'var(--error-color)';
+                let errorEl = startDateFilter.parentElement.querySelector('.date-error');
+                if (!errorEl) {
+                    errorEl = document.createElement('small');
+                    errorEl.className = 'date-error';
+                    errorEl.style.color = 'var(--error-color)';
+                    errorEl.style.fontSize = '12px';
+                    errorEl.style.marginLeft = '8px';
+                    startDateFilter.parentElement.appendChild(errorEl);
+                }
+                errorEl.textContent = msg;
+            };
+            
+            // 清除错误提示
+            const clearError = () => {
+                startDateFilter.style.borderColor = '';
+                const errorEl = startDateFilter.parentElement.querySelector('.date-error');
+                if (errorEl) errorEl.remove();
+            };
+            
+            // 输入事件：防抖1秒后验证并提交
+            startDateFilter.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                clearError();
+                
+                const value = startDateFilter.value.trim();
+                
+                debounceTimer = setTimeout(() => {
+                    if (value.length >= 8) {
+                        if (isValidDate(value)) {
+                            clearError();
+                            startDateFilter.form.submit();
+                        } else {
+                            showError('日期格式无效，请输入YYYYMMDD');
+                        }
+                    }
+                }, 1000);
+            });
+            
+            // 回车键：立即验证并提交
+            startDateFilter.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(debounceTimer);
+                    const value = startDateFilter.value.trim();
+                    if (isValidDate(value)) {
+                        clearError();
+                        startDateFilter.form.submit();
+                    } else {
+                        showError('日期格式无效，请输入YYYYMMDD');
+                    }
+                }
+            });
+        }
+    }
+
+    init();
+})();
 </script>
 {% endblock %}
