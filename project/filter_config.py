@@ -641,11 +641,12 @@ def resolve_monitoring_year(request):
     }
 
 
-def get_monitoring_filter_config(request):
+def get_monitoring_filter_config(request, year_context=None):
     """获取监控中心的筛选配置"""
     from .models import Project
     
-    year_context = resolve_monitoring_year(request)
+    if year_context is None:
+        year_context = resolve_monitoring_year(request)
     selected_project = request.GET.get('project', '')
     project_values = request.GET.getlist('project')
     if not project_values and selected_project:
@@ -700,3 +701,6 @@ def get_monitoring_filter_config(request):
         'selected_project_value': selected_project,
         'year_filter': year_context['year_filter'],
     }
+
+
+

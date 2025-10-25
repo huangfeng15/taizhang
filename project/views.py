@@ -30,9 +30,18 @@ from supplier_eval.models import SupplierEvaluation
 
 from project.services.archive_monitor import ArchiveMonitorService
 from project.services.update_monitor import UpdateMonitorService
-from project.services.completeness import get_completeness_overview
-from project.services.statistics import get_procurement_statistics, get_contract_statistics, get_payment_statistics
+from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
+from project.services.statistics import get_procurement_statistics, get_contract_statistics, get_payment_statistics, get_settlement_statistics
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
+
+
+def _extract_monitoring_filters(request):
+    """统一整理监控相关视图需要的年份与项目筛选条件。"""
+    year_context = resolve_monitoring_year(request)
+    project_codes = [code for code in request.GET.getlist('project') if code]
+    filter_config = get_monitoring_filter_config(request, year_context=year_context)
+    project_filter = project_codes if project_codes else None
+    return year_context, project_codes, project_filter, filter_config
 
 
 IMPORT_TEMPLATE_DEFINITIONS = {
@@ -1940,58 +1949,43 @@ from django.contrib.auth.decorators import login_required
 
 def archive_monitor(request):
     """
-    归档监控详情页面
-    显示采购、合同的详细归档情况和逾期列表
-    按照原型图100%还原设计
+    归档监控页面
+    展示采购与合同的归档进度及逾期列表
+    保持与原型一致
     """
-    from project.services.archive_monitor import ArchiveMonitorService
-    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
-    
-    # 获取筛选参数
-    year_context = resolve_monitoring_year(request)
-    
-    # 单项目筛选（用于下拉框）- 获取第一个非空项目编码
-    project_codes = request.GET.getlist('project')
-    # 过滤掉空字符串
-    project_codes = [p for p in project_codes if p]
-    
+    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
+
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=50)
     module_param = request.GET.get('module', 'procurement')
     allowed_modules = {'procurement', 'contract', 'settlement'}
     if module_param not in allowed_modules:
         module_param = 'procurement'
-    
-    # 创建服务实例 - 只在有项目筛选时传递项目编码
+
     archive_service = ArchiveMonitorService(
         year=year_context['year_filter'],
-        project_codes=project_codes if project_codes else None
+        project_codes=project_filter
     )
-    
-    # 获取归档总览数据
+
     archive_overview = archive_service.get_archive_overview()
-    
-    # 获取所有逾期列表（用于标签页展示）
     all_overdue_list = archive_service.get_overdue_list()
     procurement_overdue = [item for item in all_overdue_list if item['module'] == '采购']
     contract_overdue = [item for item in all_overdue_list if item['module'] == '合同']
-    
+
     project_archive_performance = archive_service.get_project_archive_performance()
 
-    # 分页处理：按模块分别分页
     procurement_page_obj = None
     contract_page_obj = None
     procurement_paginator = None
     contract_paginator = None
-    
+
     if procurement_overdue:
         procurement_paginator = Paginator(procurement_overdue, page_size)
         procurement_page_obj = procurement_paginator.get_page(page if module_param == 'procurement' else 1)
     if contract_overdue:
         contract_paginator = Paginator(contract_overdue, page_size)
         contract_page_obj = contract_paginator.get_page(page if module_param == 'contract' else 1)
-    
-    # 生成分页保留的查询参数
+
     query_params = request.GET.copy()
     for param in ['page', 'module']:
         if param in query_params:
@@ -1999,18 +1993,14 @@ def archive_monitor(request):
     base_query_string = query_params.urlencode()
     if base_query_string:
         base_query_string = f"{base_query_string}&"
-    
-    # 获取筛选配置
-    filter_config = get_monitoring_filter_config(request)
-    
+
     context = {
         'archive_data': archive_overview,
-        'overdue_list': all_overdue_list,  # 完整列表用于标签页
+        'overdue_list': all_overdue_list,
         'procurement_page': procurement_page_obj,
         'contract_page': contract_page_obj,
         'procurement_paginator': procurement_paginator,
         'contract_paginator': contract_paginator,
-        'projects': filter_config['projects'],
         'available_years': year_context['available_years'],
         'selected_year': year_context['display_year'],
         'year_filter_value': year_context['selected_year_value'],
@@ -2019,11 +2009,9 @@ def archive_monitor(request):
         'active_module': module_param,
         'base_query_string': base_query_string,
         'page_title': '归档监控',
-        **filter_config,  # 添加筛选配置
+        **filter_config,
     }
     return render(request, 'monitoring/archive.html', context)
-
-
 def update_monitor(request):
     """Render the event-driven update monitoring dashboard."""
     from project.services.update_monitor import UpdateMonitorService
@@ -2114,56 +2102,36 @@ def update_monitor(request):
 
 def completeness_check(request):
     """
-    齐全性检查页面
-    检查数据的完整性和关联关系
-    包含字段齐全性和关联完整性检查
+    完整性监测页面
+    展示核心字段的填写完整度与项目排名
     """
-    from project.services.completeness import (
-        get_completeness_overview,
-        get_project_completeness_ranking
-    )
-    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
-    
-    # 获取年度和项目筛选参数
-    year_context = resolve_monitoring_year(request)
-    project_codes = request.GET.getlist('project')
-    # 过滤掉空字符串
-    project_codes = [p for p in project_codes if p]
-    
-    # 获取分页参数
+    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
+
     procurement_page = request.GET.get('procurement_page', 1)
     contract_page = request.GET.get('contract_page', 1)
-    page_size = 10  # 每页显示10个字段
-    
-    # 获取字段齐全性概览（根据筛选参数）
+    page_size = 10
+
     overview = get_completeness_overview(
         year=year_context['year_filter'],
-        project_codes=project_codes if project_codes else None
+        project_codes=project_filter
     )
-    
-    # 对字段统计列表进行分页
+
     procurement_field_stats = overview['procurement_field_check']['field_stats']
     contract_field_stats = overview['contract_field_check']['field_stats']
-    
-    # 采购字段分页
+
     procurement_paginator = Paginator(procurement_field_stats, page_size)
     procurement_page_obj = procurement_paginator.get_page(procurement_page)
-    
-    # 合同字段分页
+
     contract_paginator = Paginator(contract_field_stats, page_size)
     contract_page_obj = contract_paginator.get_page(contract_page)
-    
-    # 获取项目排行榜
+
     project_rankings = get_project_completeness_ranking(
         year=year_context['year_filter'],
-        project_codes=project_codes if project_codes else None
+        project_codes=project_filter
     )
-    
-    # 获取筛选配置
-    filter_config = get_monitoring_filter_config(request)
-    
+
     context = {
-        'page_title': '齐全性检查',
+        'page_title': '完整性监测',
         'overview': overview,
         'procurement_page_obj': procurement_page_obj,
         'contract_page_obj': contract_page_obj,
@@ -2171,40 +2139,19 @@ def completeness_check(request):
         'available_years': year_context['available_years'],
         'year_filter': year_context['selected_year_value'],
         'project_filter': project_codes[0] if project_codes else '',
-        'projects': filter_config['projects'],
         **filter_config,
     }
-    
+
     return render(request, 'monitoring/completeness.html', context)
-
-
 def statistics_view(request):
     """
     统计分析页面 - 100%还原原型图设计
     显示采购、合同、付款、结算的统计数据和图表
     """
-    from project.services.statistics import (
-        get_procurement_statistics,
-        get_contract_statistics,
-        get_payment_statistics,
-        get_settlement_statistics
-    )
-    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
     import json
-    
-    # 解析年度筛选参数 - 使用与归档监控相同的逻辑
-    year_context = resolve_monitoring_year(request)
-    
-    # 解析项目筛选参数
-    project_codes = request.GET.getlist('project')
-    # 过滤掉空字符串
-    project_codes = [p for p in project_codes if p]
-    
-    # 获取筛选配置
-    filter_config = get_monitoring_filter_config(request)
-    
-    # 项目筛选参数
-    project_filter = project_codes if project_codes else None
+
+    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
+
     
     # 获取所有统计数据 - 使用正确的年度筛选参数
     procurement_stats = get_procurement_statistics(year_context['year_filter'], project_filter)
@@ -2362,7 +2309,6 @@ def ranking_view(request):
         get_settlement_ranking,
         get_comprehensive_ranking
     )
-    from project.filter_config import get_monitoring_filter_config
     from datetime import datetime
     
     # Parse year and start-date filters
@@ -2381,7 +2327,7 @@ def ranking_view(request):
         year_filter = None
     
     # 获取筛选配置
-    filter_config = get_monitoring_filter_config(request)
+    _, _, _, filter_config = _extract_monitoring_filters(request)
     
     context = {
         'page_title': '业务排名',
@@ -2548,35 +2494,24 @@ def generate_report(request):
 
 
 def monitoring_cockpit(request):
-    """
-    综合监控驾驶舱
-    """
-    # 1. Get filters
-    year_context = resolve_monitoring_year(request)
-    project_codes = request.GET.getlist('project')
-    project_codes = [p for p in project_codes if p]
-    project_filter = project_codes if project_codes else None
-    year_filter = year_context['year_filter']
+    """综合监测驾驶舱"""
+    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
 
-    # For update monitor, we need a start date. Let's use the beginning of the filtered year.
+    year_filter = year_context['year_filter']
     start_date = date(year_filter, 1, 1) if year_filter else date(2019, 1, 1)
 
-    # 2. Get data from services
     archive_service = ArchiveMonitorService(year=year_filter, project_codes=project_filter)
     archive_overview = archive_service.get_archive_overview()
-    overdue_list = archive_service.get_overdue_list()[:5] # Top 5 for display
+    overdue_list = archive_service.get_overdue_list()[:5]
 
     update_service = UpdateMonitorService()
     update_snapshot = update_service.build_snapshot(year=year_filter, start_date=start_date)
 
     completeness_overview = get_completeness_overview(year=year_filter, project_codes=project_filter)
-
     procurement_stats = get_procurement_statistics(year=year_filter, project_codes=project_filter)
     contract_stats = get_contract_statistics(year=year_filter, project_codes=project_filter)
     payment_stats = get_payment_statistics(year=year_filter, project_codes=project_filter)
 
-    # 3. Prepare context
-    # KPIs
     kpis = {
         'timeliness_rate': update_snapshot['kpis']['overallTimelinessRate'] if update_snapshot['kpis']['overallTimelinessRate'] is not None else 0,
         'timely_events': update_snapshot['kpis']['totalEvents'] - update_snapshot['kpis']['delayedEvents'],
@@ -2584,12 +2519,11 @@ def monitoring_cockpit(request):
         'archive_rate': archive_overview['overall_rate'],
         'overdue_items': archive_overview['procurement']['overdue'] + archive_overview['contract']['overdue'],
         'completeness_rate': round((completeness_overview['procurement_field_check']['completeness_rate'] + completeness_overview['contract_field_check']['completeness_rate']) / 2, 2),
-        'completeness_issues_main': "合同-付款关联" if completeness_overview.get('payment_check', {}).get('summary', {}).get('overpaid_contracts', 0) > 0 else "补充协议关联",
+        'completeness_issues_main': "合同-支付对账异常" if completeness_overview.get('payment_check', {}).get('summary', {}).get('overpaid_contracts', 0) > 0 else "关键字段完整",
         'risk_items': completeness_overview.get('error_count', 0),
-        'risk_issues_main': "付款超额、结算差异等"
+        'risk_issues_main': "资金超额、资料滞后"
     }
 
-    # Core Business Stats
     core_stats = {
         'total_budget': procurement_stats['total_budget'],
         'total_projects': Project.objects.filter(project_code__in=project_codes).count() if project_codes else Project.objects.count(),
@@ -2599,7 +2533,6 @@ def monitoring_cockpit(request):
         'payment_progress': (payment_stats['total_amount'] / contract_stats['total_amount'] * 100) if contract_stats['total_amount'] > 0 else 0
     }
 
-    # Chart Data
     procurement_method_chart_data = {
         'labels': [item['method'] for item in procurement_stats['method_distribution']],
         'datasets': [{
@@ -2618,8 +2551,7 @@ def monitoring_cockpit(request):
         }]
     }
 
-    # Monthly trend data
-    monthly_labels = [f'{i}月' for i in range(1, 13)]
+    monthly_labels = [f"{i}月" for i in range(1, 13)]
     proc_monthly = {int(item['month'].split('-')[1]): item['amount'] for item in procurement_stats['monthly_trend']}
     cont_monthly = {int(item['month'].split('-')[1]): item['amount'] for item in contract_stats['monthly_trend']}
     pay_monthly = {int(item['month'].split('-')[1]): item['amount'] for item in payment_stats['monthly_trend']}
@@ -2644,7 +2576,7 @@ def monitoring_cockpit(request):
                 'fill': True,
             },
             {
-                'label': '付款金额',
+                'label': '支付金额',
                 'data': [pay_monthly.get(i, 0) for i in range(1, 13)],
                 'borderColor': '#facc14',
                 'backgroundColor': 'rgba(250, 204, 20, 0.1)',
@@ -2654,32 +2586,30 @@ def monitoring_cockpit(request):
         ]
     }
 
-    # Heatmap data
     heatmap_projects = update_snapshot['projects']
 
-    # Archive data
     archive_progress = {
         'procurement': archive_overview['procurement']['rate'],
         'contract': archive_overview['contract']['rate'],
         'settlement': archive_overview['settlement']['rate'],
     }
 
-    # Completeness data
     completeness_progress = {
         'procurement': completeness_overview['procurement_field_check']['completeness_rate'],
         'contract': completeness_overview['contract_field_check']['completeness_rate'],
-        'payment': 98, # Placeholder
-        'settlement': 75, # Placeholder
+        'payment': 98,
+        'settlement': 75,
     }
     completeness_issues = completeness_overview.get('contract_check', {}).get('issues', [])[:5]
 
-    filter_config = get_monitoring_filter_config(request)
-
     context = {
-        'page_title': '综合监控驾驶舱',
+        'page_title': '综合监测驾驶舱',
         'year_options': year_context['available_years'],
         'selected_year': year_context['selected_year_value'],
         'start_date_value': start_date.isoformat(),
+        'monitoring_snapshot': update_snapshot,
+        'update_statistics': update_snapshot['statistics'],
+        'overdue_list': overdue_list,
         **filter_config,
 
         'kpis': kpis,
@@ -2691,9 +2621,20 @@ def monitoring_cockpit(request):
 
         'heatmap_projects': heatmap_projects,
         'archive_progress': archive_progress,
-        'overdue_list': overdue_list,
         'completeness_progress': completeness_progress,
         'completeness_issues': completeness_issues,
     }
 
-    return render(request, 'monitorin.html', context)
+    return render(request, 'monitoring/cockpit.html', context)
+
+
+
+
+
+
+
+
+
+
+
+

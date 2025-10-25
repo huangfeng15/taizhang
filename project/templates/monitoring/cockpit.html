@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 项目采购执行监控系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simplebar@6.2.5/dist/simplebar.min.css">
+<style>
+:root {
+    --primary-color: #1890ff;
+    --primary-dark: #0958d9;
+    --bg-color: #f5f7fb;
+    --card-bg: #ffffff;
+    --text-primary: #1f1f1f;
+    --text-secondary: #5c6b8a;
+    --border-color: #e6e9f0;
+    --success-color: #52c41a;
+    --warning-color: #faad14;
+    --danger-color: #ff4d4f;
+    --info-color: #13c2c2;
+    --shadow-md: 0 10px 30px rgba(15, 35, 95, 0.08);
+    --shadow-sm: 0 8px 16px rgba(15, 35, 95, 0.05);
+}
+
+body {
+    background-color: var(--bg-color);
+    font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.monitoring-cockpit {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+}
+
+.cockpit-header {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.cockpit-summary {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.cockpit-summary h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.summary-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.summary-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f5f8ff;
+    padding: 6px 14px;
+    border-radius: 999px;
+}
+
+.filter-panel {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.filter-panel .filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.filter-panel label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.filter-panel select,
+.filter-panel input {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-width: 180px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 18px;
+}
+
+.kpi-card {
+    background: linear-gradient(135deg, #f8fbff, #ffffff);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card h3 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.kpi-value {
+    font-size: 30px;
+    font-weight: 600;
+    margin: 12px 0 6px;
+    color: var(--text-primary);
+}
+
+.kpi-trend {
+    font-size: 13px;
+    color: var(--success-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cockpit-sections {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.section-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-title span {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.chart-block {
+    height: 340px;
+}
+
+.core-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.metric-item {
+    background: #f8fbff;
+    border-radius: 14px;
+    padding: 16px;
+}
+
+.metric-item p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.metric-item strong {
+    font-size: 22px;
+    color: var(--text-primary);
+}
+
+.progress-ring-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+}
+
+.progress-card {
+    background: #f9fafc;
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+}
+
+.heatmap-list {
+    max-height: 400px;
+    overflow: auto;
+}
+
+.project-state {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #f9fafc;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.project-state h4 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.status-badge {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #e6f4ff;
+    color: var(--primary-dark);
+}
+
+.overdue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.overdue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #fff6f5;
+    border: 1px solid #ffe0da;
+}
+
+.overdue-item strong {
+    color: var(--danger-color);
+}
+
+.risk-panel ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1200px) {
+    .cockpit-header { grid-template-columns: 1fr; }
+    .cockpit-sections { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="monitoring-cockpit">
+    <div class="cockpit-header">
+        <section class="cockpit-summary">
+            <div>
+                <h1>{{ page_title }}</h1>
+                <p class="text-muted">聚合归档、更新、完整度与执行指标的综合驾驶舱</p>
+            </div>
+            <div class="summary-meta">
+                <span><i class="fas fa-calendar-alt"></i> 统计区间：{{ filter_config.display_year|default:filter_config.selected_year_value }} · 起始 {{ start_date_value }}</span>
+                <span><i class="fas fa-filter"></i> 当前项目：{{ filter_config.selected_project_value|default:"全部项目" }}</span>
+                <span><i class="fas fa-bolt"></i> 最新快照：{{ monitoring_snapshot.generated_at|date:"Y-m-d H:i" }}</span>
+            </div>
+            <div class="kpi-grid">
+                <article class="kpi-card">
+                    <h3>整体更新及时率</h3>
+                    <div class="kpi-value">{{ kpis.timeliness_rate|default:0 }}<span class="unit">%</span></div>
+                    <div class="kpi-trend"><i class="fas fa-check-circle"></i> {{ kpis.timely_events }}/{{ kpis.total_events }} 条及时</div>
+                </article>
+                <article class="kpi-card">
+                    <h3>归档完成率</h3>
+                    <div class="kpi-value">{{ kpis.archive_rate|default:0 }}<span class="unit">%</span></div>
+                    <div class="kpi-trend text-warning"><i class="fas fa-box-archive"></i> 逾期 {{ kpis.overdue_items }} 条</div>
+                </article>
+                <article class="kpi-card">
+                    <h3>字段完整性</h3>
+                    <div class="kpi-value">{{ kpis.completeness_rate|default:0 }}<span class="unit">%</span></div>
+                    <p class="text-muted">风险提示：{{ kpis.completeness_issues_main }}</p>
+                </article>
+                <article class="kpi-card">
+                    <h3>潜在风险</h3>
+                    <div class="kpi-value">{{ kpis.risk_items|default:0 }}</div>
+                    <p class="text-muted">重点关注：{{ kpis.risk_issues_main }}</p>
+                </article>
+            </div>
+        </section>
+        <section class="filter-panel">
+            <div class="section-title"><span><i class="fas fa-sliders-h"></i> 监控筛选</span></div>
+            <form method="get" class="filter-grid">
+                <div>
+                    <label for="year">统计年度</label>
+                    <select id="year" name="year">
+                        <option value="all" {% if filter_config.selected_year_value == 'all' %}selected{% endif %}>全部年度</option>
+                        {% for year in filter_config.available_years %}
+                            <option value="{{ year }}" {% if filter_config.selected_year_value == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="project">所属项目</label>
+                    <select id="project" name="project">
+                        <option value="">全部项目</option>
+                        {% for project in filter_config.projects %}
+                            <option value="{{ project.project_code }}" {% if filter_config.selected_project_value == project.project_code %}selected{% endif %}>{{ project.project_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="start_date">统计起始日</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date_value }}" />
+                </div>
+                <div style="align-self: flex-end;">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-sync"></i> 刷新数据</button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <section class="cockpit-sections">
+        <div class="section-card">
+            <div class="section-title">
+                <div>业务执行趋势<span>采购/合同/支付三线对比</span></div>
+                <small>统计服务自动生成</small>
+            </div>
+            <div class="chart-block">
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+        </div>
+        <div class="section-card">
+            <div class="section-title">核心金额概览</div>
+            <div class="core-metrics">
+                <div class="metric-item">
+                    <p>年度采购预算</p>
+                    <strong>{{ core_stats.total_budget|default:0 }}</strong>
+                </div>
+                <div class="metric-item">
+                    <p>合同总金额</p>
+                    <strong>{{ core_stats.total_contract_amount|default:0 }}</strong>
+                </div>
+                <div class="metric-item">
+                    <p>累计支付金额</p>
+                    <strong>{{ core_stats.total_payment_amount|default:0 }}</strong>
+                </div>
+                <div class="metric-item">
+                    <p>执行进度</p>
+                    <strong>{{ core_stats.payment_progress|floatformat:1 }}%</strong>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cockpit-sections">
+        <div class="section-card">
+            <div class="section-title">采购方式分布</div>
+            <div class="chart-block">
+                <canvas id="procurementMethodChart"></canvas>
+            </div>
+        </div>
+        <div class="section-card">
+            <div class="section-title">合同类型概览</div>
+            <div class="chart-block">
+                <canvas id="contractTypeChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="cockpit-sections">
+        <div class="section-card">
+            <div class="section-title">
+                更新热力图
+                <span>展示 {{ heatmap_projects|length }} 个项目的月度及时情况</span>
+            </div>
+            <div class="heatmap-list" data-simplebar>
+                {% for project in heatmap_projects %}
+                    <div class="project-state">
+                        <div>
+                            <h4>{{ project.projectName }}</h4>
+                            <p class="text-muted">{{ project.totalEvents }} 条事件 · {{ project.timelyEvents }} 条及时</p>
+                        </div>
+                        <span class="status-badge">{{ project.timelyRate|default:"0" }}%</span>
+                    </div>
+                {% empty %}
+                    <p class="text-muted">暂无项目数据</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="section-card">
+            <div class="section-title">逾期与风险</div>
+            <div class="overdue-list">
+                {% for overdue in overdue_list %}
+                    <div class="overdue-item">
+                        <div>
+                            <strong>{{ overdue.project_name }}</strong>
+                            <p class="text-muted">{{ overdue.module }} · 超期 {{ overdue.days_overdue }} 天</p>
+                        </div>
+                        <span class="badge bg-danger">{{ overdue.handler|default:"未指派" }}</span>
+                    </div>
+                {% empty %}
+                    <p class="text-muted">当前无逾期记录</p>
+                {% endfor %}
+            </div>
+            <hr />
+            <div class="risk-panel">
+                <p class="text-muted">字段完整性预警：</p>
+                <ul>
+                    {% for issue in completeness_issues %}
+                        <li>{{ issue.title }} - {{ issue.impact }}</li>
+                    {% empty %}
+                        <li>暂无明显字段缺失风险</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/simplebar@6.2.5/dist/simplebar.min.js"></script>
+<script src="{% static 'js/charts.js' %}"></script>
+<script>
+const procurementMethodChartData = {{ procurement_method_chart_data_json|safe }};
+const contractTypeChartData = {{ contract_type_chart_data_json|safe }};
+const monthlyTrendChartData = {{ monthly_trend_chart_data_json|safe }};
+
+createPieChart('procurementMethodChart', procurementMethodChartData.labels, procurementMethodChartData.datasets[0].data, '采购金额分布');
+createPieChart('contractTypeChart', contractTypeChartData.labels, contractTypeChartData.datasets[0].data, '合同类型占比');
+createLineChart('monthlyTrendChart', monthlyTrendChartData.labels, monthlyTrendChartData.datasets, '业务执行趋势');
+</script>
+{% endblock %}
