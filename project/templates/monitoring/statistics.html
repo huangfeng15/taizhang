@@ -69,925 +69,986 @@
         text-decoration: underline; 
     }
 
-    /* 筛选卡片 */
-    .filter-card {
+    /* KPI 卡片 */
+    .kpi-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .kpi-card {
         background: var(--card-bg);
         border-radius: 12px;
-        padding: 12px 16px;
+        padding: 24px;
         box-shadow: var(--shadow);
+        border-top: 4px solid var(--primary-color);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+    
+    .kpi-card.is-procurement { border-top-color: var(--primary-color); }
+    .kpi-card.is-contract { border-top-color: var(--purple-color); }
+    .kpi-card.is-payment { border-top-color: var(--success-color); }
+    .kpi-card.is-settlement { border-top-color: var(--warning-color); }
+
+    .kpi-card-title {
+        font-size: 15px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 8px;
     }
 
-    .filter-controls {
+    .kpi-card-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .kpi-card-value .unit {
+        font-size: 20px;
+        font-weight: 500;
+        margin-left: 4px;
+    }
+    
+    .kpi-card-sub {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-top: 12px;
+        line-height: 1.6;
+    }
+    
+    .kpi-card-sub strong {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    /* 主内容卡片 */
+    .main-content-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+    }
+    
+    /* 标签页导航 */
+    .tabs-nav {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        padding: 12px 24px 0 24px;
+        gap: 4px;
+        overflow-x: auto;
+    }
+
+    .tab-item {
+        padding: 12px 20px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        border-bottom: 3px solid transparent;
+        margin-bottom: -1px;
+        transition: all 0.3s;
         display: flex;
         align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
+        gap: 8px;
+        border-radius: 8px 8px 0 0;
+        white-space: nowrap;
+    }
+    
+    .tab-item:hover { 
+        color: var(--primary-color);
+        background: #f5f5f5;
+    }
+    
+    .tab-item.active {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+        background: #fff;
     }
 
-    .filter-controls label {
+    .tab-pane { 
+        display: none; 
+        padding: 24px; 
+    }
+    
+    .tab-pane.active { 
+        display: block; 
+    }
+    
+    /* 区块标题 */
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-primary);
+    }
+    
+    /* 核心指标网格 */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 32px;
+    }
+
+    .stat-item {
+        background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .stat-item:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+    }
+    
+    .stat-item .label {
         font-size: 14px;
         color: var(--text-secondary);
+        margin-bottom: 10px;
+    }
+    
+    .stat-item .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .stat-item .value .unit {
+        font-size: 16px;
         font-weight: 500;
-        white-space: nowrap;
-        margin: 0;
+        color: var(--text-secondary);
     }
 
-    .filter-controls select {
-        padding: 8px 12px;
+    /* 图表网格 */
+    .chart-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .chart-container {
         border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 15px;
-        min-width: 150px;
-        transition: border-color 0.3s, box-shadow 0.3s;
-        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+    
+    .chart-container h5 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
     }
 
-    .filter-controls select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+    .chart-container canvas {
+        max-height: 300px;
+    }
+    
+    /* 表格容器 */
+    .table-container {
+        border: 1px solid var(--border-color);
+        padding: 20px;
+        border-radius: 8px;
+        background: #fafafa;
+        margin-bottom: 24px;
+    }
+    
+    .table-container h5 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
     }
 
-    /* KPI 卡片 */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: #fff;
+    }
+    
+    .data-table thead { 
+        background: #fafafa; 
+    }
+    
+    .data-table th, .data-table td {
+        padding: 12px 16px;
+        text-align: left;
+        border: 1px solid var(--border-color);
+    }
+    
+    .data-table th { 
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .data-table tbody tr:hover { 
+        background: #f5f5f5; 
+    }
 
-        <!-- 付款概览卡片 -->
-        <div class="stat-card-compact">
-            <div class="card-header">
-                <i class="fas fa-money-bill-wave"></i>
-                <h4>付款概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
-            </div>
-            <div class="stat-list">
-                <div class="stat-row">
-                    <span class="label">付款笔数</span>
-                    <span class="value">{{ payment_stats.total_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">付款总额</span>
-                    <span class="value">{{ payment_stats.total_amount|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">平均金额</span>
-                    <span class="value">{{ payment_stats.avg_amount|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">已结算</span>
-                    <span class="value success">{{ payment_stats.settled_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">剩余支付</span>
-                    <span class="value warning">{{ payment_stats.estimated_remaining|floatformat:2 }}</span>
-                </div>
+    /* 状态徽章 */
+    .status-badge {
+        padding: 4px 10px; 
+        border-radius: 12px; 
+        font-size: 12px; 
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-on-time { 
+        background: rgba(82, 196, 26, 0.1); 
+        color: var(--success-color); 
+    }
+    
+    .status-mild { 
+        background: rgba(250, 173, 20, 0.1); 
+        color: var(--warning-color); 
+    }
+    
+    .status-severe { 
+        background: rgba(255, 77, 79, 0.1); 
+        color: var(--error-color); 
+    }
+
+    /* 切换按钮 */
+    .toggle-btn {
+        padding: 6px 12px;
+        background: #1890ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.3s;
+    }
+
+    .toggle-btn:hover {
+        background: #40a9ff;
+        box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+    }
+    
+    .toggle-btn:active {
+        background: #096dd9;
+    }
+
+    /* 响应式 */
+    @media (max-width: 992px) {
+        .chart-grid { 
+            grid-template-columns: 1fr; 
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-container { 
+            padding: 16px; 
+        }
+        
+        .page-header { 
+            flex-direction: column; 
+            align-items: flex-start; 
+        }
+        
+        .filter-card { 
+            width: 100%; 
+        }
+        
+        .stat-grid { 
+            grid-template-columns: 1fr 1fr; 
+        }
+        
+        .kpi-card-value { 
+            font-size: 28px; 
+        }
+
+        .tabs-nav {
+            padding: 8px 16px 0 16px;
+        }
+
+        .tab-item {
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-chart-bar"></i> 业务统计分析
+            </h1>
+            <div class="breadcrumb">
+                <a href="{% url 'dashboard' %}">首页</a> /
+                <span>统计分析</span>
             </div>
         </div>
+        <!-- 年度和项目筛选组件 -->
+        <div class="filters" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-left: auto; width: auto;">
+            <form method="get"
+                  action="{% url 'statistics_view' %}"
+                  id="statisticsFilterForm"
+                  style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                    年份：
+                </label>
+                <select name="year"
+                        class="form-control form-control-sm filter-select"
+                        onchange="this.form.submit()"
+                        style="width: 140px; border-radius: 4px; padding: 8px 12px; border: 1px solid var(--border-color); font-size: 14px;">
+                    <option value="all" {% if year_filter == "all" %}selected{% endif %}>全部年度</option>
+                    {% for year in available_years %}
+                    <option value="{{ year }}" {% if year_filter == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
+                    {% endfor %}
+                </select>
 
-        <!-- 结算概览卡片 -->
-        <div class="stat-card-compact">
-            <div class="card-header">
-                <i class="fas fa-calculator"></i>
-                <h4>结算概览（全部）</h4>
-            </div>
-            <div class="stat-list">
-                <div class="stat-row">
-                    <span class="label">结算总数</span>
-                    <span class="value">{{ settlement_stats.total_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">结算总额</span>
-                    <span class="value">{{ settlement_stats.total_amount|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">平均金额</span>
-                    <span class="value">{{ settlement_stats.avg_amount|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">结算率</span>
-                    <span class="value {% if settlement_stats.settlement_rate >= 80 %}success{% elif settlement_stats.settlement_rate >= 50 %}warning{% else %}danger{% endif %}">{{ settlement_stats.settlement_rate }}%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">待结算</span>
-                    <span class="value warning">{{ settlement_stats.pending_count }}</span>
-                </div>
-            </div>
+                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
+                    项目：
+                </label>
+                <select name="project"
+                        class="form-control form-control-sm filter-select"
+                        onchange="this.form.submit()"
+                        style="width: 220px; max-width: 240px; border-radius: 4px; padding: 8px 12px; border: 1px solid var(--border-color); font-size: 14px;">
+                    <option value="" {% if not selected_project %}selected{% endif %}>所有项目</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_code }}" {% if selected_project == project.project_code %}selected{% endif %}>
+                        {{ project.project_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
-    </div>
-    {% endif %}
+    </header>
 
-    <!-- 采购统计详情 - 紧凑版本 -->
-    {% if stat_type == 'procurement' and procurement_stats %}
-    <div class="detail-card">
-        <div class="card-title">
-            <i class="fas fa-shopping-cart"></i>
-            <span>采购统计详情（{{ procurement_stats.year }}年）</span>
+    <!-- KPI 总览卡片 -->
+    <section class="kpi-overview">
+        <div class="kpi-card is-procurement">
+            <div class="kpi-card-title">
+                <i class="fas fa-shopping-cart"></i> 采购统计
+            </div>
+            <div class="kpi-card-value">
+                {{ procurement_stats.total_winning|floatformat:0|default:"0" }} 
+                <span class="unit">万</span>
+            </div>
+            <div class="kpi-card-sub">
+                中标总额 | 预算: <strong>{{ procurement_stats.total_budget|floatformat:0|default:"0" }}万</strong><br>
+                项目数: <strong>{{ procurement_stats.total_count|default:"0" }}</strong> | 
+                节约率: <strong style="color:var(--success-color)">{{ procurement_stats.savings_rate|default:"0" }}%</strong>
+            </div>
         </div>
         
-        <div class="stat-grid-compact">
-            <div class="stat-item-compact">
-                <div class="label">项目总数</div>
-                <div class="value">{{ procurement_stats.total_count }}</div>
+        <div class="kpi-card is-contract">
+            <div class="kpi-card-title">
+                <i class="fas fa-file-contract"></i> 合同统计
             </div>
-            <div class="stat-item-compact">
-                <div class="label">预算总额（元）</div>
-                <div class="value">{{ procurement_stats.total_budget|floatformat:2 }}</div>
+            <div class="kpi-card-value">
+                {{ contract_stats.total_amount|floatformat:0|default:"0" }} 
+                <span class="unit">万</span>
             </div>
-            <div class="stat-item-compact">
-                <div class="label">中标总额（元）</div>
-                <div class="value success">{{ procurement_stats.total_winning|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">节约金额（元）</div>
-                <div class="value success">{{ procurement_stats.savings_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">节约率</div>
-                <div class="value success">{{ procurement_stats.savings_rate }}%</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">平均周期</div>
-                <div class="value">{{ procurement_stats.avg_cycle_days }} 天</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">已归档项目</div>
-                <div class="value">{{ procurement_stats.archived_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">归档率</div>
-                <div class="value {% if procurement_stats.archive_rate >= 80 %}success{% elif procurement_stats.archive_rate >= 50 %}warning{% else %}danger{% endif %}">
-                    {{ procurement_stats.archive_rate }}%
-                </div>
+            <div class="kpi-card-sub">
+                合同总额 | 合同数: <strong>{{ contract_stats.total_count|default:"0" }}</strong> 份<br>
+                主合同: <strong>{{ contract_stats.main_count|default:"0" }}</strong> | 
+                补充协议: <strong>{{ contract_stats.supplement_count|default:"0" }}</strong>
             </div>
         </div>
+        
+        <div class="kpi-card is-payment">
+            <div class="kpi-card-title">
+                <i class="fas fa-money-bill-wave"></i> 付款统计
+            </div>
+            <div class="kpi-card-value">
+                {{ payment_stats.total_amount|floatformat:0|default:"0" }} 
+                <span class="unit">万</span>
+            </div>
+            <div class="kpi-card-sub">
+                已付总额 | 付款笔数: <strong>{{ payment_stats.total_count|default:"0" }}</strong> 次<br>
+                支付率: <strong>{{ payment_stats.payment_rate|default:"0" }}%</strong> | 
+                剩余: <strong>{{ payment_stats.estimated_remaining|floatformat:0|default:"0" }}万</strong>
+            </div>
+        </div>
+        
+        <div class="kpi-card is-settlement">
+            <div class="kpi-card-title">
+                <i class="fas fa-calculator"></i> 结算统计
+            </div>
+            <div class="kpi-card-value">
+                {{ settlement_stats.total_amount|floatformat:0|default:"0" }} 
+                <span class="unit">万</span>
+            </div>
+            <div class="kpi-card-sub">
+                结算总额 | 已结算: <strong>{{ settlement_stats.total_count|default:"0" }}</strong> 个<br>
+                结算率: <strong>{{ settlement_stats.settlement_rate|default:"0" }}%</strong> | 
+                待结算: <strong>{{ settlement_stats.pending_count|default:"0" }}</strong> 个
+            </div>
+        </div>
+    </section>
 
-        <!-- 采购方式分布 -->
-        {% if procurement_stats.method_distribution %}
-        <div class="chart-section">
-            <h5>采购方式分布</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-container chart-container--panel">
+    <!-- 主内容区域 -->
+    <div class="main-content-card">
+        <nav class="tabs-nav">
+            <div class="tab-item active" data-tab="tab-procurement">
+                <i class="fas fa-shopping-cart"></i> 采购分析
+            </div>
+            <div class="tab-item" data-tab="tab-contract">
+                <i class="fas fa-file-contract"></i> 合同分析
+            </div>
+            
+
+
+            <div class="tab-item" data-tab="tab-payment">
+                <i class="fas fa-money-bill-wave"></i> 付款分析
+            </div>
+            <div class="tab-item" data-tab="tab-settlement">
+                <i class="fas fa-calculator"></i> 结算分析
+            </div>
+        </nav>
+
+        <!-- 采购分析标签页 -->
+        <div id="tab-procurement" class="tab-pane active">
+            <h4 class="section-title">
+                <i class="fas fa-chart-pie"></i> 采购核心指标
+            </h4>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="label">采购项目总数</div>
+                    <div class="value">{{ procurement_stats.total_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">预算总额</div>
+                    <div class="value">{{ procurement_stats.total_budget|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">中标总额</div>
+                    <div class="value">{{ procurement_stats.total_winning|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">节约金额</div>
+                    <div class="value" style="color:var(--success-color)">{{ procurement_stats.savings_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">节约率</div>
+                    <div class="value" style="color:var(--success-color)">{{ procurement_stats.savings_rate|default:"0" }}<span class="unit">%</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">平均采购周期</div>
+                    <div class="value">{{ procurement_stats.avg_cycle_days|default:"0" }}<span class="unit">天</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">已归档项目</div>
+                    <div class="value">{{ procurement_stats.archived_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">归档率</div>
+                    <div class="value">{{ procurement_stats.archive_rate|default:"0" }}<span class="unit">%</span></div>
+                </div>
+            </div>
+
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <h5>采购方式分布（按数量）</h5>
                     <canvas id="procurementMethodChart"></canvas>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="table-responsive table-responsive--elevated">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>采购方式</th>
-                                <th>数量</th>
-                                <th>金额（元）</th>
-                                <th>占比</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in procurement_stats.method_distribution %}
-                            <tr>
-                                <td>{{ item.method }}</td>
-                                <td>{{ item.count }}</td>
-                                <td>{{ item.amount|floatformat:2 }}</td>
-                                <td>{{ item.percentage }}%</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="chart-container">
+                    <h5>月度采购数量趋势</h5>
+                    <canvas id="procurementMonthlyChart"></canvas>
+                </div>
+                <div class="chart-container" style="grid-column: 1 / -1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h5 style="margin: 0;">采购周期分析（按采购方式）</h5>
+                        <button id="toggleMethodsBtn" class="toggle-btn" onclick="toggleProcurementMethods()">
+                            显示全部方式
+                        </button>
+                    </div>
+                    <canvas id="procurementDurationChart"></canvas>
                 </div>
             </div>
-            </div>
-        </div>
-        {% endif %}
 
-        <!-- 月度趋势 -->
-        {% if procurement_stats.monthly_trend %}
-        <div class="chart-section">
-            <h5>月度采购趋势</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-                <canvas id="procurementTrendChart"></canvas>
+            {% if procurement_stats.top_deviations %}
+            <div class="table-container">
+                <h5>采购计划偏差分析（Top 5）</h5>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>采购项目名称</th>
+                            <th>计划完成日期</th>
+                            <th>实际完成日期</th>
+                            <th>偏差天数</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in procurement_stats.top_deviations %}
+                        <tr>
+                            <td>{{ item.project_name }}</td>
+                            <td>{{ item.planned_date|date:"Y-m-d" }}</td>
+                            <td>{{ item.actual_date|date:"Y-m-d" }}</td>
+                            <td>{{ item.deviation_days }}</td>
+                            <td>
+                                {% if item.deviation_days < 0 %}
+                                <span class="status-badge status-on-time">提前</span>
+                                {% elif item.deviation_days <= 15 %}
+                                <span class="status-badge status-mild">轻微延迟</span>
+                                {% else %}
+                                <span class="status-badge status-severe">严重延迟</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+            {% endif %}
         </div>
-        {% endif %}
-    </div>
-    {% endif %}
 
-    <!-- 合同统计详情 - 紧凑版本 -->
-    {% if stat_type == 'contract' and contract_stats %}
-    <div class="detail-card">
-        <div class="card-title">
-            <i class="fas fa-file-contract"></i>
-            <span>合同统计详情（{{ contract_stats.year }}年）</span>
-        </div>
-        
-        <div class="stat-grid-compact">
-            <div class="stat-item-compact">
-                <div class="label">合同总数</div>
-                <div class="value">{{ contract_stats.total_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">合同总额（元）</div>
-                <div class="value">{{ contract_stats.total_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">主合同数量</div>
-                <div class="value">{{ contract_stats.main_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">主合同金额（元）</div>
-                <div class="value">{{ contract_stats.main_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">补充协议数量</div>
-                <div class="value">{{ contract_stats.supplement_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">补充协议金额（元）</div>
-                <div class="value">{{ contract_stats.supplement_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">已归档合同</div>
-                <div class="value">{{ contract_stats.archived_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">归档率</div>
-                <div class="value {% if contract_stats.archive_rate >= 80 %}success{% elif contract_stats.archive_rate >= 50 %}warning{% else %}danger{% endif %}">
-                    {{ contract_stats.archive_rate }}%
+        <!-- 合同分析标签页 -->
+        <div id="tab-contract" class="tab-pane">
+            <h4 class="section-title">
+                <i class="fas fa-file-signature"></i> 合同核心指标
+            </h4>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="label">合同总数</div>
+                    <div class="value">{{ contract_stats.total_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">合同总额</div>
+                    <div class="value">{{ contract_stats.total_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">主合同数量</div>
+                    <div class="value">{{ contract_stats.main_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">主合同金额</div>
+                    <div class="value">{{ contract_stats.main_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">补充协议数</div>
+                    <div class="value">{{ contract_stats.supplement_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">补充协议金额</div>
+                    <div class="value">{{ contract_stats.supplement_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">已归档合同</div>
+                    <div class="value">{{ contract_stats.archived_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">归档率</div>
+                    <div class="value">{{ contract_stats.archive_rate|default:"0" }}<span class="unit">%</span></div>
                 </div>
             </div>
-        </div>
-
-        <!-- 合同类型分布 -->
-        {% if contract_stats.type_distribution %}
-        <div class="chart-section">
-            <h5>合同类型分布</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-container chart-container--panel">
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <h5>合同类型分布（按金额）</h5>
                     <canvas id="contractTypeChart"></canvas>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="table-responsive table-responsive--elevated">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>合同类型</th>
-                                <th>数量</th>
-                                <th>金额（元）</th>
-                                <th>占比</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in contract_stats.type_distribution %}
-                            <tr>
-                                <td>{{ item.type }}</td>
-                                <td>{{ item.count }}</td>
-                                <td>{{ item.amount|floatformat:2 }}</td>
-                                <td>{{ item.percentage }}%</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        </div>
-        {% endif %}
-
-        <!-- 合同来源分布 -->
-        {% if contract_stats.source_distribution %}
-        <div class="chart-section">
-            <h5>合同来源分布</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-container chart-container--panel">
+                <div class="chart-container">
+                    <h5>合同来源分布（按数量）</h5>
                     <canvas id="contractSourceChart"></canvas>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="table-responsive table-responsive--elevated">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>合同来源</th>
-                                <th>数量</th>
-                                <th>金额（元）</th>
-                                <th>占比</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in contract_stats.source_distribution %}
-                            <tr>
-                                <td>{{ item.source }}</td>
-                                <td>{{ item.count }}</td>
-                                <td>{{ item.amount|floatformat:2 }}</td>
-                                <td>{{ item.percentage }}%</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        </div>
+
+        <!-- 付款分析标签页 -->
+        <div id="tab-payment" class="tab-pane">
+            <h4 class="section-title">
+                <i class="fas fa-hand-holding-usd"></i> 付款核心指标
+            </h4>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="label">付款总笔数</div>
+                    <div class="value">{{ payment_stats.total_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">付款总额</div>
+                    <div class="value">{{ payment_stats.total_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">平均付款金额</div>
+                    <div class="value">{{ payment_stats.avg_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">预计剩余支付</div>
+                    <div class="value">{{ payment_stats.estimated_remaining|floatformat:0|default:"0" }}<span class="unit">万</span></div>
                 </div>
             </div>
-        </div>
-        </div>
-        {% endif %}
-
-        <!-- 月度趋势 -->
-        {% if contract_stats.monthly_trend %}
-        <div class="chart-section">
-            <h5>月度签约趋势</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-                <canvas id="contractTrendChart"></canvas>
+            
+            {% if payment_stats.top_projects %}
+            <div class="table-container">
+                <h5>TOP 5 付款项目</h5>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>项目名称</th>
+                            <th>总付款额</th>
+                            <th>付款笔数</th>
+                            <th>支付率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in payment_stats.top_projects %}
+                        <tr>
+                            <td>{{ item.project_name }}</td>
+                            <td>{{ item.total_paid|floatformat:0 }} 万</td>
+                            <td>{{ item.payment_count }}</td>
+                            <td style="color:{% if item.payment_ratio >= 80 %}var(--success-color){% elif item.payment_ratio >= 50 %}var(--warning-color){% else %}var(--error-color){% endif %}">
+                                {{ item.payment_ratio|floatformat:0 }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- 付款统计详情 - 紧凑版本 -->
-    {% if stat_type == 'payment' and payment_stats %}
-    <div class="detail-card">
-        <div class="card-title">
-            <i class="fas fa-money-bill-wave"></i>
-            <span>付款统计详情（{{ payment_stats.year }}年）</span>
-        </div>
-        
-        <div class="stat-grid-compact">
-            <div class="stat-item-compact">
-                <div class="label">付款笔数</div>
-                <div class="value">{{ payment_stats.total_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">付款总额（元）</div>
-                <div class="value">{{ payment_stats.total_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">平均金额（元）</div>
-                <div class="value">{{ payment_stats.avg_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">最大单笔（元）</div>
-                <div class="value">{{ payment_stats.max_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">最小单笔（元）</div>
-                <div class="value">{{ payment_stats.min_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">已结算笔数</div>
-                <div class="value success">{{ payment_stats.settled_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">已结算金额（元）</div>
-                <div class="value success">{{ payment_stats.settled_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">未结算笔数</div>
-                <div class="value warning">{{ payment_stats.unsettled_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">未结算金额（元）</div>
-                <div class="value warning">{{ payment_stats.unsettled_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">剩余支付（元）</div>
-                <div class="value warning">{{ payment_stats.estimated_remaining|floatformat:2 }}</div>
-            </div>
+            {% endif %}
         </div>
 
-        <!-- 月度付款趋势 -->
-        {% if payment_stats.monthly_trend %}
-        <div class="chart-section">
-            <h5>月度付款趋势</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-                <canvas id="paymentTrendChart"></canvas>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- 结算状态分布 -->
-        <div class="chart-section">
-            <h5>结算状态分布</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-container chart-container--panel">
-                    <canvas id="settlementStatusChart"></canvas>
+        <!-- 结算分析标签页 -->
+        <div id="tab-settlement" class="tab-pane">
+            <h4 class="section-title">
+                <i class="fas fa-clipboard-check"></i> 结算核心指标
+            </h4>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="label">已结算合同数</div>
+                    <div class="value">{{ settlement_stats.total_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">未结算合同数</div>
+                    <div class="value">{{ settlement_stats.pending_count|default:"0" }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">结算总金额</div>
+                    <div class="value">{{ settlement_stats.total_amount|floatformat:0|default:"0" }}<span class="unit">万</span></div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">结算率 (按数量)</div>
+                    <div class="value">{{ settlement_stats.settlement_rate|default:"0" }}<span class="unit">%</span></div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="table-responsive table-responsive--elevated">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>状态</th>
-                                <th>笔数</th>
-                                <th>金额（元）</th>
-                            </tr>
-                        
-</thead>
-                        <tbody>
-                            <tr>
-                                <td>已结算</td>
-                                <td>{{ payment_stats.settled_count }}</td>
-                                <td>{{ payment_stats.settled_amount|floatformat:2 }}</td>
-                            </tr>
-                            <tr>
-                                <td>未结算</td>
-                                <td>{{ payment_stats.unsettled_count }}</td>
-                                <td>{{ payment_stats.unsettled_amount|floatformat:2 }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            
+            {% if settlement_stats.variance_analysis %}
+            <div class="table-container">
+                <h5>结算价与合同价偏差分析 (Top 5 差异)</h5>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>合同名称</th>
+                            <th>合同金额</th>
+                            <th>结算金额</th>
+                            <th>差异金额</th>
+                            <th>差异率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in settlement_stats.variance_analysis %}
+                        <tr>
+                            <td>{{ item.contract_name }}</td>
+                            <td>{{ item.contract_amount|floatformat:0 }} 万</td>
+                            <td>{{ item.settlement_amount|floatformat:0 }} 万</td>
+                            <td style="color:{% if item.variance > 0 %}var(--error-color){% elif item.variance < 0 %}var(--success-color){% endif %}">
+                                {% if item.variance > 0 %}+{% endif %}{{ item.variance|floatformat:0 }} 万
+                            </td>
+                            <td style="color:{% if item.variance_rate > 0 %}var(--error-color){% elif item.variance_rate < 0 %}var(--success-color){% endif %}">
+                                {% if item.variance_rate > 0 %}+{% endif %}{{ item.variance_rate|floatformat:1 }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            </div>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
-
-    <!-- 结算统计详情 - 紧凑版本 -->
-    {% if stat_type == 'settlement' and settlement_stats %}
-    <div class="detail-card">
-        <div class="card-title">
-            <i class="fas fa-calculator"></i>
-            <span>结算统计详情（全部）</span>
-        </div>
-        
-        <div class="stat-grid-compact">
-            <div class="stat-item-compact">
-                <div class="label">结算总数</div>
-                <div class="value">{{ settlement_stats.total_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">结算总额（元）</div>
-                <div class="value">{{ settlement_stats.total_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">平均金额（元）</div>
-                <div class="value">{{ settlement_stats.avg_amount|floatformat:2 }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">结算率</div>
-                <div class="value {% if settlement_stats.settlement_rate >= 80 %}success{% elif settlement_stats.settlement_rate >= 50 %}warning{% else %}danger{% endif %}">
-                    {{ settlement_stats.settlement_rate }}%
-                </div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">待结算合同</div>
-                <div class="value warning">{{ settlement_stats.pending_count }}</div>
-            </div>
-            <div class="stat-item-compact">
-                <div class="label">待结算金额（元）</div>
-                <div class="value warning">{{ settlement_stats.pending_amount|floatformat:2 }}</div>
-            </div>
-        </div>
-
-        <!-- 年度结算趋势 -->
-        {% if settlement_stats.yearly_data %}
-        <div class="chart-section">
-            <h5>年度结算趋势</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-                <canvas id="settlementYearlyChart"></canvas>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- 结算与合同差异分析 -->
-        {% if settlement_stats.variance_analysis %}
-        <div class="chart-section">
-            <h5>结算与合同差异分析（前10条）</h5>
-        <div class="table-responsive table-responsive--elevated">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>结算编号</th>
-                        <th>合同金额（元）</th>
-                        <th>结算金额（元）</th>
-                        <th>差异（元）</th>
-                        <th>差异率</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in settlement_stats.variance_analysis %}
-                    <tr>
-                        <td>{{ item.settlement_code }}</td>
-                        <td>{{ item.contract_amount|floatformat:2 }}</td>
-                        <td>{{ item.settlement_amount|floatformat:2 }}</td>
-                        <td class="{% if item.variance > 0 %}text-danger{% elif item.variance < 0 %}text-success{% endif %}">
-                            {{ item.variance|floatformat:2 }}
-                        </td>
-                        <td class="{% if item.variance_rate > 0 %}text-danger{% elif item.variance_rate < 0 %}text-success{% endif %}">
-                            {{ item.variance_rate }}%
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- 年度对比 - 紧凑版本 -->
-    {% if stat_type == 'comparison' and comparison_data %}
-    <div class="comparison-selector">
-        <form method="get" class="form-inline">
-            <input type="hidden" name="type" value="comparison">
-            <label class="mr-2"><strong>选择对比年份：</strong></label>
-            {% for year in available_years %}
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" name="comparison_years" value="{{ year }}" 
-                       id="year{{ year }}" {% if year in comparison_years %}checked{% endif %}>
-                <label class="form-check-label" for="year{{ year }}">{{ year }}年</label>
-            </div>
-            {% endfor %}
-            <button type="submit" class="btn btn-sm btn-primary ml-3">
-                <i class="fas fa-sync"></i> 更新对比
-            </button>
-        </form>
-    </div>
-
-    <div class="detail-card">
-        <div class="card-title">
-            <i class="fas fa-chart-line"></i>
-            <span>年度数据对比</span>
-        </div>
-        
-        <!-- 采购对比 -->
-        <div class="chart-section">
-            <h5>采购数据对比</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-            <canvas id="procurementComparisonChart"></canvas>
-            </div>
-        </div>
-        
-        <!-- 合同对比 -->
-        <div class="chart-section">
-            <h5>合同数据对比</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-            <canvas id="contractComparisonChart"></canvas>
-            </div>
-        </div>
-        
-        <!-- 付款对比 -->
-        <div class="chart-section">
-            <h5>付款数据对比</h5>
-            <div class="chart-container chart-container--panel chart-container--tall">
-            <canvas id="paymentComparisonChart"></canvas>
-            </div>
-        </div>
-
-        <!-- 对比数据表格 -->
-        <div class="chart-section">
-            <h5>详细对比数据</h5>
-        <div class="table-responsive table-responsive--elevated">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>年份</th>
-                        <th>采购项目数</th>
-                        <th>采购金额（元）</th>
-                        <th>合同数量</th>
-                        <th>合同金额（元）</th>
-                        <th>付款笔数</th>
-                        <th>付款金额（元）</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in comparison_data.rows %}
-                    <tr>
-                        <td><strong>{{ row.year }}年</strong></td>
-                        <td>{{ row.procurement_count|default:0 }}</td>
-                        <td>{{ row.procurement_amount|default:0|floatformat:2 }}</td>
-                        <td>{{ row.contract_count|default:0 }}</td>
-                        <td>{{ row.contract_amount|default:0|floatformat:2 }}</td>
-                        <td>{{ row.payment_count|default:0 }}</td>
-                        <td>{{ row.payment_amount|default:0|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
-
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/charts.js' %}"></script>
 <script>
-// Chart.js 配置
-Chart.defaults.font.family = "'Segoe UI', 'Microsoft YaHei', sans-serif";
-
-{% if stat_type == 'procurement' and procurement_stats %}
-    // 采购方式饼图
-    {% if procurement_stats.method_distribution %}
-    new Chart(document.getElementById('procurementMethodChart'), {
-        type: 'pie',
-        data: {
-            labels: [{% for item in procurement_stats.method_distribution %}'{{ item.method }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for item in procurement_stats.method_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6c757d']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'right' }
-            }
-        }
-    });
-    {% endif %}
-
-    // 月度趋势图
-    {% if procurement_stats.monthly_trend %}
-    new Chart(document.getElementById('procurementTrendChart'), {
-        type: 'line',
-        data: {
-            labels: [{% for item in procurement_stats.monthly_trend %}'{{ item.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '采购数量',
-                data: [{% for item in procurement_stats.monthly_trend %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                borderColor: '#007bff',
-                backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                yAxisID: 'y'
-            }, {
-                label: '采购金额（元）',
-                data: [{% for item in procurement_stats.monthly_trend %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '数量' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-    {% endif %}
-{% endif %}
-
-{% if stat_type == 'contract' and contract_stats %}
-    // 合同类型饼图
-    {% if contract_stats.type_distribution %}
-    new Chart(document.getElementById('contractTypeChart'), {
-        type: 'pie',
-        data: {
-            labels: [{% for item in contract_stats.type_distribution %}'{{ item.type }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for item in contract_stats.type_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: ['#007bff', '#28a745', '#ffc107']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'right' } }
-        }
-    });
-    {% endif %}
-
-    // 合同来源饼图
-    {% if contract_stats.source_distribution %}
-    new Chart(document.getElementById('contractSourceChart'), {
-        type: 'pie',
-        data: {
-            labels: [{% for item in contract_stats.source_distribution %}'{{ item.source }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for item in contract_stats.source_distribution %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: ['#17a2b8', '#6c757d']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'right' } }
-        }
-    });
-    {% endif %}
-
-    // 月度趋势图
-    {% if contract_stats.monthly_trend %}
-    new Chart(document.getElementById('contractTrendChart'), {
-        type: 'line',
-        data: {
-            labels: [{% for item in contract_stats.monthly_trend %}'{{ item.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '合同数量',
-                data: [{% for item in contract_stats.monthly_trend %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                borderColor: '#007bff',
-                backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                yAxisID: 'y'
-            }, {
-                label: '合同金额（元）',
-                data: [{% for item in contract_stats.monthly_trend %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '数量' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-    {% endif %}
-{% endif %}
-
-{% if stat_type == 'payment' and payment_stats %}
-    // 月度付款趋势
-    {% if payment_stats.monthly_trend %}
-    new Chart(document.getElementById('paymentTrendChart'), {
-        type: 'bar',
-        data: {
-            labels: [{% for item in payment_stats.monthly_trend %}'{{ item.month }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '付款笔数',
-                data: [{% for item in payment_stats.monthly_trend %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '付款金额（元）',
-                data: [{% for item in payment_stats.monthly_trend %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '笔数' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-    {% endif %}
-
-    // 结算状态饼图
-    new Chart(document.getElementById('settlementStatusChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['已结算', '未结算'],
-            datasets: [{
-                data: [{{ payment_stats.settled_count }}, {{ payment_stats.unsettled_count }}],
-                backgroundColor: ['#28a745', '#ffc107']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'right' } }
-        }
-    });
-{% endif %}
-
-{% if stat_type == 'settlement' and settlement_stats %}
-    // 年度结算趋势
-    {% if settlement_stats.yearly_data %}
-    new Chart(document.getElementById('settlementYearlyChart'), {
-        type: 'bar',
-        data: {
-            labels: [{% for item in settlement_stats.yearly_data %}'{{ item.year }}年'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '结算数量',
-                data: [{% for item in settlement_stats.yearly_data %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '结算金额（元）',
-                data: [{% for item in settlement_stats.yearly_data %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '数量' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-    {% endif %}
-{% endif %}
-
-{% if stat_type == 'comparison' and comparison_data %}
-    // 采购对比图
-    new Chart(document.getElementById('procurementComparisonChart'), {
-        type: 'bar',
-        data: {
-            labels: [{% for year in comparison_data.years %}'{{ year }}年'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '采购数量',
-                data: [{% for item in comparison_data.procurement %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '采购金额（元）',
-                data: [{% for item in comparison_data.procurement %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '数量' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-
-    // 合同对比图
-    new Chart(document.getElementById('contractComparisonChart'), {
-        type: 'bar',
-        data: {
-            labels: [{% for year in comparison_data.years %}'{{ year }}年'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '合同数量',
-                data: [{% for item in comparison_data.contract %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(23, 162, 184, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '合同金额（元）',
-                data: [{% for item in comparison_data.contract %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '数量' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-
-    // 付款对比图
-    new Chart(document.getElementById('paymentComparisonChart'), {
-        type: 'bar',
-        data: {
-            labels: [{% for year in comparison_data.years %}'{{ year }}年'{% if not forloop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: '付款笔数',
-                data: [{% for item in comparison_data.payment %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(220, 53, 69, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '付款金额（元）',
-                data: [{% for item in comparison_data.payment %}{{ item.amount }}{% if not forloop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(108, 117, 125, 0.7)',
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: '笔数' } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: '金额（元）' }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
-{% endif %}
-
-// 年份和项目筛选器 - 自动提交表单
+// 标签页切换功能
 document.addEventListener('DOMContentLoaded', function() {
-    const filterForm = document.getElementById('statsFilterForm');
-    if (!filterForm) return;
+    const tabItems = document.querySelectorAll('.tab-item');
+    const tabPanes = document.querySelectorAll('.tab-pane');
     
-    const filterSelects = document.querySelectorAll('.filter-select');
-    
-    filterSelects.forEach(function(select) {
-        select.addEventListener('change', function() {
-            // 显示加载提示
-            const container = document.querySelector('.monitoring-statistics');
-            if (container) {
-                container.style.opacity = '0.6';
-                container.style.pointerEvents = 'none';
-            }
+    tabItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-tab');
             
-            // 立即提交表单
-            filterForm.submit();
+            // 移除所有active类
+            tabItems.forEach(t => t.classList.remove('active'));
+            tabPanes.forEach(p => p.classList.remove('active'));
+            
+            // 添加active类
+            this.classList.add('active');
+            document.getElementById(targetTab).classList.add('active');
+            
+            // 延迟渲染图表以确保容器可见
+            setTimeout(() => {
+                if(targetTab === 'tab-contract' && !window.contractChartsRendered) {
+                    renderContractCharts();
+                    window.contractChartsRendered = true;
+                }
+            }, 100);
         });
     });
+
+    // 初始化采购图表
+    initProcurementCharts();
 });
+
+// 采购图表初始化
+function initProcurementCharts() {
+    // 采购方式饼图
+    const methodCtx = document.getElementById('procurementMethodChart');
+    if (methodCtx) {
+        new Chart(methodCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ procurement_method_labels|safe }},
+                datasets: [{
+                    data: {{ procurement_method_data|safe }},
+                    backgroundColor: ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1'],
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { position: 'right' } } 
+            }
+        });
+    }
+
+    // 月度采购趋势图
+    const monthlyCtx = document.getElementById('procurementMonthlyChart');
+    if (monthlyCtx) {
+        new Chart(monthlyCtx, {
+            type: 'bar',
+            data: {
+                labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                datasets: [{
+                    label: '采购数量',
+                    data: {{ procurement_monthly_data|safe }},
+                    backgroundColor: 'rgba(24, 144, 255, 0.7)',
+                    borderColor: '#1890ff',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '项目数量' },
+                        ticks: { stepSize: 2 }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '采购数量: ' + context.parsed.y + ' 项';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 采购周期分析
+    initProcurementDurationChart();
+}
+
+// 采购周期图表
+let durationChart = null;
+let showingAll = false;
+
+// 常用方式数据
+const commonMethodsData = {
+    labels: {{ procurement_duration_common_labels|safe }},
+    datasets: [
+        {
+            label: '<30天',
+            data: {{ procurement_duration_common_under30|safe }},
+            backgroundColor: '#52c41a',
+        },
+        {
+            label: '30-60天',
+            data: {{ procurement_duration_common_30to60|safe }},
+            backgroundColor: '#1890ff',
+        },
+        {
+            label: '60-90天',
+            data: {{ procurement_duration_common_60to90|safe }},
+            backgroundColor: '#faad14',
+        },
+        {
+            label: '>90天',
+            data: {{ procurement_duration_common_over90|safe }},
+            backgroundColor: '#ff4d4f',
+        }
+    ]
+};
+
+// 全部方式数据
+const allMethodsData = {
+    labels: {{ procurement_duration_all_labels|safe }},
+    datasets: [
+        {
+            label: '<30天',
+            data: {{ procurement_duration_all_under30|safe }},
+            backgroundColor: '#52c41a',
+        },
+        {
+            label: '30-60天',
+            data: {{ procurement_duration_all_30to60|safe }},
+            backgroundColor: '#1890ff',
+        },
+        {
+            label: '60-90天',
+            data: {{ procurement_duration_all_60to90|safe }},
+            backgroundColor: '#faad14',
+        },
+        {
+            label: '>90天',
+            data: {{ procurement_duration_all_over90|safe }},
+            backgroundColor: '#ff4d4f',
+        }
+    ]
+};
+
+function initProcurementDurationChart() {
+    const ctx = document.getElementById('procurementDurationChart');
+    if (!ctx) return;
+
+    durationChart = new Chart(ctx, {
+        type: 'bar',
+        data: commonMethodsData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: false },
+                y: {
+                    stacked: false,
+                    beginAtZero: true,
+                    title: { display: true, text: '项目数量' }
+                }
+            },
+            plugins: {
+                legend: { display: true, position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label + ' - ' + context[0].dataset.label;
+                        },
+                        label: function(context) {
+                            return '项目数: ' + context.parsed.y;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function toggleProcurementMethods() {
+    if (!durationChart) return;
+    
+    const btn = document.getElementById('toggleMethodsBtn');
+    showingAll = !showingAll;
+    
+    if (showingAll) {
+        // 切换到全部方式
+        btn.textContent = '显示常用方式';
+        durationChart.data.labels = allMethodsData.labels;
+        durationChart.data.datasets = allMethodsData.datasets;
+    } else {
+        // 切换到常用方式
+        btn.textContent = '显示全部方式';
+        durationChart.data.labels = commonMethodsData.labels;
+        durationChart.data.datasets = commonMethodsData.datasets;
+    }
+    
+    // 更新图表
+    durationChart.update();
+}
+
+// 合同图表渲染(延迟加载)
+function renderContractCharts() {
+    // 合同类型分布饼图
+    const typeCtx = document.getElementById('contractTypeChart');
+    if (typeCtx) {
+        new Chart(typeCtx, {
+            type: 'pie',
+            data: {
+                labels: ['主合同', '补充协议'],
+                datasets: [{
+                    data: [{{ contract_stats.main_amount|default:"0" }}, {{ contract_stats.supplement_amount|default:"0" }}],
+                    backgroundColor: ['#722ed1', '#1890ff'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+
+    // 合同来源分布柱状图
+    const sourceCtx = document.getElementById('contractSourceChart');
+    if (sourceCtx) {
+        new 
+
+Chart(sourceCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ contract_source_labels|safe }},
+                datasets: [{
+                    label: '合同数量',
+                    data: {{ contract_source_data|safe }},
+                    backgroundColor: '#1890ff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '合同数量' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+}
 </script>
 {% endblock %}

@@ -57,7 +57,7 @@ def get_procurement_statistics(year=None, project_codes=None):
             method_distribution.append({
                 'method': method['procurement_method'],
                 'count': method['count'],
-                'amount': float(method['amount'] or 0),
+                'amount': float(method['amount'] or 0) / 10000,  # 转换为万元
                 'percentage': round(method['count'] / total_count * 100, 2) if total_count > 0 else 0
             })
     
@@ -98,21 +98,69 @@ def get_procurement_statistics(year=None, project_codes=None):
             monthly_data.append({
                 'month': item['month'].strftime('%Y-%m'),
                 'count': item['count'],
-                'amount': float(item['amount'] or 0)
+                'amount': float(item['amount'] or 0) / 10000  # 转换为万元
             })
+    
+    # 采购周期分析 - 按采购方式分组
+    cycle_by_method = {}
+    # 默认常用方式（6种）
+    common_methods = ['公开招标', '单一来源', '询价采购', '直接采购', '竞价采购', '战采应用']
+    # 全部方式（10种）- 与原型图保持一致
+    all_methods_list = ['公开招标', '邀请招标', '竞争性谈判', '竞争性磋商', '询价采购', '单一来源', '直接采购', '竞价采购', '比选', '战采应用']
+    
+    for proc in cycle_data:
+        method = proc.procurement_method
+        if not method:
+            continue
+        if method not in cycle_by_method:
+            cycle_by_method[method] = {'under_30': 0, '30_to_60': 0, '60_to_90': 0, 'over_90': 0}
+        
+        if proc.notice_issue_date and proc.requirement_approval_date:
+            days = (proc.notice_issue_date - proc.requirement_approval_date).days
+            if days > 0:
+                if days < 30:
+                    cycle_by_method[method]['under_30'] += 1
+                elif days < 60:
+                    cycle_by_method[method]['30_to_60'] += 1
+                elif days < 90:
+                    cycle_by_method[method]['60_to_90'] += 1
+                else:
+                    cycle_by_method[method]['over_90'] += 1
+    
+    # 采购偏差分析 - Top 5
+    top_deviations = []
+    for proc in queryset.filter(
+        planned_completion_date__isnull=False,
+        result_publicity_release_date__isnull=False
+    ):
+        deviation_days = (proc.result_publicity_release_date - proc.planned_completion_date).days
+        if deviation_days != 0:  # 只统计有偏差的
+            top_deviations.append({
+                'project_name': proc.project_name,
+                'planned_date': proc.planned_completion_date,
+                'actual_date': proc.result_publicity_release_date,
+                'deviation_days': deviation_days
+            })
+    
+    # 按偏差绝对值排序,取前5
+    top_deviations.sort(key=lambda x: abs(x['deviation_days']), reverse=True)
+    top_deviations = top_deviations[:5]
     
     return {
         'year': year if year is not None else '全部',
         'total_count': total_count,
-        'total_budget': float(total_budget),
-        'total_winning': float(total_winning),
-        'savings_amount': float(total_budget - total_winning),
+        'total_budget': float(total_budget) / 10000,  # 转换为万元
+        'total_winning': float(total_winning) / 10000,  # 转换为万元
+        'savings_amount': float(total_budget - total_winning) / 10000,  # 转换为万元
         'savings_rate': round(savings_rate, 2),
         'method_distribution': method_distribution,
         'avg_cycle_days': round(avg_cycle_days, 1),
         'archived_count': archived_count,
         'archive_rate': archive_rate,
-        'monthly_trend': monthly_data
+        'monthly_trend': monthly_data,
+        'cycle_by_method': cycle_by_method,
+        'common_methods': common_methods,
+        'top_deviations': top_deviations,
     }
 
 
@@ -157,7 +205,7 @@ def get_contract_statistics(year=None, project_codes=None):
             type_distribution.append({
                 'type': item['file_positioning'],
                 'count': item['count'],
-                'amount': float(item['amount'] or 0),
+                'amount': float(item['amount'] or 0) / 10000,  # 转换为万元
                 'percentage': round(item['count'] / total_count * 100, 2) if total_count > 0 else 0
             })
     
@@ -173,7 +221,7 @@ def get_contract_statistics(year=None, project_codes=None):
             source_distribution.append({
                 'source': item['contract_source'],
                 'count': item['count'],
-                'amount': float(item['amount'] or 0),
+                'amount': float(item['amount'] or 0) / 10000,  # 转换为万元
                 'percentage': round(item['count'] / total_count * 100, 2) if total_count > 0 else 0
             })
     
@@ -205,17 +253,17 @@ def get_contract_statistics(year=None, project_codes=None):
             monthly_data.append({
                 'month': item['month'].strftime('%Y-%m'),
                 'count': item['count'],
-                'amount': float(item['amount'] or 0)
+                'amount': float(item['amount'] or 0) / 10000  # 转换为万元
             })
     
     return {
         'year': year if year is not None else '全部',
         'total_count': total_count,
-        'total_amount': float(total_amount),
+        'total_amount': float(total_amount) / 10000,  # 转换为万元
         'main_count': main_count,
-        'main_amount': float(main_amount),
+        'main_amount': float(main_amount) / 10000,  # 转换为万元
         'supplement_count': supplement_count,
-        'supplement_amount': float(supplement_amount),
+        'supplement_amount': float(supplement_amount) / 10000,  # 转换为万元
         'type_distribution': type_distribution,
         'source_distribution': source_distribution,
         'archived_count': archived_count,
@@ -288,7 +336,7 @@ def get_payment_statistics(year=None, project_codes=None):
             monthly_data.append({
                 'month': item['month'].strftime('%Y-%m'),
                 'count': item['count'],
-                'amount': float(item['amount'] or 0)
+                'amount': float(item['amount'] or 0) / 10000  # 转换为万元
             })
     
     # 计算预计剩余支付金额
@@ -323,16 +371,17 @@ def get_payment_statistics(year=None, project_codes=None):
     return {
         'year': year if year is not None else '全部',
         'total_count': total_count,
-        'total_amount': float(total_amount),
-        'avg_amount': float(avg_amount),
-        'max_amount': float(max_amount),
-        'min_amount': float(min_amount),
+        'total_amount': float(total_amount) / 10000,  # 转换为万元
+        'avg_amount': float(avg_amount) / 10000,  # 转换为万元
+        'max_amount': float(max_amount) / 10000,  # 转换为万元
+        'min_amount': float(min_amount) / 10000,  # 转换为万元
         'settled_count': settled_count,
-        'settled_amount': float(settled_amount),
+        'settled_amount': float(settled_amount) / 10000,  # 转换为万元
         'unsettled_count': unsettled_count,
-        'unsettled_amount': float(unsettled_amount),
-        'estimated_remaining': float(total_remaining),
-        'monthly_trend': monthly_data
+        'unsettled_amount': float(unsettled_amount) / 10000,  # 转换为万元
+        'estimated_remaining': float(total_remaining) / 10000,  # 转换为万元
+        'monthly_trend': monthly_data,
+        'payment_rate': round(float(total_amount) / float(total_remaining + total_amount) * 100, 2) if (total_remaining + total_amount) > 0 else 0  # 计算支付率
     }
 
 
@@ -370,7 +419,7 @@ def get_settlement_statistics():
             yearly_data.append({
                 'year': item['year'].year,
                 'count': item['count'],
-                'amount': float(item['amount'] or 0)
+                'amount': float(item['amount'] or 0) / 10000  # 转换为万元
             })
     
     # 计算结算率（已结算的主合同数 / 总主合同数）
@@ -398,19 +447,19 @@ def get_settlement_statistics():
         
         variance_analysis.append({
             'settlement_code': settlement.settlement_code,
-            'contract_amount': float(contract_amount),
-            'settlement_amount': float(settlement.final_amount),
-            'variance': float(variance),
+            'contract_amount': float(contract_amount) / 10000,  # 转换为万元
+            'settlement_amount': float(settlement.final_amount) / 10000,  # 转换为万元
+            'variance': float(variance) / 10000,  # 转换为万元
             'variance_rate': round(variance_rate, 2)
         })
     
     return {
         'total_count': total_count,
-        'total_amount': float(total_amount),
-        'avg_amount': float(avg_amount),
+        'total_amount': float(total_amount) / 10000,  # 转换为万元
+        'avg_amount': float(avg_amount) / 10000,  # 转换为万元
         'settlement_rate': settlement_rate,
         'pending_count': pending_count,
-        'pending_amount': float(pending_amount),
+        'pending_amount': float(pending_amount) / 10000,  # 转换为万元
         'yearly_data': yearly_data,
         'variance_analysis': variance_analysis[:10]  # 只返回前10条
     }
@@ -468,32 +517,32 @@ def get_year_comparison(years, project_codes=None):
         comparison_data['procurement'].append({
             'year': year,
             'count': proc_stats['total_count'],
-            'amount': proc_stats['total_winning']
+            'amount': proc_stats['total_winning']  # 已在get_procurement_statistics中转换
         })
         
         contract_stats = get_contract_statistics(year, project_codes)
         comparison_data['contract'].append({
             'year': year,
             'count': contract_stats['total_count'],
-            'amount': contract_stats['total_amount']
+            'amount': contract_stats['total_amount']  # 已在get_contract_statistics中转换
         })
         
         payment_stats = get_payment_statistics(year, project_codes)
         comparison_data['payment'].append({
             'year': year,
             'count': payment_stats['total_count'],
-            'amount': payment_stats['total_amount']
+            'amount': payment_stats['total_amount']  # 已在get_payment_statistics中转换
         })
         
         # 添加行数据，便于模板直接迭代
         comparison_data['rows'].append({
             'year': year,
             'procurement_count': proc_stats['total_count'],
-            'procurement_amount': proc_stats['total_winning'],
+            'procurement_amount': proc_stats['total_winning'],  # 已转换
             'contract_count': contract_stats['total_count'],
-            'contract_amount': contract_stats['total_amount'],
+            'contract_amount': contract_stats['total_amount'],  # 已转换
             'payment_count': payment_stats['total_count'],
-            'payment_amount': payment_stats['total_amount'],
+            'payment_amount': payment_stats['total_amount'],  # 已转换
         })
     
     return comparison_data

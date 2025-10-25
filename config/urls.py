@@ -22,7 +22,7 @@ urlpatterns = [
     path('database/management/', views.database_management, name='database_management'),
     
     # 监控与报表路由
-    path('monitoring/', views.monitoring_dashboard, name='monitoring_dashboard'),
+    path('monitoring/cockpit/', views.monitoring_cockpit, name='monitoring_cockpit'),
     path('monitoring/archive/', views.archive_monitor, name='archive_monitor'),
     path('monitoring/update/', views.update_monitor, name='update_monitor'),
     path('monitoring/completeness/', views.completeness_check, name='completeness_check'),

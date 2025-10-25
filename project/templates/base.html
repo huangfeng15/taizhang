@@ -752,18 +752,12 @@
                 </a>
             </li>
             <li class="menu-item {% if 'monitoring' in request.path or 'reports' in request.path %}expanded{% endif %}">
-                <a href="javascript:void(0)" class="menu-link" onclick="toggleSubmenu(this)">
+                <a href="#" class="menu-link" onclick="toggleSubmenu(this); return false;">
                     <i class="fas fa-chart-line"></i>
                     <span>监控中心</span>
                     <i class="fas fa-chevron-right menu-toggle"></i>
                 </a>
                 <ul class="menu-submenu">
-                    <li class="menu-item">
-                        <a href="{% url 'monitoring_dashboard' %}" class="menu-link {% if request.resolver_match.url_name == 'monitoring_dashboard' %}active{% endif %}">
-                            <i class="fas fa-tachometer-alt"></i>
-                            <span>监控总览</span>
-                        </a>
-                    </li>
                     <li class="menu-item">
                         <a href="{% url 'archive_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'archive_monitor' %}active{% endif %}">
                             <i class="fas fa-archive"></i>
@@ -824,6 +818,8 @@
 
         // 子菜单展开/折叠
         function toggleSubmenu(element) {
+            event.preventDefault();
+            event.stopPropagation();
             const menuItem = element.closest('.menu-item');
             menuItem.classList.toggle('expanded');
         }
