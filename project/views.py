@@ -2334,78 +2334,59 @@ def completeness_check(request):
     """
     from project.services.completeness import (
         get_completeness_overview,
-        check_procurement_field_completeness,
-        check_contract_field_completeness,
-        check_contract_completeness,
-        check_project_completeness,
-        check_payment_settlement_completeness
+        get_project_completeness_ranking
+    )
+    from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
+    
+    # 获取年度和项目筛选参数
+    year_context = resolve_monitoring_year(request)
+    project_codes = request.GET.getlist('project')
+    # 过滤掉空字符串
+    project_codes = [p for p in project_codes if p]
+    
+    # 获取分页参数
+    procurement_page = request.GET.get('procurement_page', 1)
+    contract_page = request.GET.get('contract_page', 1)
+    page_size = 10  # 每页显示10个字段
+    
+    # 获取字段齐全性概览（根据筛选参数）
+    overview = get_completeness_overview(
+        year=year_context['year_filter'],
+        project_codes=project_codes if project_codes else None
     )
     
-    # 获取筛选参数
-    check_type = request.GET.get('type', 'all')  # all/field/contract/project/payment
-    issue_type_filter = request.GET.get('issue_type', '')  # error/warning/info
+    # 对字段统计列表进行分页
+    procurement_field_stats = overview['procurement_field_check']['field_stats']
+    contract_field_stats = overview['contract_field_check']['field_stats']
     
-    if check_type == 'field':
-        # 只检查字段齐全性
-        procurement_field_result = check_procurement_field_completeness()
-        contract_field_result = check_contract_field_completeness()
-        overview = {
-            'total_issues': 0,
-            'error_count': 0,
-            'warning_count': 0,
-            'info_count': 0,
-            'procurement_field_check': procurement_field_result,
-            'contract_field_check': contract_field_result,
-        }
-    elif check_type == 'contract':
-        # 只检查合同关联
-        result = check_contract_completeness()
-        overview = {
-            'total_issues': len(result['issues']),
-            'error_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'error'),
-            'warning_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'warning'),
-            'info_count': 0,
-            'contract_check': result,
-        }
-    elif check_type == 'project':
-        # 只检查项目关联
-        result = check_project_completeness()
-        overview = {
-            'total_issues': len(result['issues']),
-            'error_count': 0,
-            'warning_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'warning'),
-            'info_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'info'),
-            'project_check': result,
-        }
-    elif check_type == 'payment':
-        # 只检查付款结算
-        result = check_payment_settlement_completeness()
-        overview = {
-            'total_issues': len(result['issues']),
-            'error_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'error'),
-            'warning_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'warning'),
-            'info_count': sum(issue['count'] for issue in result['issues'] if issue['type'] == 'info'),
-            'payment_check': result,
-        }
-    else:
-        # 全部检查
-        overview = get_completeness_overview()
+    # 采购字段分页
+    procurement_paginator = Paginator(procurement_field_stats, page_size)
+    procurement_page_obj = procurement_paginator.get_page(procurement_page)
     
-    # 应用问题类型筛选
-    if issue_type_filter:
-        for check_key in ['contract_check', 'project_check', 'payment_check']:
-            if check_key in overview:
-                filtered_issues = [
-                    issue for issue in overview[check_key]['issues']
-                    if issue['type'] == issue_type_filter
-                ]
-                overview[check_key]['issues'] = filtered_issues
+    # 合同字段分页
+    contract_paginator = Paginator(contract_field_stats, page_size)
+    contract_page_obj = contract_paginator.get_page(contract_page)
+    
+    # 获取项目排行榜
+    project_rankings = get_project_completeness_ranking(
+        year=year_context['year_filter'],
+        project_codes=project_codes if project_codes else None
+    )
+    
+    # 获取筛选配置
+    filter_config = get_monitoring_filter_config(request)
     
     context = {
         'page_title': '齐全性检查',
-        'check_type': check_type,
-        'issue_type_filter': issue_type_filter,
         'overview': overview,
+        'procurement_page_obj': procurement_page_obj,
+        'contract_page_obj': contract_page_obj,
+        'project_rankings': project_rankings,
+        'available_years': year_context['available_years'],
+        'year_filter': year_context['selected_year_value'],
+        'project_filter': project_codes[0] if project_codes else '',
+        'projects': filter_config['projects'],
+        **filter_config,
     }
     
     return render(request, 'monitoring/completeness.html', context)
@@ -2506,6 +2487,7 @@ def ranking_view(request):
         get_settlement_ranking,
         get_comprehensive_ranking
     )
+    from project.filter_config import get_monitoring_filter_config
     from datetime import datetime
     
     # Parse year and start-date filters

@@ -1,117 +1,117 @@
+
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+{% block title %}业务统计分析 - 项目采购与成本管理系统{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
-{% endblock %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-color: #1890ff;
+        --bg-color: #f0f2f5;
+        --card-bg: #ffffff;
+        --text-primary: #262626;
+        --text-secondary: #595959;
+        --border-color: #e8e8e8;
+        --success-color: #52c41a;
+        --error-color: #ff4d4f;
+        --warning-color: #faad14;
+        --info-color: #1890ff;
+        --purple-color: #722ed1;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
 
-{% block content %}
-<div class="monitoring-statistics">
-    <div class="monitoring-page__header">
-        <div class="monitoring-page__intro">
-            <h1><i class="fas fa-chart-bar"></i> {{ page_title }}</h1>
-            <p class="text-muted">查看采购、合同、付款、结算的统计分析数据</p>
-        </div>
+    body {
+        background-color: var(--bg-color);
+        font-family: var(--font-family);
+    }
 
-        {% if stat_type != 'comparison' %}
-        <div class="monitoring-page__filters">
-            {% include 'components/year_project_filter.html' with available_years=available_years projects=projects selected_year=year_filter_value selected_project=selected_project_value form_id='stats' %}
-        </div>
-        {% endif %}
-    </div>
+    .dashboard-container {
+        max-width: 1800px;
+        margin: 0 auto;
+        padding: 24px;
+    }
 
-    <!-- 统计类型切换 -->
-    <div class="stat-nav">
-        <div class="btn-group" role="group">
-            <a href="?type=overview{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'overview' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-tachometer-alt"></i> 综合概览
-            </a>
-            <a href="?type=procurement{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'procurement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-shopping-cart"></i> 采购统计
-            </a>
-            <a href="?type=contract{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-file-contract"></i> 合同统计
-            </a>
-            <a href="?type=payment{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'payment' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-money-bill-wave"></i> 付款统计
-            </a>
-            <a href="?type=settlement{% if year_filter_value %}&year={{ year_filter_value }}{% endif %}{% if selected_project_value %}&project={{ selected_project_value }}{% endif %}" class="btn btn-sm {% if stat_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-calculator"></i> 结算统计
-            </a>
-            <a href="?type=comparison" class="btn btn-sm {% if stat_type == 'comparison' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                <i class="fas fa-chart-line"></i> 年度对比
-            </a>
-        </div>
-    </div>
+    /* 页面头部 */
+    .page-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        gap: 16px;
+    }
 
-    <!-- 综合概览 - 紧凑多栏卡片布局 -->
-    {% if stat_type == 'overview' %}
-    <div class="overview-grid">
-        <!-- 采购概览卡片 -->
-        <div class="stat-card-compact">
-            <div class="card-header">
-                <i class="fas fa-shopping-cart"></i>
-                <h4>采购概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
-            </div>
-            <div class="stat-list">
-                <div class="stat-row">
-                    <span class="label">项目总数</span>
-                    <span class="value">{{ procurement_stats.total_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">预算总额</span>
-                    <span class="value">{{ procurement_stats.total_budget|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">中标总额</span>
-                    <span class="value success">{{ procurement_stats.total_winning|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">节约率</span>
-                    <span class="value success">{{ procurement_stats.savings_rate }}%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">归档率</span>
-                    <span class="value {% if procurement_stats.archive_rate >= 80 %}success{% elif procurement_stats.archive_rate >= 50 %}warning{% else %}danger{% endif %}">{{ procurement_stats.archive_rate }}%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">平均周期</span>
-                    <span class="value">{{ procurement_stats.avg_cycle_days }} 天</span>
-                </div>
-            </div>
-        </div>
+    .page-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--text-primary);
+    }
+    
+    .breadcrumb {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-top: 8px;
+    }
 
-        <!-- 合同概览卡片 -->
-        <div class="stat-card-compact">
-            <div class="card-header">
-                <i class="fas fa-file-contract"></i>
-                <h4>合同概览（{{ selected_year }}{% if selected_year != '全部' %}年{% endif %}）</h4>
-            </div>
-            <div class="stat-list">
-                <div class="stat-row">
-                    <span class="label">合同总数</span>
-                    <span class="value">{{ contract_stats.total_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">合同总额</span>
-                    <span class="value">{{ contract_stats.total_amount|floatformat:2 }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">主合同数</span>
-                    <span class="value">{{ contract_stats.main_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">补充协议</span>
-                    <span class="value">{{ contract_stats.supplement_count }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="label">归档率</span>
-                    <span class="value {% if contract_stats.archive_rate >= 80 %}success{% elif contract_stats.archive_rate >= 50 %}warning{% else %}danger{% endif %}">{{ contract_stats.archive_rate }}%</span>
-                </div>
-            </div>
-        </div>
+    .breadcrumb a {
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+
+    .breadcrumb a:hover { 
+        text-decoration: underline; 
+    }
+
+    /* 筛选卡片 */
+    .filter-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 12px 16px;
+        box-shadow: var(--shadow);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .filter-controls label {
+        font-size: 14px;
+        color: var(--text-secondary);
+        font-weight: 500;
+        white-space: nowrap;
+        margin: 0;
+    }
+
+    .filter-controls select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 15px;
+        min-width: 150px;
+        transition: border-color 0.3s, box-shadow 0.3s;
+        background: white;
+    }
+
+    .filter-controls select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+    }
+
+    /* KPI 卡片 */
 
         <!-- 付款概览卡片 -->
         <div class="stat-card-compact">

@@ -4,507 +4,910 @@
 {% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-.field-stats-table {
-    font-size: 0.9rem;
+:root {
+    --primary-color: #1890ff;
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-primary: #262626;
+    --text-secondary: #595959;
+    --border-color: #e8e8e8;
+    --success-color: #52c41a;
+    --error-color: #ff4d4f;
+    --warning-color: #faad14;
+    --info-color: #1890ff;
+    --neutral-color: #f0f0f0;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
-.progress-thin {
-    height: 8px;
+
+.dashboard-container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 24px;
+    background-color: var(--bg-color);
+    font-family: var(--font-family);
 }
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 16px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.breadcrumb {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.breadcrumb a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.filter-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 18px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-controls label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-controls select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 15px;
+    min-width: 150px;
+    color: var(--text-primary);
+    background: #fff;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.filter-controls select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.kpi-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.kpi-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--primary-color);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.kpi-card.is-success {
+    border-top-color: var(--success-color);
+}
+
+.kpi-card.is-error {
+    border-top-color: var(--error-color);
+}
+
+.kpi-card.is-warning {
+    border-top-color: var(--warning-color);
+}
+
+.kpi-card.is-info {
+    border-top-color: var(--info-color);
+}
+
+.kpi-card-title {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kpi-card-value {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.kpi-card-value .unit {
+    font-size: 22px;
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+.main-content-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+
+.card-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #40a9ff 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    margin: -24px -24px 24px -24px;
+}
+
+.card-header-custom.success-gradient {
+    background: linear-gradient(135deg, var(--success-color) 0%, #73d13d 100%);
+}
+
+.card-header-custom h5 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .completeness-badge {
-    font-size: 1.1rem;
-    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+}
+
+.info-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #f6f8fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    border-left: 4px solid var(--info-color);
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.field-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.field-stats-table thead {
+    background: #fafafa;
+}
+
+.field-stats-table th,
+.field-stats-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.field-stats-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.field-stats-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-bar-wrapper {
+    flex: 1;
+    height: 10px;
+    background: var(--neutral-color);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+.progress-bar-fill.excellent {
+    background: linear-gradient(90deg, var(--success-color), #73d13d);
+}
+
+.progress-bar-fill.good {
+    background: linear-gradient(90deg, var(--warning-color), #ffc53d);
+}
+
+.progress-bar-fill.poor {
+    background: linear-gradient(90deg, var(--error-color), #ff7875);
+}
+
+.progress-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 50px;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status-badge.excellent {
+    background: rgba(82, 196, 26, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.good {
+    background: rgba(250, 173, 20, 0.1);
+    color: var(--warning-color);
+}
+
+.status-badge.poor {
+    background: rgba(255, 77, 79, 0.1);
+    color: var(--error-color);
+}
+
+.records-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.records-table thead {
+    background: #fafafa;
+}
+
+.records-table th,
+.records-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.records-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.records-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.records-table a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.records-table a:hover {
+    text-decoration: underline;
+}
+
+.alert-success {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(82, 196, 26, 0.08);
+    border: 1px solid rgba(82, 196, 26, 0.3);
+    border-radius: 8px;
+    color: var(--success-color);
+    font-size: 14px;
+}
+
+.issue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.issue-table thead {
+    background: #fafafa;
+}
+
+.issue-table th,
+.issue-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.issue-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.issue-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.issue-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.issue-badge.error {
+    background: rgba(255, 77, 79, 0.1);
+    color: var(--error-color);
+}
+
+.issue-badge.warning {
+    background: rgba(250, 173, 20, 0.1);
+    color: var(--warning-color);
+}
+
+.issue-badge.info {
+    background: rgba(24, 144, 255, 0.1);
+    color: var(--info-color);
+}
+
+.count-badge {
+    background: #f5f5f5;
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.help-card {
+    background: linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+}
+
+.help-card h6 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.help-card ul {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+.help-card li {
+    margin-bottom: 8px;
+}
+
+.help-card strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* 标签页样式 */
+.tabs-nav {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 24px;
+}
+
+.tab-item {
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.3s;
+}
+
+.tab-item:hover {
+    color: var(--primary-color);
+}
+
+.tab-item.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* 排行榜样式 */
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.ranking-table thead {
+    background: #fafafa;
+}
+
+.ranking-table th,
+.ranking-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.ranking-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ranking-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.rank-badge.rank-1 {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: white;
+}
+
+.rank-badge.rank-2 {
+    background: linear-gradient(135deg, #C0C0C0, #808080);
+    color: white;
+}
+
+.rank-badge.rank-3 {
+    background: linear-gradient(135deg, #CD7F32, #8B4513);
+    color: white;
+}
+
+.rank-badge.rank-other {
+    background: var(--neutral-color);
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 16px;
+    }
+
+    .page-title {
+        font-size: 24px;
+    }
+
+    .kpi-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-controls label {
+        width: 100%;
+    }
+
+    .filter-controls select {
+        width: 100%;
+    }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="monitoring-completeness">
-    <div class="content-header">
-        <h1 class="content-title"><i class="fas fa-check-double"></i> {{ page_title }}</h1>
-        <div class="breadcrumb">
-            <a href="{% url 'dashboard' %}">首页</a>
-            <span>/</span>
-            <a href="{% url 'monitoring_dashboard' %}">监控中心</a>
-            <span>/</span>
-            <span>齐全性检查</span>
+<div class="dashboard-container">
+    <header class="page-header">
+        <div>
+            <h1 class="page-title"><i class="fas fa-check-double"></i> {{ page_title }}</h1>
+            <div class="breadcrumb">
+                <a href="{% url 'dashboard' %}">首页</a>
+                <span> / </span>
+                <a href="{% url 'monitoring_dashboard' %}">监控中心</a>
+                <span> / </span>
+                <span>齐全性检查</span>
+            </div>
         </div>
-    </div>
+        
+        <!-- 年度和项目筛选器 -->
+        <div class="filter-card" style="padding: 12px 16px; margin: 0;">
+            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin: 0; white-space: nowrap;">
+                    年份：
+                </label>
+                <select name="year" onchange="this.form.submit()" style="width: 140px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <option value="all" {% if year_filter == 'all' %}selected{% endif %}>全部年度</option>
+                    {% for year in available_years %}
+                    <option value="{{ year }}" {% if year_filter|stringformat:"s" == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
+                    {% endfor %}
+                </select>
 
-    <!-- 筛选器 -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <form method="get" class="filter-bar" style="display: flex; gap: 12px; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <label style="margin: 0; font-weight: 600;">检查类型:</label>
-                    <select name="type" class="form-select" style="width: 200px;" onchange="this.form.submit()">
-                        <option value="all" {% if check_type == 'all' %}selected{% endif %}>全部检查</option>
-                        <option value="field" {% if check_type == 'field' %}selected{% endif %}>字段齐全性</option>
-                        <option value="contract" {% if check_type == 'contract' %}selected{% endif %}>合同关联</option>
-                        <option value="project" {% if check_type == 'project' %}selected{% endif %}>项目关联</option>
-                        <option value="payment" {% if check_type == 'payment' %}selected{% endif %}>付款结算</option>
-                    </select>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <label style="margin: 0; font-weight: 600;">问题类型:</label>
-                    <select name="issue_type" class="form-select" style="width: 120px;" onchange="this.form.submit()">
-                        <option value="">全部</option>
-                        <option value="error" {% if issue_type_filter == 'error' %}selected{% endif %}>错误</option>
-                        <option value="warning" {% if issue_type_filter == 'warning' %}selected{% endif %}>警告</option>
-                        <option value="info" {% if issue_type_filter == 'info' %}selected{% endif %}>信息</option>
-                    </select>
-                </div>
+                <label style="font-weight: 600; color: var(--text-secondary); margin: 0; white-space: nowrap;">
+                    项目：
+                </label>
+                <select name="project" onchange="this.form.submit()" style="width: 220px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <option value="" {% if not project_filter %}selected{% endif %}>所有项目</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
+                        {{ project.project_name }}
+                    </option>
+                    {% endfor %}
+                </select>
             </form>
         </div>
+    </header>
+
+    <!-- KPI总览 -->
+    <section class="kpi-overview">
+        <div class="kpi-card is-success">
+            <div class="kpi-card-title">
+                <i class="fas fa-shopping-cart"></i> 采购齐全率
+            </div>
+            <div class="kpi-card-value">{{ overview.procurement_field_check.completeness_rate }}<span class="unit">%</span></div>
+            <small style="color: var(--text-secondary); font-size: 13px;">{{ overview.procurement_field_check.field_count }}个字段</small>
+        </div>
+        <div class="kpi-card is-success">
+            <div class="kpi-card-title">
+                <i class="fas fa-file-contract"></i> 合同齐全率
+            </div>
+            <div class="kpi-card-value">{{ overview.contract_field_check.completeness_rate }}<span class="unit">%</span></div>
+            <small style="color: var(--text-secondary); font-size: 13px;">{{ overview.contract_field_check.field_count }}个字段</small>
+        </div>
+        <div class="kpi-card is-warning">
+            <div class="kpi-card-title">
+                <i class="fas fa-database"></i> 采购记录总数
+            </div>
+            <div class="kpi-card-value">{{ overview.procurement_field_check.total_count }}</div>
+            <small style="color: var(--text-secondary); font-size: 13px;">条记录</small>
+        </div>
+        <div class="kpi-card is-info">
+            <div class="kpi-card-title">
+                <i class="fas fa-file-alt"></i> 合同记录总数
+            </div>
+            <div class="kpi-card-value">{{ overview.contract_field_check.total_count }}</div>
+            <small style="color: var(--text-secondary); font-size: 13px;">条记录</small>
+        </div>
+    </section>
+
+    <!-- 项目字段完整性排行榜 -->
+    <div class="main-content-card">
+        <div class="card-header-custom" style="background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);">
+            <h5>
+                <i class="fas fa-trophy"></i> 项目字段完整性排行榜
+            </h5>
+        </div>
+
+        <div class="info-note">
+            <i class="fas fa-info-circle"></i>
+            综合评估各项目在采购、合同模块的字段填写完整度
+        </div>
+
+        <div class="table-responsive">
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">排名</th>
+                        <th>项目名称</th>
+                        <th style="width: 120px;">采购齐全率</th>
+                        <th style="width: 120px;">合同齐全率</th>
+                        <th style="width: 120px;">综合齐全率</th>
+                        <th style="width: 100px;">采购数量</th>
+                        <th style="width: 100px;">合同数量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if project_rankings %}
+                        {% for item in project_rankings %}
+                        <tr>
+                            <td>
+                                <span class="rank-badge {% if item.rank == 1 %}rank-1{% elif item.rank == 2 %}rank-2{% elif item.rank == 3 %}rank-3{% else %}rank-other{% endif %}">
+                                    {{ item.rank }}
+                                </span>
+                            </td>
+                            <td>
+                                <div>{{ item.project_name }}</div>
+                                <small style="color: var(--text-secondary);">{{ item.project_code }}</small>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if item.procurement_rate >= 90 %}excellent{% elif item.procurement_rate >= 70 %}good{% else %}poor{% endif %}">
+                                    {{ item.procurement_rate }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if item.contract_rate >= 90 %}excellent{% elif item.contract_rate >= 70 %}good{% else %}poor{% endif %}">
+                                    {{ item.contract_rate }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if item.overall_rate >= 90 %}excellent{% elif item.overall_rate >= 70 %}good{% else %}poor{% endif %}">
+                                    <strong>{{ item.overall_rate }}%</strong>
+                                </span>
+                            </td>
+                            <td>{{ item.procurement_count }}</td>
+                            <td>{{ item.contract_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <p>暂无项目数据</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- 字段齐全性总览 -->
-    {% if check_type == 'all' or check_type == 'field' %}
-    <div class="stats-grid mb-3">
-        <div class="stat-card">
-            <div class="card-body">
-                <div class="stat-icon bg-primary">
-                    <i class="fas fa-shopping-cart"></i>
-                </div>
-                <div class="stat-content">
-                    <h3>采购齐全率</h3>
-                    <div class="stat-value">{{ overview.procurement_field_check.completeness_rate }}%</div>
-                    <small class="text-muted">{{ overview.procurement_field_check.field_count }}个字段</small>
-                </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="card-body">
-                <div class="stat-icon bg-success">
-                    <i class="fas fa-file-contract"></i>
-                </div>
-                <div class="stat-content">
-                    <h3>合同齐全率</h3>
-                    <div class="stat-value">{{ overview.contract_field_check.completeness_rate }}%</div>
-                    <small class="text-muted">{{ overview.contract_field_check.field_count }}个字段</small>
-                </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="card-body">
-                <div class="stat-icon bg-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div class="stat-content">
-                    <h3>关联问题</h3>
-                    <div class="stat-value text-warning">{{ overview.error_count }}</div>
-                    <small class="text-muted">需要修复</small>
-                </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="card-body">
-                <div class="stat-icon bg-info">
-                    <i class="fas fa-info-circle"></i>
-                </div>
-                <div class="stat-content">
-                    <h3>提示信息</h3>
-                    <div class="stat-value text-info">{{ overview.info_count }}</div>
-                    <small class="text-muted">建议关注</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 采购字段齐全性 -->
-    <div class="card mb-3">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
+    <!-- 字段齐全性详情(标签页) -->
+    <div class="main-content-card">
+        <nav class="tabs-nav">
+            <div class="tab-item active" onclick="switchTab(event, 'tab-procurement')">
                 <i class="fas fa-shopping-cart"></i> 采购字段齐全性
-                <span class="badge bg-light text-dark completeness-badge float-end">
+            </div>
+            <div class="tab-item" onclick="switchTab(event, 'tab-contract')">
+                <i class="fas fa-file-contract"></i> 合同字段齐全性
+            </div>
+            <div class="tab-item" onclick="switchTab(event, 'tab-payment')">
+                <i class="fas fa-money-check-alt"></i> 付款结算齐全性
+            </div>
+        </nav>
+
+        <!-- 采购标签页 -->
+        <div id="tab-procurement" class="tab-pane active">
+            <div id="procurement-section" class="card-header-custom">
+                <h5>
+                    <i class="fas fa-shopping-cart"></i> 采购字段齐全性
+                </h5>
+                <span class="completeness-badge">
                     总体齐全率: {{ overview.procurement_field_check.completeness_rate }}%
                 </span>
-            </h5>
+            </div>
+        
+        <div class="info-note">
+            <i class="fas fa-info-circle"></i>
+            检查 {{ overview.procurement_field_check.total_count }} 条采购记录的 {{ overview.procurement_field_check.field_count }} 个关键字段填写情况
         </div>
-        <div class="card-body">
-            <p class="text-muted mb-3">
-                <i class="fas fa-info-circle"></i> 
-                检查 {{ overview.procurement_field_check.total_count }} 条采购记录的 {{ overview.procurement_field_check.field_count }} 个关键字段填写情况
-            </p>
-            
-            <!-- 字段统计表 -->
-            <h6 class="mb-2">字段填写统计</h6>
-            <div class="table-responsive mb-4">
-                <table class="table table-sm table-hover field-stats-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 30%;">字段名称</th>
-                            <th style="width: 15%;">填写数量</th>
-                            <th style="width: 40%;">填写率</th>
-                            <th style="width: 15%;">状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stat in overview.procurement_field_check.field_stats %}
-                        <tr>
-                            <td>{{ stat.field_label }}</td>
-                            <td>{{ stat.filled_count }} / {{ overview.procurement_field_check.total_count }}</td>
-                            <td>
-                                <div class="progress progress-thin">
-                                    <div class="progress-bar {% if stat.fill_rate >= 90 %}bg-success{% elif stat.fill_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+        
+        <!-- 字段统计表 -->
+        <div class="section-title">
+            <i class="fas fa-chart-bar"></i> 字段填写统计
+        </div>
+        <div class="table-responsive" style="margin-bottom: 32px;">
+            <table class="field-stats-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">字段名称</th>
+                        <th style="width: 15%;">填写数量</th>
+                        <th style="width: 40%;">填写率</th>
+                        <th style="width: 15%;">状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in procurement_page_obj %}
+                    <tr>
+                        <td>{{ stat.field_label }}</td>
+                        <td>{{ stat.filled_count }} / {{ overview.procurement_field_check.total_count }}</td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="progress-bar-wrapper">
+                                    <div class="progress-bar-fill {% if stat.fill_rate >= 90 %}excellent{% elif stat.fill_rate >= 70 %}good{% else %}poor{% endif %}"
                                          style="width: {{ stat.fill_rate }}%"></div>
                                 </div>
-                                <small class="text-muted">{{ stat.fill_rate }}%</small>
-                            </td>
-                            <td>
-                                {% if stat.fill_rate >= 90 %}
-                                <span class="badge bg-success">优秀</span>
-                                {% elif stat.fill_rate >= 70 %}
-                                <span class="badge bg-warning">良好</span>
-                                {% else %}
-                                <span class="badge bg-danger">待改进</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- 不完整记录 -->
-            {% if overview.procurement_field_check.incomplete_records %}
-            <h6 class="mb-2">数据不完整的采购记录 (共{{ overview.procurement_field_check.incomplete_count }}条，显示前50条)</h6>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead>
-                        <tr>
-                            <th>招采编号</th>
-                            <th>采购项目名称</th>
-                            <th>齐全率</th>
-                            <th>已填/总数</th>
-                            <th>缺失字段</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for record in overview.procurement_field_check.incomplete_records %}
-                        <tr>
-                            <td><a href="{% url 'procurement_detail' record.code %}">{{ record.code }}</a></td>
-                            <td>{{ record.name }}</td>
-                            <td>
-                                <span class="badge {% if record.completeness >= 80 %}bg-success{% elif record.completeness >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
-                                    {{ record.completeness }}%
-                                </span>
-                            </td>
-                            <td>{{ record.filled_count }} / {{ record.total_fields }}</td>
-                            <td>
-                                <small class="text-muted">
-                                    {% for field in record.missing_fields %}
-                                    {{ field }}{% if not forloop.last %}、{% endif %}
-                                    {% endfor %}
-                                    {% if record.missing_count > 5 %}
-                                    等{{ record.missing_count }}个字段
-                                    {% endif %}
-                                </small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 所有采购记录字段填写完整！
-            </div>
-            {% endif %}
+                                <span class="progress-text">{{ stat.fill_rate }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if stat.fill_rate >= 90 %}
+                            <span class="status-badge excellent">优秀</span>
+                            {% elif stat.fill_rate >= 70 %}
+                            <span class="status-badge good">良好</span>
+                            {% else %}
+                            <span class="status-badge poor">待改进</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
+        
+        <!-- 采购字段分页 -->
+        {% if procurement_page_obj.has_other_pages %}
+        <div style="margin-top: 20px;">
+            {% include 'pagination_custom.html' with page_obj=procurement_page_obj page_param='procurement_page' anchor_id='procurement-section' %}
+        </div>
+        {% endif %}
+        </div>
 
-    <!-- 合同字段齐全性 -->
-    <div class="card mb-3">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-file-contract"></i> 合同字段齐全性
-                <span class="badge bg-light text-dark completeness-badge float-end">
+        <!-- 合同标签页 -->
+        <div id="tab-contract" class="tab-pane">
+            <div id="contract-section" class="card-header-custom success-gradient">
+                <h5>
+                    <i class="fas fa-file-contract"></i> 合同字段齐全性
+                </h5>
+                <span class="completeness-badge">
                     总体齐全率: {{ overview.contract_field_check.completeness_rate }}%
                 </span>
-            </h5>
+            </div>
+        
+        <div class="info-note">
+            <i class="fas fa-info-circle"></i>
+            检查 {{ overview.contract_field_check.total_count }} 条合同记录的 {{ overview.contract_field_check.field_count }} 个关键字段填写情况
         </div>
-        <div class="card-body">
-            <p class="text-muted mb-3">
-                <i class="fas fa-info-circle"></i> 
-                检查 {{ overview.contract_field_check.total_count }} 条合同记录的 {{ overview.contract_field_check.field_count }} 个关键字段填写情况
-            </p>
-            
-            <!-- 字段统计表 -->
-            <h6 class="mb-2">字段填写统计</h6>
-            <div class="table-responsive mb-4">
-                <table class="table table-sm table-hover field-stats-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 30%;">字段名称</th>
-                            <th style="width: 15%;">填写数量</th>
-                            <th style="width: 40%;">填写率</th>
-                            <th style="width: 15%;">状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stat in overview.contract_field_check.field_stats %}
-                        <tr>
-                            <td>{{ stat.field_label }}</td>
-                            <td>{{ stat.filled_count }} / {{ overview.contract_field_check.total_count }}</td>
-                            <td>
-                                <div class="progress progress-thin">
-                                    <div class="progress-bar {% if stat.fill_rate >= 90 %}bg-success{% elif stat.fill_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+        
+        <!-- 字段统计表 -->
+        <div class="section-title">
+            <i class="fas fa-chart-bar"></i> 字段填写统计
+        </div>
+        <div class="table-responsive" style="margin-bottom: 32px;">
+            <table class="field-stats-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">字段名称</th>
+                        <th style="width: 15%;">填写数量</th>
+                        <th style="width: 40%;">填写率</th>
+                        <th style="width: 15%;">状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in contract_page_obj %}
+                    <tr>
+                        <td>{{ stat.field_label }}</td>
+                        <td>{{ stat.filled_count }} / {{ overview.contract_field_check.total_count }}</td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="progress-bar-wrapper">
+                                    <div class="progress-bar-fill {% if stat.fill_rate >= 90 %}excellent{% elif stat.fill_rate >= 70 %}good{% else %}poor{% endif %}"
                                          style="width: {{ stat.fill_rate }}%"></div>
                                 </div>
-                                <small class="text-muted">{{ stat.fill_rate }}%</small>
-                            </td>
-                            <td>
-                                {% if stat.fill_rate >= 90 %}
-                                <span class="badge bg-success">优秀</span>
-                                {% elif stat.fill_rate >= 70 %}
-                                <span class="badge bg-warning">良好</span>
-                                {% else %}
-                                <span class="badge bg-danger">待改进</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                                <span class="progress-text">{{ stat.fill_rate }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if stat.fill_rate >= 90 %}
+                            <span class="status-badge excellent">优秀</span>
+                            {% elif stat.fill_rate >= 70 %}
+                            <span class="status-badge good">良好</span>
+                            {% else %}
+                            <span class="status-badge poor">待改进</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 合同字段分页 -->
+        {% if contract_page_obj.has_other_pages %}
+        <div style="margin-top: 20px;">
+            {% include 'pagination_custom.html' with page_obj=contract_page_obj page_param='contract_page' anchor_id='contract-section' %}
+        </div>
+        {% endif %}
+        </div>
 
-            <!-- 不完整记录 -->
-            {% if overview.contract_field_check.incomplete_records %}
-            <h6 class="mb-2">数据不完整的合同记录 (共{{ overview.contract_field_check.incomplete_count }}条，显示前50条)</h6>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead>
-                        <tr>
-                            <th>合同编号</th>
-                            <th>合同名称</th>
-                            <th>齐全率</th>
-                            <th>已填/总数</th>
-                            <th>缺失字段</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for record in overview.contract_field_check.incomplete_records %}
-                        <tr>
-                            <td><a href="{% url 'contract_detail' record.code %}">{{ record.code }}</a></td>
-                            <td>{{ record.name }}</td>
-                            <td>
-                                <span class="badge {% if record.completeness >= 80 %}bg-success{% elif record.completeness >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
-                                    {{ record.completeness }}%
-                                </span>
-                            </td>
-                            <td>{{ record.filled_count }} / {{ record.total_fields }}</td>
-                            <td>
-                                <small class="text-muted">
-                                    {% for field in record.missing_fields %}
-                                    {{ field }}{% if not forloop.last %}、{% endif %}
-                                    {% endfor %}
-                                    {% if record.missing_count > 5 %}
-                                    等{{ record.missing_count }}个字段
-                                    {% endif %}
-                                </small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <!-- 付款结算标签页 -->
+        <div id="tab-payment" class="tab-pane">
+            <div class="info-note" style="background: rgba(24, 144, 255, 0.1); border-color: var(--info-color);">
+                <i class="fas fa-info-circle"></i>
+                付款结算字段齐全性统计功能待开发，敬请期待
             </div>
-            {% else %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 所有合同记录字段填写完整！
-            </div>
-            {% endif %}
         </div>
     </div>
-    {% endif %}
-
-    <!-- 合同关联检查结果 -->
-    {% if check_type == 'all' or check_type == 'contract' %}
-    {% if overview.contract_check %}
-    <div class="card mb-3">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-link"></i> 合同关联完整性检查</h5>
-        </div>
-        <div class="card-body">
-            {% if overview.contract_check.issues %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>问题类型</th>
-                            <th>问题描述</th>
-                            <th>数量</th>
-                            <th>记录详情</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for issue in overview.contract_check.issues %}
-                        <tr>
-                            <td>
-                                {% if issue.type == 'error' %}
-                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
-                                {% elif issue.type == 'warning' %}
-                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
-                                {% else %}
-                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ issue.description }}</td>
-                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
-                            <td>
-                                <small class="text-muted">
-                                    {% for record in issue.records|slice:":3" %}
-                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
-                                    {% endfor %}
-                                    {% if issue.count > 3 %}
-                                    <br>等{{ issue.count }}条
-                                    {% endif %}
-                                </small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 合同关联完整性检查通过，未发现问题！
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
-
-    <!-- 项目检查结果 -->
-    {% if check_type == 'all' or check_type == 'project' %}
-    {% if overview.project_check %}
-    <div class="card mb-3">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="fas fa-project-diagram"></i> 项目关联完整性检查</h5>
-        </div>
-        <div class="card-body">
-            {% if overview.project_check.issues %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>问题类型</th>
-                            <th>问题描述</th>
-                            <th>数量</th>
-                            <th>记录详情</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for issue in overview.project_check.issues %}
-                        <tr>
-                            <td>
-                                {% if issue.type == 'error' %}
-                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
-                                {% elif issue.type == 'warning' %}
-                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
-                                {% else %}
-                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ issue.description }}</td>
-                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
-                            <td>
-                                <small class="text-muted">
-                                    {% for record in issue.records|slice:":3" %}
-                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
-                                    {% endfor %}
-                                    {% if issue.count > 3 %}
-                                    <br>等{{ issue.count }}条
-                                    {% endif %}
-                                </small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 项目关联完整性检查通过，未发现问题！
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
-
-    <!-- 付款结算检查结果 -->
-    {% if check_type == 'all' or check_type == 'payment' %}
-    {% if overview.payment_check %}
-    <div class="card mb-3">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="fas fa-money-check-alt"></i> 付款结算完整性检查</h5>
-        </div>
-        <div class="card-body">
-            {% if overview.payment_check.issues %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>问题类型</th>
-                            <th>问题描述</th>
-                            <th>数量</th>
-                            <th>记录详情</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for issue in overview.payment_check.issues %}
-                        <tr>
-                            <td>
-                                {% if issue.type == 'error' %}
-                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 错误</span>
-                                {% elif issue.type == 'warning' %}
-                                <span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> 警告</span>
-                                {% else %}
-                                <span class="badge bg-info"><i class="fas fa-info-circle"></i> 信息</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ issue.description }}</td>
-                            <td><span class="badge bg-secondary">{{ issue.count }}</span></td>
-                            <td>
-                                <small class="text-muted">
-                                    {% for record in issue.records|slice:":3" %}
-                                    {{ record.code }} - {{ record.issue }}{% if not forloop.last %}<br>{% endif %}
-                                    {% endfor %}
-                                    {% if issue.count > 3 %}
-                                    <br>等{{ issue.count }}条
-                                    {% endif %}
-                                </small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> 付款结算完整性检查通过，未发现问题！
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
 
     <!-- 操作提示 -->
-    <div class="card">
-        <div class="card-body">
-            <h6><i class="fas fa-lightbulb"></i> 检查说明</h6>
-            <ul class="mb-0">
-                <li><strong>字段齐全性</strong>：检查采购和合同的关键字段填写情况，齐全率 = 已填字段数 / 总字段数</li>
-                <li><strong>关联完整性</strong>：检查数据之间的关联关系是否正确</li>
-                <li><strong>错误</strong>：必须修复的数据问题，可能影响系统正常运行</li>
-                <li><strong>警告</strong>：建议修复的数据问题，可能影响数据准确性</li>
-                <li><strong>信息</strong>：需要关注的数据情况，不影响系统运行</li>
-            </ul>
-        </div>
+    <div class="help-card">
+        <h6><i class="fas fa-lightbulb"></i> 检查说明</h6>
+        <ul>
+            <li><strong>字段齐全性</strong>：检查采购和合同的关键字段填写情况，齐全率 = 已填字段数 / 总字段数</li>
+            <li><strong>优秀</strong>：填写率 ≥ 90%，数据质量很高</li>
+            <li><strong>良好</strong>：填写率在 70%-90% 之间，建议补充完善</li>
+            <li><strong>待改进</strong>：填写率 < 70%，需要重点关注和改进</li>
+        </ul>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 标签页切换功能
+function switchTab(event, tabId) {
+    event.preventDefault();
+    
+    // 移除所有活动状态
+    document.querySelectorAll('.tab-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // 添加新的活动状态
+    event.currentTarget.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
+</script>
 {% endblock %}

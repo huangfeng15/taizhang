@@ -11,10 +11,14 @@ from payment.models import Payment
 from settlement.models import Settlement
 
 
-def check_procurement_field_completeness():
+def check_procurement_field_completeness(year=None, project_codes=None):
     """
     检查采购字段齐全性
     按照需求文档，检查26个关键字段的填写情况
+    
+    Args:
+        year: 年份筛选(None表示全部年份)
+        project_codes: 项目编码列表(None表示全部项目)
     
     Returns:
         dict: 采购字段齐全性统计
@@ -49,15 +53,22 @@ def check_procurement_field_completeness():
         'evaluation_committee',  # 评标委员会成员
     ]
     
+    # 应用筛选条件
     all_procurements = Procurement.objects.all()
+    if year:
+        all_procurements = all_procurements.filter(result_publicity_release_date__year=year)
+    if project_codes:
+        all_procurements = all_procurements.filter(project__project_code__in=project_codes)
     total_count = all_procurements.count()
     
     if total_count == 0:
         return {
             'total_count': 0,
-            'completeness_rate': 100.0,
+            'completeness_rate': 0.0,
+            'field_count': len(required_fields),
             'field_stats': [],
-            'incomplete_records': []
+            'incomplete_records': [],
+            'incomplete_count': 0
         }
     
     # 统计每个字段的填写情况
@@ -124,10 +135,14 @@ def check_procurement_field_completeness():
     }
 
 
-def check_contract_field_completeness():
+def check_contract_field_completeness(year=None, project_codes=None):
     """
     检查合同字段齐全性
     按照需求文档，检查17个关键字段的填写情况
+    
+    Args:
+        year: 年份筛选(None表示全部年份)
+        project_codes: 项目编码列表(None表示全部项目)
     
     Returns:
         dict: 合同字段齐全性统计
@@ -153,15 +168,22 @@ def check_contract_field_completeness():
         'payment_method',  # 支付方式
     ]
     
+    # 应用筛选条件
     all_contracts = Contract.objects.all()
+    if year:
+        all_contracts = all_contracts.filter(signing_date__year=year)
+    if project_codes:
+        all_contracts = all_contracts.filter(project__project_code__in=project_codes)
     total_count = all_contracts.count()
     
     if total_count == 0:
         return {
             'total_count': 0,
-            'completeness_rate': 100.0,
+            'completeness_rate': 0.0,
+            'field_count': len(required_fields),
             'field_stats': [],
-            'incomplete_records': []
+            'incomplete_records': [],
+            'incomplete_count': 0
         }
     
     # 统计每个字段的填写情况
@@ -558,17 +580,21 @@ def check_payment_settlement_completeness():
     }
 
 
-def get_completeness_overview():
+def get_completeness_overview(year=None, project_codes=None):
     """
     获取整体齐全性检查概览
     包含字段齐全性和关联完整性检查
+    
+    Args:
+        year: 年份筛选(None表示全部年份)
+        project_codes: 项目编码列表(None表示全部项目)
     
     Returns:
         dict: 所有检查的汇总结果
     """
     # 字段齐全性检查
-    procurement_field_result = check_procurement_field_completeness()
-    contract_field_result = check_contract_field_completeness()
+    procurement_field_result = check_procurement_field_completeness(year, project_codes)
+    contract_field_result = check_contract_field_completeness(year, project_codes)
     
     # 关联完整性检查
     contract_relation_result = check_contract_completeness()
@@ -601,3 +627,117 @@ def get_completeness_overview():
     }
     
     return overview
+
+
+def get_project_completeness_ranking(year=None, project_codes=None):
+    """
+    获取项目字段完整性排行榜
+    按采购和合同齐全率综合排名
+    
+    Args:
+        year: 年份筛选(None表示全部年份)
+        project_codes: 项目编码列表(None表示全部项目)
+    
+    Returns:
+        list: 项目排行榜数据
+    """
+    from project.models import Project
+    
+    # 获取项目列表
+    projects = Project.objects.all()
+    if project_codes:
+        projects = projects.filter(project_code__in=project_codes)
+    
+    rankings = []
+    
+    for project in projects:
+        # 获取该项目的采购记录
+        procurements = Procurement.objects.filter(project=project)
+        if year:
+            procurements = procurements.filter(result_publicity_release_date__year=year)
+        
+        # 获取该项目的合同记录
+        contracts = Contract.objects.filter(project=project)
+        if year:
+            contracts = contracts.filter(signing_date__year=year)
+        
+        # 计算采购齐全率
+        procurement_rate = 0
+        procurement_count = procurements.count()
+        if procurement_count > 0:
+            # 采购字段定义
+            procurement_fields = [
+                'procurement_code', 'project_name', 'procurement_unit', 'winning_bidder',
+                'winning_contact', 'procurement_method', 'procurement_category', 'budget_amount',
+                'control_price', 'winning_amount', 'planned_completion_date', 'candidate_publicity_end_date',
+                'result_publicity_release_date', 'notice_issue_date', 'procurement_officer', 'demand_department',
+                'demand_contact', 'requirement_approval_date', 'procurement_platform', 'qualification_review_method',
+                'bid_evaluation_method', 'bid_awarding_method', 'announcement_release_date', 'registration_deadline',
+                'bid_opening_date', 'evaluation_committee'
+            ]
+            
+            total_cells = procurement_count * len(procurement_fields)
+            filled_cells = 0
+            
+            for proc in procurements:
+                for field_name in procurement_fields:
+                    value = getattr(proc, field_name, None)
+                    if value is not None and value != '':
+                        filled_cells += 1
+            
+            procurement_rate = round((filled_cells / total_cells) * 100, 2) if total_cells > 0 else 0
+        
+        # 计算合同齐全率
+        contract_rate = 0
+        contract_count = contracts.count()
+        if contract_count > 0:
+            # 合同字段定义
+            contract_fields = [
+                'contract_sequence', 'contract_code', 'contract_name', 'contract_officer',
+                'file_positioning', 'party_a', 'party_b', 'contract_amount', 'signing_date',
+                'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
+                'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
+                'duration', 'payment_method'
+            ]
+            
+            total_cells = contract_count * len(contract_fields)
+            filled_cells = 0
+            
+            for contract in contracts:
+                for field_name in contract_fields:
+                    value = getattr(contract, field_name, None)
+                    if value is not None and value != '':
+                        filled_cells += 1
+            
+            contract_rate = round((filled_cells / total_cells) * 100, 2) if total_cells > 0 else 0
+        
+        # 计算综合齐全率（采购和合同的平均值）
+        if procurement_count > 0 and contract_count > 0:
+            overall_rate = round((procurement_rate + contract_rate) / 2, 2)
+        elif procurement_count > 0:
+            overall_rate = procurement_rate
+        elif contract_count > 0:
+            overall_rate = contract_rate
+        else:
+            overall_rate = 0
+        
+        # 只有当项目有数据时才加入排行榜
+        if procurement_count > 0 or contract_count > 0:
+            rankings.append({
+                'project_code': project.project_code,
+                'project_name': project.project_name,
+                'procurement_rate': procurement_rate,
+                'contract_rate': contract_rate,
+                'overall_rate': overall_rate,
+                'procurement_count': procurement_count,
+                'contract_count': contract_count,
+            })
+    
+    # 按综合齐全率降序排序
+    rankings.sort(key=lambda x: x['overall_rate'], reverse=True)
+    
+    # 添加排名
+    for i, item in enumerate(rankings, 1):
+        item['rank'] = i
+    
+    return rankings

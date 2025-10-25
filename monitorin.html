@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目采购与成本管理 - 综合监控中心</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #1890ff; --bg-color: #f0f2f5; --card-bg: #ffffff;
+            --text-primary: #262626; --text-secondary: #595959; --border-color: #e8e8e8;
+            --success-color: #52c41a; --error-color: #ff4d4f; --warning-color: #faad14; --pending-color: #f0f0f0;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        body { font-family: var(--font-family); background-color: var(--bg-color); color: var(--text-primary); margin: 0; padding: 24px; }
+        .dashboard-container { max-width: 1800px; margin: 0 auto; }
+        .page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
+        .page-title { font-size: 28px; font-weight: 600; margin: 0; }
+        .filter-controls { display: flex; gap: 16px; align-items: center; }
+        .filter-controls label { font-size: 14px; }
+        .filter-controls select, .filter-controls input[type="date"] { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 16px; }
+        
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        .kpi-card { background: var(--card-bg); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); border-top: 4px solid var(--primary-color); position: relative; }
+        .kpi-card.is-success { border-top-color: var(--success-color); }
+        .kpi-card.is-error { border-top-color: var(--error-color); }
+        .kpi-card.is-warning { border-top-color: var(--warning-color); }
+        .kpi-card-title { font-size: 15px; color: var(--text-secondary); margin-bottom: 8px; }
+        .kpi-card-value { font-size: 40px; font-weight: 700; }
+        .kpi-card-value .unit { font-size: 22px; font-weight: 500; margin-left: 6px; }
+        .kpi-card-subtext { font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
+
+        .main-content-card { background: var(--card-bg); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); }
+        
+        .tab-navigation { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 24px; }
+        .tab-btn { padding: 12px 24px; border: none; background-color: transparent; cursor: pointer; font-size: 16px; font-weight: 500; color: var(--text-secondary); position: relative; transition: color 0.3s; }
+        .tab-btn.active { color: var(--primary-color); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background-color: var(--primary-color); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .section-title { font-size: 20px; font-weight: 600; margin: 0; }
+
+        /* Reused styles from original file */
+        .heatmap-legend { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-bottom: 24px; align-items: center; padding: 16px; background: #fafafa; border-radius: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .legend-color-box { width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; }
+        .legend-color-box.on-time { background-color: var(--success-color); }
+        .legend-color-box.delayed { background-color: var(--error-color); }
+        .legend-color-box.no-event { background-color: var(--pending-color); border: 1px solid #d9d9d9; }
+        .project-heatmap-container { display: grid; gap: 24px; }
+        .project-card { border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; }
+        .project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .project-name { font-size: 18px; font-weight: 600; }
+        .project-timeliness-rate { font-size: 16px; font-weight: bold; }
+        .heatmap-grid { display: grid; grid-template-columns: 100px repeat(12, 1fr); gap: 4px; }
+        .grid-header, .module-name, .month-cell { text-align: center; padding: 8px 4px; font-size: 12px; border-radius: 4px; }
+        .grid-header { background-color: #fafafa; font-weight: 600; }
+        .module-name { background-color: #fafafa; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+        .month-cell { height: 30px; }
+        .month-cell.on-time { background-color: var(--success-color); }
+        .month-cell.delayed { background-color: var(--error-color); }
+        .month-cell.no-event { background-color: var(--pending-color); }
+        .stats-table-wrapper { overflow-x: auto; }
+        .stats-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .stats-table th, .stats-table td { padding: 12px 8px; border: 1px solid var(--border-color); text-align: center; white-space: nowrap; }
+        .stats-table thead { background-color: #fafafa; font-weight: 600; }
+        .stats-table .rate.good { color: var(--success-color); }
+        .stats-table .rate.bad { color: var(--error-color); }
+        .stats-table .rate.average { color: var(--warning-color); }
+        .stats-table .row-header { text-align: left; font-weight: bold; }
+
+        /* New component styles */
+        .grid-layout-2-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; }
+        .progress-card { display: flex; flex-direction: column; gap: 16px; }
+        .progress-item { display: flex; align-items: center; gap: 16px; }
+        .progress-label { font-size: 16px; font-weight: 500; width: 80px; }
+        .progress-bar-container { flex-grow: 1; height: 20px; background-color: var(--pending-color); border-radius: 10px; overflow: hidden; }
+        .progress-bar { height: 100%; background-color: var(--primary-color); transition: width 0.5s; }
+        .progress-bar.is-success { background-color: var(--success-color); }
+        .progress-bar.is-warning { background-color: var(--warning-color); }
+        .progress-bar.is-error { background-color: var(--error-color); }
+        .progress-value { font-size: 16px; font-weight: bold; min-width: 50px; text-align: right; }
+        
+        .placeholder-chart {
+            display: flex; align-items: center; justify-content: center;
+            background-color: #fafafa; border: 1px dashed var(--border-color);
+            border-radius: 8px; min-height: 300px; color: var(--text-secondary);
+            font-size: 18px; font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <header class="page-header">
+            <h1 class="page-title">项目采购与成本管理 - 综合监控中心</h1>
+            <div class="filter-controls">
+                <label for="yearFilter">统计年份:</label>
+                <select id="yearFilter">
+                    <option value="2025" selected>2025年</option>
+                    <option value="2024">2024年</option>
+                </select>
+                <label for="startDateFilter">监控起始日期:</label>
+                <input type="date" id="startDateFilter" value="2025-01-01">
+            </div>
+        </header>
+
+        <section class="kpi-grid">
+            <div class="kpi-card is-success">
+                <div class="kpi-card-title">总体更新准时率</div>
+                <div class="kpi-card-value">92.8<span class="unit">%</span></div>
+                <div class="kpi-card-subtext">准时事件: 128 / 总事件: 138</div>
+            </div>
+            <div class="kpi-card is-warning">
+                <div class="kpi-card-title">总体资料归档率</div>
+                <div class="kpi-card-value">85.4<span class="unit">%</span></div>
+                <div class="kpi-card-subtext">逾期未归档: 15项</div>
+            </div>
+            <div class="kpi-card is-error">
+                <div class="kpi-card-title">数据不齐备记录</div>
+                <div class="kpi-card-value">21<span class="unit">条</span></div>
+                <div class="kpi-card-subtext">主要涉及: 合同-付款关联</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-card-title">项目总预算 / 总合同额</div>
+                <div class="kpi-card-value">1.25<span class="unit">亿</span></div>
+                <div class="kpi-card-subtext">监控中项目总数: 42</div>
+            </div>
+        </section>
+
+        <section class="main-content-card">
+            <nav class="tab-navigation">
+                <button class="tab-btn active" data-tab="update">数据更新监控</button>
+                <button class="tab-btn" data-tab="archive">资料归档监控</button>
+                <button class="tab-btn" data-tab="completeness">数据齐全性监控</button>
+                <button class="tab-btn" data-tab="statistics">核心业务统计</button>
+            </nav>
+
+            <!-- Tab 1: 数据更新监控 -->
+            <div id="tab-update" class="tab-content active">
+                <div class="heatmap-legend">
+                    <div class="legend-item"><div class="legend-color-box on-time"></div> 准时更新</div>
+                    <div class="legend-item"><div class="legend-color-box delayed"></div> 延迟更新</div>
+                    <div class="legend-item"><div class="legend-color-box no-event"></div> 无业务事件</div>
+                    <div class="legend-rule"><strong>准时更新规则：</strong>指在业务发生的 <strong>次月月底前</strong> 完成数据录入。</div>
+                </div>
+                <div id="project-heatmap-container" class="project-heatmap-container">
+                    <!-- Placeholder for heatmap from original file -->
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-name">智慧城市一期建设项目</div>
+                            <div class="project-timeliness-rate" style="color: var(--success-color)">准时率: 95.0%</div>
+                        </div>
+                        <div class="heatmap-grid">
+                            <div class="grid-header"></div>
+                            <div class="grid-header">1月</div><div class="grid-header">2月</div><div class="grid-header">3月</div><div class="grid-header">4月</div><div class="grid-header">5月</div><div class="grid-header">6月</div><div class="grid-header">7月</div><div class="grid-header">8月</div><div class="grid-header">9月</div><div class="grid-header">10月</div><div class="grid-header">11月</div><div class="grid-header">12月</div>
+                            <div class="module-name">采购</div>
+                            <div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell delayed"></div><div class="month-cell no-event"></div><div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div>
+                            <div class="module-name">合同</div>
+                            <div class="month-cell no-event"></div><div class="month-cell on-time"></div><div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div>
+                            <div class="module-name">付款</div>
+                            <div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell on-time"></div><div class="month-cell on-time"></div><div class="month-cell delayed"></div><div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div>
+                            <div class="module-name">结算</div>
+                            <div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div><div class="month-cell on-time"></div><div class="month-cell no-event"></div><div class="month-cell no-event"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 资料归档监控 -->
+            <div id="tab-archive" class="tab-content">
+                <div class="grid-layout-2-cols">
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">各模块归档进度</h3>
+                        </div>
+                        <div class="progress-card">
+                            <div class="progress-item">
+                                <div class="progress-label">采购</div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar is-success" style="width: 95%;"></div>
+                                </div>
+                                <div class="progress-value">95%</div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">合同</div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar is-warning" style="width: 82%;"></div>
+                                </div>
+                                <div class="progress-value">82%</div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">结算</div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar is-error" style="width: 55%;"></div>
+                                </div>
+                                <div class="progress-value">55%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">逾期未归档清单 (Top 5)</h3>
+                        </div>
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table">
+                                <thead>
+                                    <tr><th>项目名称</th><th>模块</th><th>业务单据号</th><th>逾期天数</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="row-header">总部研发大楼智能化工程</td><td>结算</td><td>SET-2024-005</td><td class="rate bad">120</td></tr>
+                                    <tr><td class="row-header">西北区物流仓储系统升级</td><td>合同</td><td>CON-2024-012</td><td class="rate bad">95</td></tr>
+                                    <tr><td class="row-header">智慧城市一期建设项目</td><td>结算</td><td>SET-2024-003</td><td class="rate bad">88</td></tr>
+                                    <tr><td class="row-header">华南区数据中心建设</td><td>合同</td><td>CON-2024-018</td><td class="rate average">45</td></tr>
+                                    <tr><td class="row-header">AI平台软件采购</td><td>采购</td><td>PROC-2025-001</td><td class="rate average">32</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: 数据齐全性监控 -->
+            <div id="tab-completeness" class="tab-content">
+                <div class="grid-layout-2-cols">
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">各模块数据齐全率</h3>
+                        </div>
+                        <div class="progress-card">
+                            <div class="progress-item">
+                                <div class="progress-label">采购</div>
+                                <div class="progress-bar-container"><div class="progress-bar is-success" style="width: 100%;"></div></div>
+                                <div class="progress-value">100%</div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">合同</div>
+                                <div class="progress-bar-container"><div class="progress-bar is-warning" style="width: 88%;"></div></div>
+                                <div class="progress-value">88%</div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">付款</div>
+                                <div class="progress-bar-container"><div class="progress-bar is-success" style="width: 98%;"></div></div>
+                                <div class="progress-value">98%</div>
+                            </div>
+                             <div class="progress-item">
+                                <div class="progress-label">结算</div>
+                                <div class="progress-bar-container"><div class="progress-bar is-error" style="width: 75%;"></div></div>
+                                <div class="progress-value">75%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">数据缺失记录 (Top 5)</h3>
+                        </div>
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table">
+                                <thead>
+                                    <tr><th>模块</th><th>单据号</th><th>缺失字段</th><th>说明</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>合同</td><td class="row-header">CON-2024-021</td><td>关联采购</td><td class="rate bad">采购合同未关联采购</td></tr>
+                                    <tr><td>合同</td><td class="row-header">CON-2024-025</td><td>关联主合同</td><td class="rate bad">补充协议未关联主合同</td></tr>
+                                    <tr><td>付款</td><td class="row-header">PAY-2025-011</td><td>关联合同</td><td class="rate bad">付款未关联任何合同</td></tr>
+                                    <tr><td>结算</td><td class="row-header">SET-2024-008</td><td>关联主合同</td><td class="rate bad">结算未关联主合同</td></tr>
+                                    <tr><td>合同</td><td class="row-header">CON-2024-030</td><td>关联采购</td><td class="rate bad">采购合同未关联采购</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: 核心业务统计 -->
+            <div id="tab-statistics" class="tab-content">
+                <div class="grid-layout-2-cols" style="gap: 32px;">
+                    <div>
+                        <h3 class="section-title">采购方式分布 (按金额)</h3>
+                        <div class="placeholder-chart">
+                            <i class="fas fa-chart-pie" style="margin-right: 10px;"></i> 饼图占位符
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="section-title">合同类型分布 (按数量)</h3>
+                        <div class="placeholder-chart">
+                            <i class="fas fa-chart-bar" style="margin-right: 10px;"></i> 条形图占位符
+                        </div>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <h3 class="section-title">项目支付进度与剩余应付</h3>
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table">
+                                <thead>
+                                    <tr><th>项目名称</th><th>合同/结算总额</th><th>已付总额</th><th>支付进度</th><th>剩余应付</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="row-header">智慧城市一期建设项目</td>
+                                        <td>¥ 25,000,000</td>
+                                        <td>¥ 18,000,000</td>
+                                        <td>
+                                            <div class="progress-bar-container" style="margin: 0 auto; max-width: 150px;">
+                                                <div class="progress-bar is-warning" style="width: 72%;"></div>
+                                            </div>
+                                        </td>
+                                        <td class="rate average">¥ 7,000,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="row-header">总部研发大楼智能化工程</td>
+                                        <td>¥ 88,000,000</td>
+                                        <td>¥ 80,000,000</td>
+                                        <td>
+                                            <div class="progress-bar-container" style="margin: 0 auto; max-width: 150px;">
+                                                <div class="progress-bar is-success" style="width: 91%;"></div>
+                                            </div>
+                                        </td>
+                                        <td class="rate good">¥ 8,000,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="row-header">西北区物流仓储系统升级</td>
+                                        <td>¥ 12,500,000</td>
+                                        <td>¥ 5,000,000</td>
+                                        <td>
+                                            <div class="progress-bar-container" style="margin: 0 auto; max-width: 150px;">
+                                                <div class="progress-bar is-error" style="width: 40%;"></div>
+                                            </div>
+                                        </td>
+                                        <td class="rate bad">¥ 7,500,000</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabs = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Deactivate all
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                // Activate clicked
+                this.classList.add('active');
+                document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+            });
+        });
+    });
+    </script>
+
+</body>
+</html>
