@@ -6,6 +6,19 @@ from typing import Dict, List
 from .models import Project
 
 
+def _resolve_selected_year(request, current_year: int) -> str:
+    raw_year = request.GET.get('global_year') or request.GET.get('year')
+    if raw_year == 'all':
+        return 'all'
+    if raw_year:
+        return raw_year
+    return str(current_year)
+
+
+def _resolve_selected_project(request) -> str:
+    return request.GET.get('global_project') or request.GET.get('project') or ''
+
+
 def global_filter_options(request) -> Dict[str, object]:
     """
     为全局筛选组件提供项目和年度选项。
@@ -28,9 +41,11 @@ def global_filter_options(request) -> Dict[str, object]:
         for project in Project.objects.all().order_by("project_name")
     ]
 
+    selected_year_value = _resolve_selected_year(request, current_year)
     return {
         "global_filter_projects": project_options,
         "global_year_options": year_options,
         "global_current_year": current_year,
+        "global_selected_year": selected_year_value,
+        "global_selected_project": _resolve_selected_project(request),
     }
-

@@ -185,7 +185,12 @@
     </div>
 
     <!-- 快速筛选栏 -->
+    {% with current_year_value=global_selected_year|stringformat:"s" current_project_value=global_selected_project %}
     <form method="get" action="" class="quick-filters" id="quickFilterForm">
+        <input type="hidden" name="global_year" value="{{ current_year_value }}">
+        <input type="hidden" name="year" value="{% if current_year_value == 'all' %}all{% else %}{{ current_year_value }}{% endif %}">
+        <input type="hidden" name="global_project" value="{{ current_project_value }}">
+        <input type="hidden" name="project" value="{{ current_project_value }}">
         <div class="search-box">
             <input type="text"
                    name="q"
@@ -234,6 +239,7 @@
             </button>
         </div>
     </form>
+    {% endwith %}
 </div>
 
 <!-- 高级筛选抽屉 -->
@@ -351,6 +357,39 @@
 </div>
 
 <script>
+const GLOBAL_FILTER_PARAM_KEYS = ['global_year', 'year', 'global_project', 'project'];
+const FILTER_TAG_EXCLUDE_SET = new Set(['page', 'page_size', 'q_mode', 'global_year', 'global_project', 'year', 'project']);
+
+function snapshotGlobalFilters(url) {
+    const snapshot = {};
+    GLOBAL_FILTER_PARAM_KEYS.forEach(key => {
+        const value = url.searchParams.get(key);
+        if (value !== null) {
+            snapshot[key] = value;
+        }
+    });
+    return snapshot;
+}
+
+function restoreGlobalFilters(url, snapshot) {
+    url.searchParams.delete('global_year');
+    url.searchParams.delete('year');
+    url.searchParams.delete('global_project');
+    url.searchParams.delete('project');
+
+    const yearValue = snapshot.global_year ?? snapshot.year;
+    if (yearValue) {
+        url.searchParams.set('global_year', yearValue);
+        url.searchParams.set('year', yearValue === 'all' ? 'all' : yearValue);
+    }
+
+    const projectValue = snapshot.global_project ?? snapshot.project;
+    if (projectValue) {
+        url.searchParams.set('global_project', projectValue);
+        url.searchParams.set('project', projectValue);
+    }
+}
+
 // 快速筛选管理
 window.QuickFilter = {
     searchMode: 'or',
@@ -392,8 +431,10 @@ window.QuickFilter = {
     
     clearAll: function() {
         const url = new URL(window.location.href);
+        const globalSnapshot = snapshotGlobalFilters(url);
         const pageSize = url.searchParams.get('page_size');
         url.search = '';
+        restoreGlobalFilters(url, globalSnapshot);
         if (pageSize) url.searchParams.set('page_size', pageSize);
         window.location.href = url.toString();
     },
@@ -406,7 +447,7 @@ window.QuickFilter = {
         const paramGroups = {};
         
         for (const [key, value] of urlParams.entries()) {
-            if (key === 'page' || key === 'page_size' || key === 'q_mode' || !value) continue;
+            if (FILTER_TAG_EXCLUDE_SET.has(key) || !value) continue;
             if (!paramGroups[key]) paramGroups[key] = [];
             paramGroups[key].push(value);
         }
@@ -442,6 +483,7 @@ window.QuickFilter = {
     
     removeTag: function(key) {
         const url = new URL(window.location.href);
+        const globalSnapshot = snapshotGlobalFilters(url);
         url.searchParams.delete(key);
         if (!key.endsWith('_start') && !key.endsWith('_end') && !key.endsWith('_min') && !key.endsWith('_max')) {
             url.searchParams.delete(key + '_start');
@@ -449,6 +491,7 @@ window.QuickFilter = {
             url.searchParams.delete(key + '_min');
             url.searchParams.delete(key + '_max');
         }
+        restoreGlobalFilters(url, globalSnapshot);
         window.location.href = url.toString();
     },
     
@@ -466,7 +509,7 @@ window.QuickFilter = {
         
         let count = 0;
         for (const [key] of urlParams.entries()) {
-            if (!quickFilterNames.includes(key)) count++;
+            if (!quickFilterNames.includes(key) && !FILTER_TAG_EXCLUDE_SET.has(key)) count++;
         }
         const badge = document.getElementById('advancedFilterCount');
         if (count > 0) {
@@ -494,6 +537,7 @@ window.AdvancedFilterDrawer = {
     apply: function() {
         const form = document.getElementById('advancedFilterForm');
         const url = new URL(window.location.href);
+        const globalSnapshot = snapshotGlobalFilters(url);
         
         const quickParams = ['q', 'q_mode', 'page_size'];
         const preserved = {};
@@ -510,6 +554,7 @@ window.AdvancedFilterDrawer = {
         });
         
         url.search = '';
+        restoreGlobalFilters(url, globalSnapshot);
         url.searchParams.set('page', '1');
         
         Object.keys(preserved).forEach(key => {
@@ -532,6 +577,7 @@ window.AdvancedFilterDrawer = {
         if (form) form.reset();
         
         const url = new URL(window.location.href);
+        const globalSnapshot = snapshotGlobalFilters(url);
         const quickParams = ['q', 'q_mode', 'page_size'];
         const preserved = {};
         
@@ -548,6 +594,7 @@ window.AdvancedFilterDrawer = {
         });
         
         url.search = '';
+        restoreGlobalFilters(url, globalSnapshot);
         Object.keys(preserved).forEach(key => {
             url.searchParams.set(key, preserved[key]);
         });
