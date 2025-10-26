@@ -53,8 +53,16 @@ def check_procurement_field_completeness(year=None, project_codes=None):
         'evaluation_committee',  # 评标委员会成员
     ]
     
-    # 应用筛选条件
-    all_procurements = Procurement.objects.all()
+    # 应用筛选条件 - 使用select_related和only优化查询
+    all_procurements = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_unit', 'winning_bidder',
+        'winning_contact', 'procurement_method', 'procurement_category', 'budget_amount',
+        'control_price', 'winning_amount', 'planned_completion_date', 'candidate_publicity_end_date',
+        'result_publicity_release_date', 'notice_issue_date', 'procurement_officer', 'demand_department',
+        'demand_contact', 'requirement_approval_date', 'procurement_platform', 'qualification_review_method',
+        'bid_evaluation_method', 'bid_awarding_method', 'announcement_release_date', 'registration_deadline',
+        'bid_opening_date', 'evaluation_committee', 'project__project_code'
+    )
     if year:
         all_procurements = all_procurements.filter(result_publicity_release_date__year=year)
     if project_codes:
@@ -168,8 +176,14 @@ def check_contract_field_completeness(year=None, project_codes=None):
         'payment_method',  # 支付方式
     ]
     
-    # 应用筛选条件
-    all_contracts = Contract.objects.all()
+    # 应用筛选条件 - 使用select_related和only优化查询
+    all_contracts = Contract.objects.select_related('project').only(
+        'contract_sequence', 'contract_code', 'contract_name', 'contract_officer',
+        'file_positioning', 'party_a', 'party_b', 'contract_amount', 'signing_date',
+        'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
+        'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
+        'duration', 'payment_method', 'project__project_code'
+    )
     if year:
         all_contracts = all_contracts.filter(signing_date__year=year)
     if project_codes:

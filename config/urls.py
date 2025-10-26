@@ -29,6 +29,8 @@ urlpatterns = [
     path('monitoring/statistics/', views.statistics_view, name='statistics_view'),
     path('monitoring/ranking/', views.ranking_view, name='ranking_view'),
     path('reports/generate/', views.generate_report, name='generate_report'),
+    path('reports/preview/', views.report_preview, name='report_preview'),
+    path('reports/export/', views.report_export, name='report_export'),
     
     # 批量操作API
     path('api/contracts/batch-delete/', views.batch_delete_contracts, name='batch_delete_contracts'),

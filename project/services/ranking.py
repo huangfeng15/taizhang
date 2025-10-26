@@ -48,7 +48,12 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
     Returns:
         list: 排名列表
     """
-    queryset = Procurement.objects.all()
+    # 优化查询 - 使用select_related和only
+    queryset = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_officer',
+        'planned_completion_date', 'result_publicity_release_date',
+        'project__project_code', 'project__project_name'
+    )
     
     # 年份筛选 - 基于result_publicity_release_date
     if year:
@@ -167,7 +172,13 @@ def get_procurement_cycle_ranking(rank_type='project', year=None, method=None):
     Returns:
         list: 排名列表（按平均周期升序，周期越短排名越高）
     """
-    queryset = Procurement.objects.all()
+    # 优化查询 - 使用select_related和only
+    queryset = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_officer',
+        'procurement_method', 'requirement_approval_date',
+        'result_publicity_release_date',
+        'project__project_code', 'project__project_name'
+    )
     
     if year:
         queryset = queryset.filter(result_publicity_release_date__year=year)
@@ -245,7 +256,12 @@ def get_procurement_quantity_ranking(rank_type='project', year=None):
     Returns:
         list: 排名列表（按月均完成数量降序）
     """
-    queryset = Procurement.objects.filter(result_publicity_release_date__isnull=False)
+    # 优化查询 - 使用select_related和only
+    queryset = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_officer',
+        'result_publicity_release_date', 'winning_amount',
+        'project__project_code', 'project__project_name'
+    ).filter(result_publicity_release_date__isnull=False)
     
     if year:
         queryset = queryset.filter(result_publicity_release_date__year=year)
@@ -517,7 +533,12 @@ def get_contract_ranking(rank_type='project', year=None):
     Returns:
         list: 排名列表，包含排名、名称、合同数量、合同金额等
     """
-    queryset = Contract.objects.all()
+    # 优化查询 - 使用select_related和only
+    queryset = Contract.objects.select_related('project').only(
+        'contract_code', 'contract_name', 'file_positioning',
+        'contract_amount', 'signing_date',
+        'project__project_code', 'project__project_name'
+    )
     
     if year:
         queryset = queryset.filter(signing_date__year=year)

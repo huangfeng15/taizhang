@@ -63,7 +63,7 @@ class BaseReportGenerator:
         
         # 按采购方式统计
         by_method = list(queryset.values('procurement_method').annotate(
-            count=Count('id'),
+            count=Count('procurement_code'),
             total_amount=Sum('winning_amount')
         ).order_by('-total_amount'))
         
@@ -94,13 +94,13 @@ class BaseReportGenerator:
         
         # 按合同类型统计
         by_type = list(queryset.values('file_positioning').annotate(
-            count=Count('id'),
+            count=Count('contract_code'),
             total_amount=Sum('contract_amount')
         ).order_by('-count'))
         
         # 按合同来源统计
         by_source = list(queryset.values('contract_source').annotate(
-            count=Count('id'),
+            count=Count('contract_code'),
             total_amount=Sum('contract_amount')
         ).order_by('-total_amount'))
         
@@ -130,7 +130,7 @@ class BaseReportGenerator:
             'contract__project__project_name'
         ).annotate(
             total_payment=Sum('payment_amount'),
-            payment_count=Count('id')
+            payment_count=Count('payment_code')
         ).order_by('-total_payment')[:10])
         
         return {
@@ -423,4 +423,311 @@ def export_to_excel(report_data, file_path):
     
     # 保存文件
     wb.save(file_path)
+    return file_path
+
+
+
+def export_to_word(report_data, file_path):
+    """
+    导出报表为专业Word文档格式
+    
+    Args:
+        report_data: 报表数据字典
+        file_path: 导出文件路径
+    
+    Returns:
+        str: 导出的文件路径
+    """
+    from docx import Document
+    from docx.shared import Pt, RGBColor, Inches
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    
+    doc = Document()
+    
+    # 设置文档默认字体为中文
+    doc.styles['Normal'].font.name = '宋体'
+    doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    doc.styles['Normal'].font.size = Pt(12)
+    
+    # 标题
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title.add_run(report_data.get('title', '工作报表'))
+    title_run.font.size = Pt(22)
+    title_run.font.bold = True
+    title_run.font.color.rgb = RGBColor(0, 51, 102)
+    title_run.font.name = '黑体'
+    title_run._element.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
+    
+    # 添加空行
+    doc.add_paragraph()
+    
+    # 基本信息
+    info_para = doc.add_paragraph()
+    info_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    info_run = info_para.add_run(
+        f"统计周期：{report_data['period_start']} 至 {report_data['period_end']}\n"
+        f"生成时间：{report_data['generated_at'].strftime('%Y年%m月%d日 %H:%M:%S')}"
+    )
+    info_run.font.size = Pt(11)
+    info_run.font.color.rgb = RGBColor(102, 102, 102)
+    
+    doc.add_paragraph()
+    
+    # 一、摘要部分
+    summary_heading = doc.add_heading('一、工作概况', level=1)
+    summary_heading.runs[0].font.size = Pt(16)
+    summary_heading.runs[0].font.color.rgb = RGBColor(0, 51, 102)
+    summary_heading.runs[0].font.name = '黑体'
+    summary_heading.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '黑体')
+    
+    summary = report_data['summary']
+    summary_text = doc.add_paragraph()
+    summary_text.add_run(
+        f"本期内，项目采购与成本管理工作稳步推进。共完成采购项目 {summary['total_procurement_count']} 个，"
+        f"签订合同 {summary['total_contract_count']} 份，处理付款业务 {summary['total_payment_count']} 笔，"
+        f"完成结算 {summary['total_settlement_count']} 笔。中标总金额 {summary['total_winning_amount']:.2f} 元，"
+        f"合同总金额 {summary['total_contract_amount']:.2f} 元，付款总金额 {summary['total_payment_amount']:.2f} 元，"
+        f"结算总金额 {summary['total_settlement_amount']:.2f} 元。"
+    ).font.size = Pt(12)
+    
+    # 二、数据汇总表
+    doc.add_heading('二、核心数据汇总', level=1).runs[0].font.size = Pt(16)
+    doc.add_heading('2.1 业务量统计', level=2).runs[0].font.size = Pt(14)
+    
+    # 创建业务量表格
+    table1 = doc.add_table(rows=5, cols=3)
+    table1.style = 'Light Grid Accent 1'
+    
+    # 表头
+    header_cells = table1.rows[0].cells
+    header_cells[0].text = '业务类型'
+    header_cells[1].text = '数量'
+    header_cells[2].text = '单位'
+    
+    # 设置表头样式
+    for cell in header_cells:
+        cell.paragraphs[0].runs[0].font.bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(11)
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # 数据行
+    data_rows = [
+        ('采购项目', summary['total_procurement_count'], '个'),
+        ('合同签订', summary['total_contract_count'], '份'),
+        ('付款笔数', summary['total_payment_count'], '笔'),
+        ('结算笔数', summary['total_settlement_count'], '笔'),
+    ]
+    
+    for i, (label, value, unit) in enumerate(data_rows, start=1):
+        cells = table1.rows[i].cells
+        cells[0].text = label
+        cells[1].text = str(value)
+        cells[2].text = unit
+        for cell in cells:
+            cell.paragraphs[0].runs[0].font.size = Pt(11)
+    
+    doc.add_paragraph()
+    
+    # 金额统计表
+    doc.add_heading('2.2 金额统计', level=2).runs[0].font.size = Pt(14)
+    
+    table2 = doc.add_table(rows=5, cols=3)
+    table2.style = 'Light Grid Accent 1'
+    
+    # 表头
+    header_cells2 = table2.rows[0].cells
+    header_cells2[0].text = '金额类型'
+    header_cells2[1].text = '金额（元）'
+    header_cells2[2].text = '占比'
+    
+    for cell in header_cells2:
+        cell.paragraphs[0].runs[0].font.bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(11)
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # 计算总金额用于占比
+    total_amount = (summary['total_winning_amount'] + summary['total_contract_amount'] + 
+                   summary['total_payment_amount'] + summary['total_settlement_amount'])
+    
+    amount_rows = [
+        ('中标金额', summary['total_winning_amount']),
+        ('合同金额', summary['total_contract_amount']),
+        ('付款金额', summary['total_payment_amount']),
+        ('结算金额', summary['total_settlement_amount']),
+    ]
+    
+    for i, (label, amount) in enumerate(amount_rows, start=1):
+        cells = table2.rows[i].cells
+        cells[0].text = label
+        cells[1].text = f"{amount:,.2f}"
+        ratio = (amount / total_amount * 100) if total_amount > 0 else 0
+        cells[2].text = f"{ratio:.1f}%"
+        for cell in cells:
+            cell.paragraphs[0].runs[0].font.size = Pt(11)
+    
+    # 三、采购业务分析
+    doc.add_paragraph()
+    doc.add_heading('三、采购业务分析', level=1).runs[0].font.size = Pt(16)
+    
+    procurement = report_data['procurement_data']
+    
+    if procurement['total_count'] > 0:
+        proc_para = doc.add_paragraph()
+        proc_para.add_run(
+            f"本期共完成采购项目 {procurement['total_count']} 个，预算总金额 {procurement['total_budget']:,.2f} 元，"
+            f"中标总金额 {procurement['total_winning']:,.2f} 元，平均中标金额 {procurement['avg_winning']:,.2f} 元。"
+        ).font.size = Pt(12)
+        
+        if procurement['by_method']:
+            doc.add_heading('3.1 采购方式分布', level=2).runs[0].font.size = Pt(14)
+            
+            method_table = doc.add_table(rows=len(procurement['by_method']) + 1, cols=4)
+            method_table.style = 'Light Grid Accent 1'
+            
+            # 表头
+            header = method_table.rows[0].cells
+            header[0].text = '采购方式'
+            header[1].text = '项目数'
+            header[2].text = '中标金额（元）'
+            header[3].text = '占比'
+            
+            for cell in header:
+                cell.paragraphs[0].runs[0].font.bold = True
+                cell.paragraphs[0].runs[0].font.size = Pt(11)
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            for i, method in enumerate(procurement['by_method'], start=1):
+                cells = method_table.rows[i].cells
+                cells[0].text = method['procurement_method'] or '未分类'
+                cells[1].text = str(method['count'])
+                cells[2].text = f"{method['total_amount']:,.2f}" if method['total_amount'] else '0.00'
+                cells[3].text = f"{method['amount_ratio']:.1f}%"
+                for cell in cells:
+                    cell.paragraphs[0].runs[0].font.size = Pt(11)
+    else:
+        doc.add_paragraph('本期无采购业务。').style = 'Intense Quote'
+    
+    # 四、合同管理分析
+    doc.add_paragraph()
+    doc.add_heading('四、合同管理分析', level=1).runs[0].font.size = Pt(16)
+    
+    contract = report_data['contract_data']
+    
+    if contract['total_count'] > 0:
+        contract_para = doc.add_paragraph()
+        contract_para.add_run(
+            f"本期共签订合同 {contract['total_count']} 份，合同总金额 {contract['total_amount']:,.2f} 元，"
+            f"平均合同金额 {contract['avg_amount']:,.2f} 元。"
+        ).font.size = Pt(12)
+        
+        if contract['by_type']:
+            doc.add_heading('4.1 合同类型分布', level=2).runs[0].font.size = Pt(14)
+            
+            type_table = doc.add_table(rows=len(contract['by_type']) + 1, cols=3)
+            type_table.style = 'Light Grid Accent 1'
+            
+            header = type_table.rows[0].cells
+            header[0].text = '合同类型'
+            header[1].text = '合同数'
+            header[2].text = '合同金额（元）'
+            
+            for cell in header:
+                cell.paragraphs[0].runs[0].font.bold = True
+                cell.paragraphs[0].runs[0].font.size = Pt(11)
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            for i, ctype in enumerate(contract['by_type'], start=1):
+                cells = type_table.rows[i].cells
+                cells[0].text = ctype['file_positioning'] or '未分类'
+                cells[1].text = str(ctype['count'])
+                cells[2].text = f"{ctype['total_amount']:,.2f}" if ctype['total_amount'] else '0.00'
+                for cell in cells:
+                    cell.paragraphs[0].runs[0].font.size = Pt(11)
+    else:
+        doc.add_paragraph('本期无合同签订。').style = 'Intense Quote'
+    
+    # 五、付款业务分析
+    doc.add_paragraph()
+    doc.add_heading('五、付款业务分析', level=1).runs[0].font.size = Pt(16)
+    
+    payment = report_data['payment_data']
+    
+    if payment['total_count'] > 0:
+        payment_para = doc.add_paragraph()
+        payment_para.add_run(
+            f"本期共处理付款业务 {payment['total_count']} 笔，付款总金额 {payment['total_amount']:,.2f} 元，"
+            f"平均付款金额 {payment['avg_amount']:,.2f} 元。"
+        ).font.size = Pt(12)
+        
+        if payment['top_projects']:
+            doc.add_heading('5.1 付款TOP10项目', level=2).runs[0].font.size = Pt(14)
+            
+            pay_table = doc.add_table(rows=min(len(payment['top_projects']) + 1, 11), cols=4)
+            pay_table.style = 'Light Grid Accent 1'
+            
+            header = pay_table.rows[0].cells
+            header[0].text = '排名'
+            header[1].text = '项目编码'
+            header[2].text = '项目名称'
+            header[3].text = '付款金额（元）'
+            
+            for cell in header:
+                cell.paragraphs[0].runs[0].font.bold = True
+                cell.paragraphs[0].runs[0].font.size = Pt(11)
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            for i, proj in enumerate(payment['top_projects'][:10], start=1):
+                cells = pay_table.rows[i].cells
+                cells[0].text = str(i)
+                cells[1].text = proj['contract__project__project_code'] or ''
+                cells[2].text = proj['contract__project__project_name'] or ''
+                cells[3].text = f"{proj['total_payment']:,.2f}" if proj['total_payment'] else '0.00'
+                for cell in cells:
+                    cell.paragraphs[0].runs[0].font.size = Pt(10)
+    else:
+        doc.add_paragraph('本期无付款业务。').style = 'Intense Quote'
+    
+    # 六、结算业务分析
+    doc.add_paragraph()
+    doc.add_heading('六、结算业务分析', level=1).runs[0].font.size = Pt(16)
+    
+    settlement = report_data['settlement_data']
+    
+    if settlement['settled_count'] > 0:
+        settle_para = doc.add_paragraph()
+        settle_para.add_run(
+            f"本期共完成结算 {settlement['settled_count']} 笔，结算总金额 {settlement['settled_amount']:,.2f} 元，"
+            f"平均结算金额 {settlement['avg_settlement']:,.2f} 元。"
+        ).font.size = Pt(12)
+    else:
+        doc.add_paragraph('本期无结算业务。').style = 'Intense Quote'
+    
+    # 七、工作总结
+    doc.add_paragraph()
+    doc.add_heading('七、工作总结与建议', level=1).runs[0].font.size = Pt(16)
+    
+    conclusion_para = doc.add_paragraph()
+    conclusion_text = conclusion_para.add_run(
+        "本期项目采购与成本管理工作整体运行平稳，各项业务指标符合预期。"
+        "下一步工作中，建议继续加强成本控制，优化采购流程，提高资金使用效率，"
+        "确保项目顺利推进。同时，应加强合同管理和付款审核，防范财务风险，"
+        "提升管理水平和服务质量。"
+    )
+    conclusion_text.font.size = Pt(12)
+    
+    # 添加页脚
+    doc.add_paragraph()
+    doc.add_paragraph()
+    footer_para = doc.add_paragraph()
+    footer_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    footer_run = footer_para.add_run(
+        f"\n报告生成时间：{report_data['generated_at'].strftime('%Y年%m月%d日')}"
+    )
+    footer_run.font.size = Pt(10)
+    footer_run.font.color.rgb = RGBColor(128, 128, 128)
+    
+    # 保存文档
+    doc.save(file_path)
     return file_path

@@ -71,6 +71,9 @@
   function updateLinks(state) {
     const links = document.querySelectorAll(LINK_SELECTOR);
     links.forEach((link) => {
+      if (link.closest('.pagination')) {
+        return;
+      }
       if (link.dataset.ignoreGlobalFilter === 'true') {
         return;
       }

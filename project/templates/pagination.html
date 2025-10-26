@@ -1,4 +1,6 @@
-<div class="pagination">
+<div class="pagination"
+     data-preserve-pagination="true"
+     data-pagination-key="{{ request.path }}">
     <span class="pagination-info">
         显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
     </span>
@@ -45,12 +47,13 @@
     {% if page_obj.has_other_pages %}
     <!-- 首页按钮 -->
     {% if page_obj.has_previous %}
-        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+        <a href="{{ request.path }}?page=1{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+           class="pagination-btn pagination-no-scroll">
             <i class="fas fa-angle-double-left"></i> 首页
         </a>
-        <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+        <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+           class="pagination-btn pagination-no-scroll">
             <i class="fas fa-angle-left"></i> 上一页
-        </a>
     {% else %}
         <span class="pagination-btn disabled">
             <i class="fas fa-angle-double-left"></i> 首页
@@ -66,9 +69,11 @@
             {% if page_obj.number == num %}
                 <span class="current">{{ num }}</span>
             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">{{ num }}</a>
+                <a href="{{ request.path }}?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+                   class="pagination-no-scroll">{{ num }}</a>
             {% elif num == 1 or num == page_obj.paginator.num_pages %}
-                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">{{ num }}</a>
+                <a href="{{ request.path }}?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+                   class="pagination-no-scroll">{{ num }}</a>
             {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
                 <span class="ellipsis">...</span>
             {% endif %}
@@ -77,10 +82,12 @@
     
     <!-- 下一页和末页按钮 -->
     {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+        <a href="{{ request.path }}?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+           class="pagination-btn pagination-no-scroll">
             下一页 <i class="fas fa-angle-right"></i>
         </a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}" class="pagination-btn">
+        <a href="{{ request.path }}?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}"
+           class="pagination-btn pagination-no-scroll">
             末页 <i class="fas fa-angle-double-right"></i>
         </a>
     {% else %}
@@ -108,11 +115,32 @@
 
 <script>
 // 页面加载时检查是否显示自定义输入框
+let paginationScrollKey = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     const pageSize = document.getElementById('pageSize');
     const customInput = document.getElementById('customPageSize');
     const applyBtn = document.getElementById('applyCustomBtn');
-    
+    const paginationContainer = document.querySelector('.pagination[data-preserve-pagination="true"]');
+    const keyBase = paginationContainer?.dataset?.paginationKey || window.location.pathname;
+    paginationScrollKey = 'paginationScroll:' + keyBase;
+    const savedPositionRaw = sessionStorage.getItem(paginationScrollKey);
+    if (savedPositionRaw !== null) {
+        const savedPosition = parseInt(savedPositionRaw, 10);
+        if (!Number.isNaN(savedPosition)) {
+            window.scrollTo({ top: savedPosition, behavior: 'auto' });
+        }
+        sessionStorage.removeItem(paginationScrollKey);
+    }
+
+    if (paginationContainer) {
+        paginationContainer.querySelectorAll('.pagination-no-scroll').forEach(function(link) {
+            link.addEventListener('click', function() {
+                rememberPaginationScroll();
+            });
+        });
+    }
+
     if (pageSize.value === 'custom') {
         customInput.style.display = 'inline-block';
         applyBtn.style.display = 'inline-block';
@@ -136,6 +164,7 @@ function changePageSize(size) {
     if (size === 'custom') {
         return; // 等待用户输入自定义值
     }
+    rememberPaginationScroll();
     const url = new URL(window.location.href);
     url.searchParams.set('page_size', size);
     url.searchParams.set('page', '1'); // 重置到第一页
@@ -152,6 +181,7 @@ function applyCustomPageSize() {
         alert('单页最多显示10000条数据');
         return;
     }
+    rememberPaginationScroll();
     const url = new URL(window.location.href);
     url.searchParams.set('page_size', customSize);
     url.searchParams.set('page', '1'); // 重置到第一页
@@ -166,10 +196,18 @@ function jumpToPage() {
         alert('请输入有效的页码 (1-' + maxPage + ')');
         return;
     }
-    
+    rememberPaginationScroll();
+
     const url = new URL(window.location.href);
     url.searchParams.set('page', pageNum);
     window.location.href = url.toString();
+}
+
+function rememberPaginationScroll() {
+    if (!paginationScrollKey) {
+        paginationScrollKey = 'paginationScroll:' + window.location.pathname;
+    }
+    sessionStorage.setItem(paginationScrollKey, window.pageYOffset || document.documentElement.scrollTop || 0);
 }
 </script>
 

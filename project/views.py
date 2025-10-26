@@ -2185,7 +2185,7 @@ def statistics_view(request):
     procurement_stats = get_procurement_statistics(year_context['year_filter'], project_filter)
     contract_stats = get_contract_statistics(year_context['year_filter'], project_filter)
     payment_stats = get_payment_statistics(year_context['year_filter'], project_filter)
-    settlement_stats = get_settlement_statistics()
+    settlement_stats = get_settlement_statistics(year_context['year_filter'], project_filter)
     
     # 准备采购方式图表数据
     procurement_method_labels = [item['method'] for item in procurement_stats['method_distribution']]
@@ -2222,35 +2222,49 @@ def statistics_view(request):
     contract_source_labels = [item['source'] for item in contract_stats['source_distribution']]
     contract_source_data = [item['count'] for item in contract_stats['source_distribution']]
     
-    # 准备付款TOP项目数据
-    payment_top_projects = []
-    contracts = Contract.objects.select_related('project').all()
-    if year_context['year_filter']:
-        # 如果有年份筛选,按合同签订年份筛选
-        contracts = contracts.filter(signing_date__year=year_context['year_filter'])
-    if project_filter:
-        contracts = contracts.filter(project__project_code__in=project_filter)
-    
-    # 计算每个项目的付款情况
+    # 准备付款TOP项目数据 - 优化查询,使用数据库聚合避免N+1问题
     from collections import defaultdict
-    project_payments = defaultdict(lambda: {'total_paid': 0, 'payment_count': 0, 'contract_amount': 0})
     
-    for contract in contracts.filter(file_positioning='主合同'):
-        project_key = contract.project.project_code if contract.project else 'unknown'
-        project_name = contract.project.project_name if contract.project else '未知项目'
-        
-        # 累加合同金额(含补充协议)
-        contract_with_supplements = contract.get_contract_with_supplements_amount()
-        project_payments[project_key]['contract_amount'] += float(contract_with_supplements)
-        project_payments[project_key]['project_name'] = project_name
-        
-        # 累加付款
-        paid = contract.get_total_paid_amount()
-        count = contract.get_payment_count()
-        project_payments[project_key]['total_paid'] += float(paid)
-        project_payments[project_key]['payment_count'] += count
+    # 使用annotate一次性计算所需数据
+    main_contracts = Contract.objects.filter(
+        file_positioning='主合同'
+    ).select_related('project').prefetch_related('supplements', 'payments').annotate(
+        total_paid=Coalesce(Sum('payments__payment_amount'), Value(0), output_field=DecimalField()),
+        payment_count=Count('payments'),
+        supplements_total=Coalesce(
+            Sum('supplements__contract_amount', filter=Q(supplements__file_positioning='补充协议')),
+            Value(0),
+            output_field=DecimalField()
+        )
+    )
     
-    # 计算支付率并排序
+    if year_context['year_filter']:
+        main_contracts = main_contracts.filter(signing_date__year=year_context['year_filter'])
+    if project_filter:
+        main_contracts = main_contracts.filter(project__project_code__in=project_filter)
+    
+    # 按项目聚合
+    project_payments = defaultdict(lambda: {
+        'total_paid': 0,
+        'payment_count': 0,
+        'contract_amount': 0,
+        'project_name': '未知项目'
+    })
+    
+    for contract in main_contracts:
+        if not contract.project:
+            continue
+            
+        project_key = contract.project.project_code
+        project_payments[project_key]['project_name'] = contract.project.project_name
+        
+        # 使用预计算的值,避免额外查询
+        contract_with_supplements = float(contract.contract_amount or 0) + float(contract.supplements_total or 0)
+        project_payments[project_key]['contract_amount'] += contract_with_supplements
+        project_payments[project_key]['total_paid'] += float(contract.total_paid or 0)
+        project_payments[project_key]['payment_count'] += contract.payment_count or 0
+    
+    # 计算支付率
     for key in project_payments:
         contract_amt = project_payments[key]['contract_amount']
         if contract_amt > 0:
@@ -2479,9 +2493,10 @@ def generate_report(request):
     
     # POST请求 - 生成报表
     try:
-        # 获取全局筛选参数
-        global_filters = _resolve_global_filters(request)
-        project_codes = global_filters['project_list'] if global_filters['project_list'] else None
+        # POST请求需要从request.POST获取参数，而不是request.GET
+        # 获取项目筛选参数
+        project_param = request.POST.get('project', '').strip()
+        project_codes = [project_param] if project_param else None
         
         report_type = request.POST.get('report_type', 'monthly')
         year = int(request.POST.get('year', datetime.now().year))
@@ -2553,6 +2568,141 @@ def generate_report(request):
     
     except Exception as e:
         messages.error(request, f'生成报表失败: {str(e)}')
+        return redirect('generate_report')
+
+
+def report_preview(request):
+    """
+    报表预览视图 - 处理GET请求生成报表预览
+    """
+    from project.services.report_generator import (
+        WeeklyReportGenerator,
+        MonthlyReportGenerator,
+        QuarterlyReportGenerator,
+        AnnualReportGenerator
+    )
+    from datetime import datetime, date
+    
+    try:
+        # 获取报表类型和参数
+        report_type = request.GET.get('report_type', 'monthly')
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        quarter = int(request.GET.get('quarter', 1))
+        
+        # 获取项目筛选参数
+        project_param = request.GET.get('project', '').strip()
+        project_codes = [project_param] if project_param else None
+        
+        # 根据报表类型生成数据
+        if report_type == 'weekly':
+            target_date_str = request.GET.get('target_date')
+            if target_date_str:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            else:
+                target_date = date.today()
+            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+        elif report_type == 'monthly':
+            generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
+        elif report_type == 'quarterly':
+            generator = QuarterlyReportGenerator(year, quarter, project_codes=project_codes)
+        elif report_type == 'annual':
+            generator = AnnualReportGenerator(year, project_codes=project_codes)
+        else:
+            messages.error(request, '不支持的报表类型')
+            return redirect('generate_report')
+        
+        # 生成报表数据
+        report_data = generator.generate_data()
+        
+        context = {
+            'page_title': '报表预览',
+            'report_data': report_data,
+            'report_type': report_type,
+        }
+        return render(request, 'reports/preview.html', context)
+    
+    except Exception as e:
+        messages.error(request, f'生成报表失败: {str(e)}')
+        return redirect('generate_report')
+
+
+def report_export(request):
+    """
+    报表导出视图 - 处理GET请求导出Excel
+    """
+    from project.services.report_generator import (
+        WeeklyReportGenerator,
+        MonthlyReportGenerator,
+        QuarterlyReportGenerator,
+        AnnualReportGenerator,
+        export_to_excel
+    )
+    from datetime import datetime, date
+    import os
+    import tempfile
+    
+    try:
+        # 获取报表类型和参数
+        report_type = request.GET.get('report_type', 'monthly')
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        quarter = int(request.GET.get('quarter', 1))
+        
+        # 获取项目筛选参数
+        project_param = request.GET.get('project', '').strip()
+        project_codes = [project_param] if project_param else None
+        
+        # 根据报表类型生成数据
+        if report_type == 'weekly':
+            target_date_str = request.GET.get('target_date')
+            if target_date_str:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            else:
+                target_date = date.today()
+            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+        elif report_type == 'monthly':
+            generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
+        elif report_type == 'quarterly':
+            generator = QuarterlyReportGenerator(year, quarter, project_codes=project_codes)
+        elif report_type == 'annual':
+            generator = AnnualReportGenerator(year, project_codes=project_codes)
+        else:
+            messages.error(request, '不支持的报表类型')
+            return redirect('generate_report')
+        
+        # 生成报表数据
+        report_data = generator.generate_data()
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        try:
+            # 导出到临时文件
+            export_to_excel(report_data, tmp_path)
+            
+            # 读取文件内容
+            with open(tmp_path, 'rb') as f:
+                excel_content = f.read()
+            
+            # 生成文件名
+            filename = f"{report_data['title']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            # 返回Excel文件
+            response = HttpResponse(
+                excel_content,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        finally:
+            # 清理临时文件
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    
+    except Exception as e:
+        messages.error(request, f'导出报表失败: {str(e)}')
         return redirect('generate_report')
 
 

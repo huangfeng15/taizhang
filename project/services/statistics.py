@@ -22,8 +22,14 @@ def get_procurement_statistics(year=None, project_codes=None):
     """
     from procurement.models import Procurement
     
-    # 基础查询集 - 按结果公示发布时间筛选年份
-    queryset = Procurement.objects.all()
+    # 基础查询集 - 使用select_related和only优化查询
+    queryset = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_method',
+        'budget_amount', 'winning_amount', 'archive_date',
+        'result_publicity_release_date', 'requirement_approval_date',
+        'notice_issue_date', 'planned_completion_date',
+        'project__project_code', 'project__project_name'
+    )
     
     # 年份筛选 - 按结果公示发布时间统计
     # year=None表示全部年份，不进行筛选
@@ -177,8 +183,12 @@ def get_contract_statistics(year=None, project_codes=None):
     """
     from contract.models import Contract
     
-    # 基础查询集
-    queryset = Contract.objects.all()
+    # 基础查询集 - 使用select_related和only优化查询
+    queryset = Contract.objects.select_related('project').only(
+        'contract_code', 'contract_name', 'file_positioning',
+        'contract_source', 'contract_amount', 'signing_date',
+        'archive_date', 'project__project_code', 'project__project_name'
+    )
     
     # 年份筛选 - 按合同签订时间统计
     # year=None表示全部年份，不进行筛选
@@ -287,8 +297,11 @@ def get_payment_statistics(year=None, project_codes=None):
     from contract.models import Contract
     from settlement.models import Settlement
     
-    # 基础查询集
-    queryset = Payment.objects.all()
+    # 基础查询集 - 使用select_related优化查询
+    queryset = Payment.objects.select_related('contract', 'contract__project').only(
+        'payment_code', 'payment_amount', 'payment_date', 'is_settled',
+        'contract__contract_code', 'contract__project__project_code'
+    )
     
     # 年份筛选 - 按付款时间统计
     # year=None表示全部年份，不进行筛选
@@ -385,18 +398,35 @@ def get_payment_statistics(year=None, project_codes=None):
     }
 
 
-def get_settlement_statistics():
+def get_settlement_statistics(year=None, project_codes=None):
     """
     结算统计
     
+    Args:
+        year: 统计年份，None表示全部年份，整数表示具体年份
+        project_codes: 项目编码列表，None表示全部项目
+        
     Returns:
         dict: 包含结算统计数据
     """
     from settlement.models import Settlement
     from contract.models import Contract
     
-    # 所有结算记录
-    queryset = Settlement.objects.all()
+    # 基础查询集 - 使用select_related优化查询
+    queryset = Settlement.objects.select_related('main_contract', 'main_contract__project').only(
+        'settlement_code', 'final_amount', 'completion_date',
+        'main_contract__contract_code', 'main_contract__contract_amount',
+        'main_contract__signing_date', 'main_contract__project__project_code'
+    )
+    
+    # 年份筛选 - 按完成日期统计
+    # year=None表示全部年份，不进行筛选
+    if year is not None:
+        queryset = queryset.filter(completion_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(main_contract__project__project_code__in=project_codes)
     
     # 基本统计
     total_count = queryset.count()
