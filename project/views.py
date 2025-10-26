@@ -4,7 +4,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db import connections
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, OuterRef, Subquery, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -33,6 +34,7 @@ from project.services.update_monitor import UpdateMonitorService
 from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
 from project.services.statistics import get_procurement_statistics, get_contract_statistics, get_payment_statistics, get_settlement_statistics
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
+from project.utils.filters import apply_text_filter, apply_multi_field_search
 
 
 def _resolve_global_filters(request) -> Dict[str, Any]:
@@ -424,74 +426,47 @@ def project_list(request):
     if global_filters['year_filter'] is not None:
         projects = projects.filter(created_at__year=global_filters['year_filter'])
     
-    # 搜索过滤 - 支持中英文逗号且、空格或
-    if search_query:
-        if search_mode == 'and':
-            # 逗号分隔 = 且条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                projects = projects.filter(
-                    Q(project_code__icontains=keyword) |
-                    Q(project_name__icontains=keyword) |
-                    Q(project_manager__icontains=keyword)
-                )
-        else:
-            # 空格或逗号分隔 = 或条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= (
-                    Q(project_code__icontains=keyword) |
-                    Q(project_name__icontains=keyword) |
-                    Q(project_manager__icontains=keyword)
-                )
-            if q_objects:
-                projects = projects.filter(q_objects)
-    
+    # 搜索过滤
+    search_mode_value = search_mode if search_mode in {'and', 'or'} else 'auto'
+    projects = apply_multi_field_search(
+        projects,
+        ['project_code', 'project_name', 'project_manager'],
+        search_query,
+        mode=search_mode_value,
+    )
+
     # 状态过滤
     if status_filter:
         projects = projects.filter(status=status_filter)
-    
+
     # 高级筛选
-    if project_code_filter:
-        projects = projects.filter(project_code__icontains=project_code_filter)
-    if project_name_filter:
-        projects = projects.filter(project_name__icontains=project_name_filter)
-    if project_manager_filter:
-        projects = projects.filter(project_manager__icontains=project_manager_filter)
+    projects = apply_text_filter(projects, 'project_code', project_code_filter)
+    projects = apply_text_filter(projects, 'project_name', project_name_filter)
+    projects = apply_text_filter(projects, 'project_manager', project_manager_filter)
     if created_at_start:
         projects = projects.filter(created_at__gte=created_at_start)
     if created_at_end:
         projects = projects.filter(created_at__lte=created_at_end)
-    
-    projects = projects.order_by('-created_at')
-    
-    # 先分页
+
+    contract_total_subquery = Contract.objects.filter(
+        project=OuterRef('pk')
+    ).values('project').annotate(
+        total=Sum('contract_amount')
+    ).values('total')
+
+    projects = projects.annotate(
+        procurement_count=Count('procurements', distinct=True),
+        contract_count=Count('contracts', distinct=True),
+        contract_total=Coalesce(
+            Subquery(contract_total_subquery),
+            Value(0, output_field=DecimalField(max_digits=15, decimal_places=2)),
+        ),
+    ).order_by('-created_at')
+
+    # 分页
     paginator = Paginator(projects, page_size)
     page_obj = paginator.get_page(page)
-    
-    # 为每个项目实时计算统计数据
-    projects_with_stats = []
-    for project in page_obj:
-        # 实时计算采购数量
-        procurement_count = Procurement.objects.filter(project=project).count()
-        # 实时计算合同数量
-        contract_count = Contract.objects.filter(project=project).count()
-        # 实时计算合同总额
-        contract_total = Contract.objects.filter(project=project).aggregate(
-            total=Sum('contract_amount')
-        )['total'] or 0
-        
-        # 添加计算后的属性
-        setattr(project, 'procurement_count', procurement_count)
-        setattr(project, 'contract_count', contract_count)
-        setattr(project, 'contract_total', contract_total)
-        projects_with_stats.append(project)
-    
-    # 更新page_obj的object_list
-    # 类型忽略：动态添加的属性
-    page_obj.object_list = projects_with_stats  # type: ignore
-    
+
     context = {
         'projects': page_obj,
         'page_obj': page_obj,
@@ -614,29 +589,14 @@ def contract_list(request):
     if global_filters['year_filter'] is not None:
         contracts = contracts.filter(signing_date__year=global_filters['year_filter'])
     
-    # 搜索过滤 - 支持中英文逗号且、空格或
-    if search_query:
-        if search_mode == 'and':
-            # 逗号分隔 = 且条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                contracts = contracts.filter(
-                    Q(contract_sequence__icontains=keyword) |
-                    Q(contract_name__icontains=keyword) |
-                    Q(party_b__icontains=keyword)
-                )
-        else:
-            # 空格或逗号分隔 = 或条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= (
-                    Q(contract_sequence__icontains=keyword) |
-                    Q(contract_name__icontains=keyword) |
-                    Q(party_b__icontains=keyword)
-                )
-            if q_objects:
-                contracts = contracts.filter(q_objects)
+    # 搜索过滤
+    search_mode_value = search_mode if search_mode in {'and', 'or'} else 'auto'
+    contracts = apply_multi_field_search(
+        contracts,
+        ['contract_sequence', 'contract_name', 'party_b'],
+        search_query,
+        mode=search_mode_value,
+    )
     
     # 项目过滤
     if project_filter:
@@ -645,27 +605,6 @@ def contract_list(request):
     # 合同类型过滤
     if file_positioning_filter:
         contracts = contracts.filter(file_positioning=file_positioning_filter)
-    
-    # 高级筛选 - 文本字段支持逗号且、空格或
-    def apply_text_filter(queryset, field_name, filter_value):
-        """应用文本筛选,支持中英文逗号且、空格或"""
-        if not filter_value:
-            return queryset
-        
-        # 检测逗号(且条件) - 支持中英文逗号
-        if ',' in filter_value or '，' in filter_value:
-            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
-        else:
-            # 空格(或条件)
-            keywords = [k.strip() for k in filter_value.split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= Q(**{f'{field_name}__icontains': keyword})
-            if q_objects:
-                queryset = queryset.filter(q_objects)
-        return queryset
     
     contracts = apply_text_filter(contracts, 'contract_code', contract_code_filter)
     contracts = apply_text_filter(contracts, 'contract_sequence', contract_sequence_filter)
@@ -971,31 +910,14 @@ def procurement_list(request):
     if global_filters['year_filter'] is not None:
         procurements = procurements.filter(result_publicity_release_date__year=global_filters['year_filter'])
     
-    # 搜索过滤 - 支持中英文逗号且、空格或
-    if search_query:
-        if search_mode == 'and':
-            # 逗号分隔 = 且条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                procurements = procurements.filter(
-                    Q(procurement_code__icontains=keyword) |
-                    Q(project_name__icontains=keyword) |
-                    Q(procurement_category__icontains=keyword) |
-                    Q(winning_bidder__icontains=keyword)
-                )
-        else:
-            # 空格或逗号分隔 = 或条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= (
-                    Q(procurement_code__icontains=keyword) |
-                    Q(project_name__icontains=keyword) |
-                    Q(procurement_category__icontains=keyword) |
-                    Q(winning_bidder__icontains=keyword)
-                )
-            if q_objects:
-                procurements = procurements.filter(q_objects)
+    # 搜索过滤
+    search_mode_value = search_mode if search_mode in {'and', 'or'} else 'auto'
+    procurements = apply_multi_field_search(
+        procurements,
+        ['procurement_code', 'project_name', 'procurement_category', 'winning_bidder'],
+        search_query,
+        mode=search_mode_value,
+    )
     
     # 项目过滤 - 支持多选（过滤掉空字符串）
     project_filter = [p for p in project_filter if p]
@@ -1003,27 +925,6 @@ def procurement_list(request):
         project_filter = [global_filters['project']]
     if project_filter:
         procurements = procurements.filter(project__project_code__in=project_filter)
-    
-    # 高级筛选 - 文本字段支持逗号且、空格或
-    def apply_text_filter(queryset, field_name, filter_value):
-        """应用文本筛选,支持中英文逗号且、空格或"""
-        if not filter_value:
-            return queryset
-        
-        # 检测逗号(且条件) - 支持中英文逗号
-        if ',' in filter_value or '，' in filter_value:
-            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
-        else:
-            # 空格(或条件)
-            keywords = [k.strip() for k in filter_value.split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= Q(**{f'{field_name}__icontains': keyword})
-            if q_objects:
-                queryset = queryset.filter(q_objects)
-        return queryset
     
     procurements = apply_text_filter(procurements, 'procurement_code', procurement_code_filter)
     procurements = apply_text_filter(procurements, 'project_name', project_name_filter)
@@ -1142,27 +1043,14 @@ def payment_list(request):
     if global_filters['year_filter'] is not None:
         payments = payments.filter(payment_date__year=global_filters['year_filter'])
     
-    # 搜索过滤 - 支持中英文逗号且、空格或
-    if search_query:
-        if search_mode == 'and':
-            # 逗号分隔 = 且条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                payments = payments.filter(
-                    Q(payment_code__icontains=keyword) |
-                    Q(contract__contract_name__icontains=keyword)
-                )
-        else:
-            # 空格或逗号分隔 = 或条件（支持中英文逗号）
-            keywords = [k.strip() for k in search_query.replace('，', ',').replace(',', ' ').split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= (
-                    Q(payment_code__icontains=keyword) |
-                    Q(contract__contract_name__icontains=keyword)
-                )
-            if q_objects:
-                payments = payments.filter(q_objects)
+    # 搜索过滤
+    search_mode_value = search_mode if search_mode in {'and', 'or'} else 'auto'
+    payments = apply_multi_field_search(
+        payments,
+        ['payment_code', 'contract__contract_name'],
+        search_query,
+        mode=search_mode_value,
+    )
     
     # 项目过滤 - 支持多选（过滤掉空字符串）
     project_filter = [p for p in project_filter if p]
@@ -1176,27 +1064,6 @@ def payment_list(request):
     if is_settled_filter:
         is_settled_values = [v.lower() == 'true' for v in is_settled_filter]
         payments = payments.filter(is_settled__in=is_settled_values)
-    
-    # 高级筛选 - 文本字段支持逗号且、空格或
-    def apply_text_filter(queryset, field_name, filter_value):
-        """应用文本筛选,支持中英文逗号且、空格或"""
-        if not filter_value:
-            return queryset
-        
-        # 检测逗号(且条件) - 支持中英文逗号
-        if ',' in filter_value or '，' in filter_value:
-            keywords = [k.strip() for k in filter_value.replace('，', ',').split(',') if k.strip()]
-            for keyword in keywords:
-                queryset = queryset.filter(**{f'{field_name}__icontains': keyword})
-        else:
-            # 空格(或条件)
-            keywords = [k.strip() for k in filter_value.split() if k.strip()]
-            q_objects = Q()
-            for keyword in keywords:
-                q_objects |= Q(**{f'{field_name}__icontains': keyword})
-            if q_objects:
-                queryset = queryset.filter(q_objects)
-        return queryset
     
     payments = apply_text_filter(payments, 'payment_code', payment_code_filter)
     payments = apply_text_filter(payments, 'contract__contract_name', contract_name_filter)
