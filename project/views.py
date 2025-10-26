@@ -4,14 +4,30 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db import connections
-from django.db.models import Count, Sum, Q, OuterRef, Subquery, Value, DecimalField
+from django.db.models import (
+    Count,
+    Sum,
+    Q,
+    OuterRef,
+    Subquery,
+    Value,
+    DecimalField,
+    Case,
+    When,
+    Exists,
+    F,
+    BooleanField,
+    ExpressionWrapper,
+)
 from django.db.models.functions import Coalesce
+from decimal import Decimal, InvalidOperation
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date, timezone as dt_timezone
+from decimal import Decimal, InvalidOperation
 from typing import Optional, Dict, Any
 from io import StringIO, BytesIO
 import csv
@@ -33,6 +49,7 @@ from project.services.archive_monitor import ArchiveMonitorService
 from project.services.update_monitor import UpdateMonitorService
 from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
 from project.services.statistics import get_procurement_statistics, get_contract_statistics, get_payment_statistics, get_settlement_statistics
+from project.services.metrics import get_combined_statistics
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
 from project.utils.filters import apply_text_filter, apply_multi_field_search
 
@@ -630,120 +647,146 @@ def contract_list(request):
     if contract_amount_max:
         contracts = contracts.filter(contract_amount__lte=contract_amount_max)
     
-    # 注意：is_settled和payment_ratio筛选需要在数据处理后进行，因为它们依赖于Payment表的计算
-    
-    # 添加付款相关数据的注解
+    # 注意：is_settled和payment_ratio筛选依赖聚合结果，下方统一完成
+
+    zero_decimal = Value(Decimal('0'), output_field=DecimalField(max_digits=18, decimal_places=2))
     contracts = contracts.annotate(
-        total_paid_amount=Sum('payments__payment_amount'),
-        payment_count=Count('payments', distinct=True)
+        total_paid_amount=Coalesce(Sum('payments__payment_amount'), zero_decimal),
+        payment_count=Count('payments', distinct=True),
     )
-    
-    contracts = contracts.order_by('-signing_date')
-    
-    # 预加载结算信息
-    from settlement.models import Settlement
-    settlement_dict = {
-        s.main_contract.contract_code: s for s in Settlement.objects.select_related('main_contract')
-    }
-    
-    # 预加载补充协议数据
-    supplements_data = {}
-    main_contracts = [c for c in contracts if c.file_positioning == '主合同']
-    if main_contracts:
-        main_contract_codes = [c.contract_code for c in main_contracts]
-        supplements = Contract.objects.filter(
-            parent_contract__contract_code__in=main_contract_codes
-        ).values('parent_contract__contract_code').annotate(
-            supplements_total=Sum('contract_amount')
+
+    supplements_subquery = (
+        Contract.objects.filter(parent_contract=OuterRef('pk'))
+        .values('parent_contract')
+        .annotate(total=Sum('contract_amount'))
+        .values('total')
+    )
+
+    settlement_payment_subquery = (
+        Payment.objects.filter(
+            contract=OuterRef('pk'),
+            is_settled=True,
+            settlement_amount__isnull=False,
         )
-        supplements_data = {
-            s['parent_contract__contract_code']: s['supplements_total'] or 0
-            for s in supplements
-        }
-    
-    # 为每个合同添加额外的付款相关数据
-    contract_data = []
-    for contract in contracts:
-        # 创建一个字典来存储所有需要的数据
-        contract_info = {
-            'contract': contract,
-            'total_paid_amount': getattr(contract, 'total_paid_amount', 0) or 0,
-            'payment_count': getattr(contract, 'payment_count', 0) or 0,
-            'has_settlement': False,
-            'settlement_amount': None,
-            'payment_ratio': 0
-        }
-        
-        # 从付款记录中获取结算信息
-        # 检查该合同的任何一笔付款是否标记为已结算
-        latest_payment = Payment.objects.filter(
-            contract=contract,
-            is_settled=True
-        ).order_by('-payment_date').first()
-        
-        if latest_payment:
-            contract_info['has_settlement'] = True
-            contract_info['settlement_amount'] = latest_payment.settlement_amount
-        
-        # 同时也检查settlement模块(如果存在)
-        if contract.file_positioning == '主合同' and contract.contract_code in settlement_dict:
-            settlement = settlement_dict[contract.contract_code]
-            contract_info['has_settlement'] = True
-            # 优先使用settlement模块的结算价,如果没有则使用付款记录的
-            if settlement.final_amount:
-                contract_info['settlement_amount'] = settlement.final_amount
-        
-        # 计算累计付款比例
-        if contract.file_positioning == '主合同':
-            # 主合同的付款比例计算
-            if contract_info['has_settlement'] and contract_info['settlement_amount']:
-                # 有结算价，使用结算价作为基数
-                if contract_info['settlement_amount'] > 0:
-                    contract_info['payment_ratio'] = (contract_info['total_paid_amount'] / contract_info['settlement_amount']) * 100
-            else:
-                # 没有结算价，使用合同价+补充协议金额作为基数
-                base_amount = contract.contract_amount or 0
-                # 获取补充协议总额
-                supplements_total = supplements_data.get(contract.contract_code, 0)
-                base_amount += supplements_total
-                
-                if base_amount > 0:
-                    contract_info['payment_ratio'] = (contract_info['total_paid_amount'] / base_amount) * 100
-        else:
-            # 补充协议或解除协议，使用自身合同价作为基数
-            if contract.contract_amount and contract.contract_amount > 0:
-                contract_info['payment_ratio'] = (contract_info['total_paid_amount'] / contract.contract_amount) * 100
-        
-        contract_data.append(contract_info)
-    
-    # 是否已结算筛选（在计算完成后进行）
+        .order_by('-payment_date')
+        .values('settlement_amount')[:1]
+    )
+
+    settlement_record_subquery = (
+        Settlement.objects.filter(main_contract=OuterRef('pk')).values('final_amount')[:1]
+    )
+
+    contracts = contracts.annotate(
+        supplements_total=Coalesce(
+            Subquery(
+                supplements_subquery,
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            ),
+            zero_decimal,
+        ),
+        settlement_final_amount=Subquery(
+            settlement_record_subquery,
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        settlement_payment_amount=Subquery(
+            settlement_payment_subquery,
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        has_settlement_record=Exists(Settlement.objects.filter(main_contract=OuterRef('pk'))),
+        has_settlement_payment=Exists(
+            Payment.objects.filter(contract=OuterRef('pk'), is_settled=True)
+        ),
+    )
+
+    contracts = contracts.annotate(
+        contract_plus_supplements=ExpressionWrapper(
+            Coalesce(F('contract_amount'), zero_decimal)
+            + Coalesce(F('supplements_total'), zero_decimal),
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        settlement_amount=Coalesce(
+            F('settlement_final_amount'),
+            F('settlement_payment_amount'),
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        has_settlement=Case(
+            When(has_settlement_record=True, then=Value(True)),
+            When(has_settlement_payment=True, then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField(),
+        ),
+    )
+
+    contracts = contracts.annotate(
+        base_amount=Case(
+            When(
+                file_positioning='主合同',
+                settlement_amount__isnull=False,
+                then=F('settlement_amount'),
+            ),
+            When(file_positioning='主合同', then=F('contract_plus_supplements')),
+            default=Coalesce(F('contract_amount'), zero_decimal),
+            output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+    )
+
+    contracts = contracts.annotate(
+        payment_ratio=Case(
+            When(
+                base_amount__gt=0,
+                then=ExpressionWrapper(
+                    F('total_paid_amount')
+                    * Value(100, output_field=DecimalField(max_digits=5, decimal_places=2))
+                    / F('base_amount'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                ),
+            ),
+            default=Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+    )
+
+    contracts = contracts.order_by('-signing_date')
+
+    def _parse_decimal(value: str) -> Optional[Decimal]:
+        if value in (None, ''):
+            return None
+        try:
+            return Decimal(value)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
     if has_settlement_filter:
-        filtered_contract_data = []
-        for contract_info in contract_data:
-            if has_settlement_filter.lower() == 'true' and contract_info['has_settlement']:
-                filtered_contract_data.append(contract_info)
-            elif has_settlement_filter.lower() == 'false' and not contract_info['has_settlement']:
-                filtered_contract_data.append(contract_info)
-        contract_data = filtered_contract_data
-    
-    # 付款比例筛选（在计算完成后进行）
-    if payment_ratio_min or payment_ratio_max:
-        filtered_contract_data = []
-        for contract_info in contract_data:
-            payment_ratio = contract_info['payment_ratio']
-            
-            # 设置筛选范围
-            min_ratio = float(payment_ratio_min) if payment_ratio_min else 0
-            max_ratio = float(payment_ratio_max) if payment_ratio_max else float('inf')
-            
-            # 检查是否在范围内
-            if min_ratio <= payment_ratio <= max_ratio:
-                filtered_contract_data.append(contract_info)
-        contract_data = filtered_contract_data
-    
-    # 分页处理 - 对contract_data进行分页
-    paginator = Paginator(contract_data, page_size)
+        normalized = has_settlement_filter.lower()
+        if normalized == 'true':
+            contracts = contracts.filter(has_settlement=True)
+        elif normalized == 'false':
+            contracts = contracts.filter(has_settlement=False)
+
+    min_ratio = _parse_decimal(payment_ratio_min)
+    max_ratio = _parse_decimal(payment_ratio_max)
+    if min_ratio is not None:
+        contracts = contracts.filter(payment_ratio__gte=min_ratio)
+    if max_ratio is not None:
+        contracts = contracts.filter(payment_ratio__lte=max_ratio)
+
+    paginator = Paginator(contracts, page_size)
     page_obj = paginator.get_page(page)
+
+    contract_data = []
+    for contract in page_obj.object_list:
+        contract_data.append(
+            {
+                'contract': contract,
+                'total_paid_amount': contract.total_paid_amount or Decimal('0'),
+                'payment_count': contract.payment_count or 0,
+                'has_settlement': bool(contract.has_settlement),
+                'settlement_amount': contract.settlement_amount,
+                'payment_ratio': contract.payment_ratio or Decimal('0'),
+            }
+        )
+
+    page_obj.object_list = contract_data
     
     # 获取所有项目用于过滤
     projects = Project.objects.all()
@@ -2181,11 +2224,14 @@ def statistics_view(request):
     year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
 
     
-    # 获取所有统计数据 - 使用正确的年度筛选参数
-    procurement_stats = get_procurement_statistics(year_context['year_filter'], project_filter)
-    contract_stats = get_contract_statistics(year_context['year_filter'], project_filter)
-    payment_stats = get_payment_statistics(year_context['year_filter'], project_filter)
-    settlement_stats = get_settlement_statistics(year_context['year_filter'], project_filter)
+    stats_bundle = get_combined_statistics(
+        year_context['year_filter'],
+        project_filter,
+    )
+    procurement_stats = stats_bundle['procurement']
+    contract_stats = stats_bundle['contract']
+    payment_stats = stats_bundle['payment']
+    settlement_stats = stats_bundle['settlement']
     
     # 准备采购方式图表数据
     procurement_method_labels = [item['method'] for item in procurement_stats['method_distribution']]
@@ -2721,9 +2767,10 @@ def monitoring_cockpit(request):
     update_snapshot = update_service.build_snapshot(year=year_filter, start_date=start_date)
 
     completeness_overview = get_completeness_overview(year=year_filter, project_codes=project_filter)
-    procurement_stats = get_procurement_statistics(year=year_filter, project_codes=project_filter)
-    contract_stats = get_contract_statistics(year=year_filter, project_codes=project_filter)
-    payment_stats = get_payment_statistics(year=year_filter, project_codes=project_filter)
+    stats_bundle = get_combined_statistics(year_filter, project_filter)
+    procurement_stats = stats_bundle['procurement']
+    contract_stats = stats_bundle['contract']
+    payment_stats = stats_bundle['payment']
 
     kpis = {
         'timeliness_rate': update_snapshot['kpis']['overallTimelinessRate'] if update_snapshot['kpis']['overallTimelinessRate'] is not None else 0,

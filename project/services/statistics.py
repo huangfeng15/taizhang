@@ -400,7 +400,7 @@ def get_payment_statistics(year=None, project_codes=None):
 
 def get_settlement_statistics(year=None, project_codes=None):
     """
-    结算统计
+    结算统计 - 从Payment表中统计已结算的数据
     
     Args:
         year: 统计年份，None表示全部年份，整数表示具体年份
@@ -411,36 +411,42 @@ def get_settlement_statistics(year=None, project_codes=None):
     """
     from settlement.models import Settlement
     from contract.models import Contract
+    from payment.models import Payment
     
-    # 基础查询集 - 使用select_related优化查询
-    queryset = Settlement.objects.select_related('main_contract', 'main_contract__project').only(
-        'settlement_code', 'final_amount', 'completion_date',
-        'main_contract__contract_code', 'main_contract__contract_amount',
-        'main_contract__signing_date', 'main_contract__project__project_code'
+    # 从Payment表中查询已结算的记录
+    queryset = Payment.objects.filter(
+        is_settled=True,
+        settlement_amount__isnull=False
+    ).select_related('contract', 'contract__project').only(
+        'payment_code', 'settlement_amount', 'payment_date',
+        'contract__contract_code', 'contract__file_positioning',
+        'contract__project__project_code'
     )
     
-    # 年份筛选 - 按完成日期统计
-    # year=None表示全部年份，不进行筛选
+    # 年份筛选 - 按付款日期统计
     if year is not None:
-        queryset = queryset.filter(completion_date__year=year)
+        queryset = queryset.filter(payment_date__year=year)
     
     # 项目筛选
     if project_codes:
-        queryset = queryset.filter(main_contract__project__project_code__in=project_codes)
+        queryset = queryset.filter(contract__project__project_code__in=project_codes)
     
-    # 基本统计
-    total_count = queryset.count()
-    total_amount = queryset.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+    # 统计已结算的合同数量（去重）
+    settled_contracts = queryset.values('contract').distinct()
+    total_count = settled_contracts.count()
+    
+    # 统计结算总金额
+    total_amount = queryset.aggregate(total=Sum('settlement_amount'))['total'] or Decimal('0')
     
     # 平均结算金额
-    avg_amount = queryset.aggregate(avg=Avg('final_amount'))['avg'] or Decimal('0')
+    avg_amount = queryset.aggregate(avg=Avg('settlement_amount'))['avg'] or Decimal('0')
     
     # 按年份统计
     yearly_stats = queryset.annotate(
-        year=TruncYear('completion_date')
+        year=TruncYear('payment_date')
     ).values('year').annotate(
-        count=Count('settlement_code'),
-        amount=Sum('final_amount')
+        count=Count('contract', distinct=True),
+        amount=Sum('settlement_amount')
     ).order_by('year')
     
     yearly_data = []
@@ -453,14 +459,20 @@ def get_settlement_statistics(year=None, project_codes=None):
             })
     
     # 计算结算率（已结算的主合同数 / 总主合同数）
-    total_main_contracts = Contract.objects.filter(file_positioning='主合同').count()
+    # 应用年份和项目筛选
+    main_contracts_query = Contract.objects.filter(file_positioning='主合同')
+    if year is not None:
+        main_contracts_query = main_contracts_query.filter(signing_date__year=year)
+    if project_codes:
+        main_contracts_query = main_contracts_query.filter(project__project_code__in=project_codes)
+    
+    total_main_contracts = main_contracts_query.count()
     settlement_rate = round(total_count / total_main_contracts * 100, 2) if total_main_contracts > 0 else 0
     
-    # 待结算合同统计
-    pending_settlements = Contract.objects.filter(
-        file_positioning='主合同'
-    ).exclude(
-        settlement__isnull=False
+    # 待结算合同统计 - 排除已经有结算付款的合同
+    settled_contract_ids = queryset.values_list('contract_id', flat=True).distinct()
+    pending_settlements = main_contracts_query.exclude(
+        contract_code__in=settled_contract_ids
     )
     
     pending_count = pending_settlements.count()
@@ -468,20 +480,38 @@ def get_settlement_statistics(year=None, project_codes=None):
     for contract in pending_settlements:
         pending_amount += contract.get_contract_with_supplements_amount()
     
-    # 结算与合同差异分析
+    # 结算与合同差异分析 - 按合同分组统计
     variance_analysis = []
-    for settlement in queryset:
-        contract_amount = settlement.get_total_contract_amount()
-        variance = settlement.final_amount - contract_amount
+    
+    # 获取每个合同的结算金额（使用Python去重）
+    seen_contracts = set()
+    for payment in queryset.select_related('contract'):
+        contract = payment.contract
+        if not contract or contract.contract_code in seen_contracts:
+            continue
+        
+        seen_contracts.add(contract.contract_code)
+        
+        # 获取合同总额（主合同+补充协议）
+        if contract.file_positioning == '主合同':
+            contract_amount = contract.get_contract_with_supplements_amount()
+        else:
+            contract_amount = contract.contract_amount or Decimal('0')
+        
+        settlement_amount = payment.settlement_amount or Decimal('0')
+        variance = settlement_amount - contract_amount
         variance_rate = float(variance / contract_amount * 100) if contract_amount > 0 else 0
         
         variance_analysis.append({
-            'settlement_code': settlement.settlement_code,
+            'settlement_code': payment.payment_code,
             'contract_amount': float(contract_amount) / 10000,  # 转换为万元
-            'settlement_amount': float(settlement.final_amount) / 10000,  # 转换为万元
+            'settlement_amount': float(settlement_amount) / 10000,  # 转换为万元
             'variance': float(variance) / 10000,  # 转换为万元
             'variance_rate': round(variance_rate, 2)
         })
+    
+    # 按差异金额绝对值排序
+    variance_analysis.sort(key=lambda x: abs(x['variance']), reverse=True)
     
     return {
         'total_count': total_count,
