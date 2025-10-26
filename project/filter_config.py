@@ -3,28 +3,29 @@
 为各个列表视图提供统一的筛选配置
 """
 
+def _extract_global_filters(request):
+    """
+    在GET参数中解析全局筛选值，兼容旧字段，统一返回(project_codes, year_value)。
+    """
+    year_value = request.GET.get('global_year') or request.GET.get('year')
+    project_values = request.GET.getlist('global_project') or request.GET.getlist('project')
+    # 兼容单值 project
+    if not project_values and request.GET.get('project'):
+        project_values = [request.GET.get('project')]
+    return project_values, year_value
+
+
 def get_contract_filter_config(request):
     """获取合同列表的筛选配置"""
     from .models import Project
     from contract.models import Contract
     
     # 获取多选参数
-    project_values = request.GET.getlist('project')
+    project_values, _ = _extract_global_filters(request)
     file_positioning_values = request.GET.getlist('file_positioning')
     
     # 快速筛选配置(3-5个最常用字段)
     quick_filters = [
-        {
-            'name': 'project',
-            'type': 'select',
-            'placeholder': '所有项目',
-            'width': '200px',
-            'current_value': project_values,  # 多选值
-            'options': [
-                {'value': p.project_code, 'label': p.project_name}
-                for p in Project.objects.all()
-            ]
-        },
         {
             'name': 'file_positioning',
             'type': 'select',
@@ -234,19 +235,7 @@ def get_procurement_filter_config(request):
     """获取采购列表的筛选配置"""
     from .models import Project
     
-    quick_filters = [
-        {
-            'name': 'project',
-            'type': 'select',
-            'placeholder': '所有项目',
-            'width': '200px',
-            'current_value': request.GET.getlist('project'),  # 多选值
-            'options': [
-                {'value': p.project_code, 'label': p.project_name}
-                for p in Project.objects.all()
-            ]
-        }
-    ]
+    quick_filters = []
     
     advanced_filter_groups = [
         {
@@ -530,17 +519,6 @@ def get_payment_filter_config(request):
     
     quick_filters = [
         {
-            'name': 'project',
-            'type': 'select',
-            'placeholder': '所有项目',
-            'width': '200px',
-            'current_value': request.GET.getlist('project'),  # 改为多选
-            'options': [
-                {'value': p.project_code, 'label': p.project_name}
-                for p in Project.objects.all()
-            ]
-        },
-        {
             'name': 'is_settled',
             'type': 'select',
             'placeholder': '结算状态',
@@ -647,8 +625,8 @@ def get_monitoring_filter_config(request, year_context=None):
     
     if year_context is None:
         year_context = resolve_monitoring_year(request)
-    selected_project = request.GET.get('project', '')
-    project_values = request.GET.getlist('project')
+    selected_project = request.GET.get('global_project') or request.GET.get('project', '')
+    project_values = request.GET.getlist('global_project') or request.GET.getlist('project')
     if not project_values and selected_project:
         project_values = [selected_project]
     if not project_values:

@@ -64,7 +64,9 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'project.context_processors.global_filter_options',
             ],
+            'debug': DEBUG,  # 启用模板调试
         },
     },
 ]

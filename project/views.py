@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date, timezone as dt_timezone
-from typing import Optional
+from typing import Optional, Dict, Any
 from io import StringIO, BytesIO
 import csv
 from pathlib import Path
@@ -35,55 +35,71 @@ from project.services.statistics import get_procurement_statistics, get_contract
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
 
 
+def _resolve_global_filters(request) -> Dict[str, Any]:
+    """
+    统一解析全局筛选参数，兼容旧字段。
+
+    返回:
+        {
+            "year_value": "2024" 或 "all",
+            "year_filter": int | None,
+            "project": "PRJ001" 或 "",
+            "project_list": ["PRJ001"] 或 []
+        }
+    """
+    current_year = timezone.now().year
+    raw_year = request.GET.get('global_year') or request.GET.get('year')
+    year_value = None
+    year_filter = None
+    if raw_year == 'all':
+        year_value = 'all'
+        year_filter = None
+    elif raw_year:
+        try:
+            year_filter = int(raw_year)
+            year_value = str(year_filter)
+        except (TypeError, ValueError):
+            year_filter = current_year
+            year_value = str(current_year)
+    else:
+        year_filter = current_year
+        year_value = str(current_year)
+
+    raw_projects = request.GET.getlist('global_project')
+    if not raw_projects:
+        raw_projects = [value for value in request.GET.getlist('project') if value]
+    project_single = raw_projects[0] if raw_projects else request.GET.get('project', '')
+    project_list = [project_single] if project_single else []
+
+    return {
+        'year_value': year_value,
+        'year_filter': year_filter,
+        'project': project_single,
+        'project_list': project_list,
+    }
+
+
 def _extract_monitoring_filters(request):
     """统一整理监控相关视图需要的年份与项目筛选条件。"""
+    global_filters = _resolve_global_filters(request)
+    # 利用 resolve_monitoring_year 以保持原有逻辑中的年度范围等配置
     year_context = resolve_monitoring_year(request)
-    project_codes = [code for code in request.GET.getlist('project') if code]
+    year_context['selected_year_value'] = global_filters['year_value']
+    year_context['year_filter'] = global_filters['year_filter']
     filter_config = get_monitoring_filter_config(request, year_context=year_context)
+    project_codes = global_filters['project_list']
     project_filter = project_codes if project_codes else None
     return year_context, project_codes, project_filter, filter_config
 
 
 def _build_monitoring_filter_fields(filter_config, *, include_project=True, extra_fields=None):
-    """根据监控筛选配置生成筛选组件字段定义。"""
-    selected_year = str(filter_config.get('selected_year_value', 'all'))
-    year_options = [{'value': 'all', 'label': '全部年度'}]
-    year_options.extend(
-        {'value': str(year), 'label': f'{year}年'}
-        for year in filter_config.get('available_years', [])
-    )
-
-    fields = [
-        {
-            'type': 'select',
-            'name': 'year',
-            'label': '年份',
-            'value': selected_year,
-            'autosubmit': True,
-            'options': year_options,
-        }
-    ]
-
-    if include_project:
-        project_options = [{'value': '', 'label': '全部项目'}]
-        project_options.extend(
-            {'value': project.project_code, 'label': project.project_name}
-            for project in filter_config.get('projects', [])
-        )
-        fields.append(
-            {
-                'type': 'select',
-                'name': 'project',
-                'label': '项目',
-                'value': filter_config.get('selected_project_value', ''),
-                'autosubmit': True,
-                'options': project_options,
-            }
-        )
-
+    """
+    监控中心页面的筛选项由全局组件负责，此处仅保留补充字段。
+    `include_project` 参数保留以兼容旧调用，暂不使用。
+    """
+    fields = []
     if extra_fields:
         fields.extend(extra_fields)
-
     return fields
 
 
@@ -317,24 +333,49 @@ def _get_page_size(request, default=20, max_size=200):
 
 def dashboard(request):
     """数据概览页面"""
+    global_filters = _resolve_global_filters(request)
+    year_filter = global_filters['year_filter']
+    project_scope = Project.objects.all()
+    if global_filters['project']:
+        project_scope = project_scope.filter(project_code=global_filters['project'])
+
+    procurement_scope = Procurement.objects.all()
+    contract_scope = Contract.objects.all()
+    payment_scope = Payment.objects.all()
+
+    if global_filters['project']:
+        procurement_scope = procurement_scope.filter(project__project_code=global_filters['project'])
+        contract_scope = contract_scope.filter(project__project_code=global_filters['project'])
+        payment_scope = payment_scope.filter(contract__project__project_code=global_filters['project'])
+
+    if year_filter is not None:
+        procurement_scope = procurement_scope.filter(result_publicity_release_date__year=year_filter)
+        contract_scope = contract_scope.filter(signing_date__year=year_filter)
+        payment_scope = payment_scope.filter(payment_date__year=year_filter)
+
     # 统计数据 - 每次访问时实时计算
     stats = {
-        'project_count': Project.objects.count(),
-        'procurement_count': Procurement.objects.count(),
-        'contract_count': Contract.objects.count(),
-        'total_amount': Contract.objects.aggregate(Sum('contract_amount'))['contract_amount__sum'] or 0,
+        'project_count': project_scope.count(),
+        'procurement_count': procurement_scope.count(),
+        'contract_count': contract_scope.count(),
+        'total_amount': contract_scope.aggregate(Sum('contract_amount'))['contract_amount__sum'] or 0,
     }
     
     # 项目列表(前5个) - 实时计算每个项目的统计数据
-    projects_queryset = Project.objects.order_by('-created_at')[:5]
+    projects_queryset = project_scope.order_by('-created_at')[:5]
     projects = []
     for project in projects_queryset:
+        project_procurements = Procurement.objects.filter(project=project)
+        project_contracts = Contract.objects.filter(project=project)
+        if year_filter is not None:
+            project_procurements = project_procurements.filter(result_publicity_release_date__year=year_filter)
+            project_contracts = project_contracts.filter(signing_date__year=year_filter)
         # 实时计算采购数量
-        procurement_count = Procurement.objects.filter(project=project).count()
+        procurement_count = project_procurements.count()
         # 实时计算合同数量
-        contract_count = Contract.objects.filter(project=project).count()
+        contract_count = project_contracts.count()
         # 实时计算合同总额
-        contract_total = Contract.objects.filter(project=project).aggregate(
+        contract_total = project_contracts.aggregate(
             total=Sum('contract_amount')
         )['total'] or 0
         
@@ -345,18 +386,21 @@ def dashboard(request):
         projects.append(project)
     
     # 最近采购(前10个)
-    recent_procurements = Procurement.objects.select_related('project').order_by('-result_publicity_release_date', '-created_at')[:10]
+    recent_procurements = procurement_scope.select_related('project').order_by('-result_publicity_release_date', '-created_at')[:10]
     
     context = {
         'stats': stats,
         'projects': projects,
         'recent_procurements': recent_procurements,
+        'global_selected_year': global_filters['year_value'],
+        'global_selected_project': global_filters['project'],
     }
     return render(request, 'dashboard.html', context)
 
 
 def project_list(request):
     """项目列表页面"""
+    global_filters = _resolve_global_filters(request)
     # 获取过滤参数
     search_query = request.GET.get('q', '')
     # 自动检测搜索模式：如果包含逗号则为and，否则为or
@@ -375,6 +419,10 @@ def project_list(request):
     
     # 基础查询
     projects = Project.objects.all()
+    if global_filters['project']:
+        projects = projects.filter(project_code=global_filters['project'])
+    if global_filters['year_filter'] is not None:
+        projects = projects.filter(created_at__year=global_filters['year_filter'])
     
     # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
@@ -457,15 +505,25 @@ def project_list(request):
 def project_detail(request, project_code):
     """项目详情页面"""
     project = get_object_or_404(Project, project_code=project_code)
+    global_filters = _resolve_global_filters(request)
+    year_filter = global_filters['year_filter']
     
     # 实时计算总数量
-    procurement_count = Procurement.objects.filter(project=project).count()
-    contract_count = Contract.objects.filter(project=project).count()
+    procurement_scope = Procurement.objects.filter(project=project)
+    contract_scope = Contract.objects.filter(project=project)
+    payment_scope = Payment.objects.filter(contract__project=project)
+    if year_filter is not None:
+        procurement_scope = procurement_scope.filter(result_publicity_release_date__year=year_filter)
+        contract_scope = contract_scope.filter(signing_date__year=year_filter)
+        payment_scope = payment_scope.filter(payment_date__year=year_filter)
+
+    procurement_count = procurement_scope.count()
+    contract_count = contract_scope.count()
     
     # 获取所有相关数据用于统计
-    all_procurements = Procurement.objects.filter(project=project)
-    all_contracts = Contract.objects.filter(project=project)
-    all_payments = Payment.objects.filter(contract__project=project)
+    all_procurements = procurement_scope
+    all_contracts = contract_scope
+    all_payments = payment_scope
     
     # 计算统计数据
     # 合同总额
@@ -517,13 +575,15 @@ def project_detail(request, project_code):
 def contract_list(request):
     """合同列表页面"""
     from .filter_config import get_contract_filter_config
+
+    global_filters = _resolve_global_filters(request)
     
     # 获取过滤参数
     search_query = request.GET.get('q', '')
     # 自动检测搜索模式：如果包含逗号则为and，否则为or
     has_comma = ',' in search_query or '，' in search_query
     search_mode = request.GET.get('q_mode', 'and' if has_comma else 'or')
-    project_filter = request.GET.get('project', '')
+    project_filter = request.GET.get('project', '') or global_filters['project']
     file_positioning_filter = request.GET.get('file_positioning', '')
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
@@ -549,6 +609,10 @@ def contract_list(request):
     
     # 基础查询
     contracts = Contract.objects.select_related('project')
+
+    # 年度筛选
+    if global_filters['year_filter'] is not None:
+        contracts = contracts.filter(signing_date__year=global_filters['year_filter'])
     
     # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
@@ -855,6 +919,8 @@ def contract_detail(request, contract_code):
 def procurement_list(request):
     """采购列表页面"""
     from .filter_config import get_procurement_filter_config
+
+    global_filters = _resolve_global_filters(request)
     
     # 获取过滤参数
     search_query = request.GET.get('q', '')
@@ -900,6 +966,10 @@ def procurement_list(request):
     
     # 基础查询
     procurements = Procurement.objects.select_related('project')
+
+    # 年度筛选（默认使用结果公示发布时间）
+    if global_filters['year_filter'] is not None:
+        procurements = procurements.filter(result_publicity_release_date__year=global_filters['year_filter'])
     
     # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
@@ -929,6 +999,8 @@ def procurement_list(request):
     
     # 项目过滤 - 支持多选（过滤掉空字符串）
     project_filter = [p for p in project_filter if p]
+    if not project_filter and global_filters['project']:
+        project_filter = [global_filters['project']]
     if project_filter:
         procurements = procurements.filter(project__project_code__in=project_filter)
     
@@ -1042,6 +1114,8 @@ def procurement_detail(request, procurement_code):
 def payment_list(request):
     """付款列表页面"""
     from .filter_config import get_payment_filter_config
+
+    global_filters = _resolve_global_filters(request)
     
     # 获取过滤参数
     search_query = request.GET.get('q', '')
@@ -1063,6 +1137,10 @@ def payment_list(request):
     
     # 基础查询
     payments = Payment.objects.select_related('contract', 'contract__project')
+
+    # 年度筛选
+    if global_filters['year_filter'] is not None:
+        payments = payments.filter(payment_date__year=global_filters['year_filter'])
     
     # 搜索过滤 - 支持中英文逗号且、空格或
     if search_query:
@@ -1088,6 +1166,8 @@ def payment_list(request):
     
     # 项目过滤 - 支持多选（过滤掉空字符串）
     project_filter = [p for p in project_filter if p]
+    if not project_filter and global_filters['project']:
+        project_filter = [global_filters['project']]
     if project_filter:
         payments = payments.filter(contract__project__project_code__in=project_filter)
     
@@ -2077,24 +2157,14 @@ def update_monitor(request):
     """Render the event-driven update monitoring dashboard."""
     from project.services.update_monitor import UpdateMonitorService
 
+    global_filters = _resolve_global_filters(request)
+
     # Parse year and start-date filters
     current_year = timezone.now().year
-    default_year = 2025
-    selected_year_raw = request.GET.get('year', str(default_year))
-    selected_year: Optional[int]
-    if selected_year_raw == 'all':
-        selected_year = None
-    else:
-        try:
-            selected_year = int(selected_year_raw)
-        except (TypeError, ValueError):
-            selected_year = default_year
-            selected_year_raw = str(default_year)
-
-    # If year is restricted ensure it does not exceed the latest year we support
-    if selected_year is not None and selected_year > current_year:
-        selected_year = current_year
-        selected_year_raw = str(current_year)
+    selected_year_raw = global_filters['year_value']
+    selected_year: Optional[int] = (
+        None if selected_year_raw == 'all' else global_filters['year_filter']
+    )
 
     # Parse start_date filter (支持多种日期格式: YYYYMMDD 或 YYYY-MM-DD)
     start_date_raw = request.GET.get('start_date', '')
@@ -2134,8 +2204,6 @@ def update_monitor(request):
 
     # 构建年度下拉
     base_years = list(range(2019, current_year + 1))
-    if default_year > current_year:
-        base_years.append(default_year)
     available_years = sorted(set(base_years))
     year_options = [{'value': 'all', 'label': '全部年度'}] + [
         {'value': str(year), 'label': f'{year}年'} for year in available_years
@@ -2148,18 +2216,6 @@ def update_monitor(request):
     display_start = start_date.strftime('%Y年%m月%d日') if start_date else '未限制'
 
     monitoring_filters = [
-        {
-            'type': 'select',
-            'name': 'year',
-            'label': '统计年度',
-            'value': selected_year_raw if selected_year is not None else 'all',
-            'autosubmit': True,
-            'options': year_options,
-            'attrs': {
-                'id': 'update-monitoring-year',
-                'data-auto-submit-delay': '0',
-            },
-        },
         {
             'type': 'text',
             'name': 'start_date',
@@ -2186,6 +2242,7 @@ def update_monitor(request):
         'display_year': display_year,
         'display_start': display_start,
         'monitoring_filters': monitoring_filters,
+        'global_selected_project': global_filters['project'],
     }
 
     return render(request, 'monitoring/update.html', context)

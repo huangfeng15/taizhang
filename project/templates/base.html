@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -5,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}项目采购与成本管理系统{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/global-filter.css' %}">
     {% block extra_head %}{% endblock %}
     <style>
         * {
@@ -707,6 +709,35 @@
             <span>项目采购与成本管理系统</span>
         </div>
         <div class="header-right">
+            {% with year_param=request.GET.global_year|default:global_current_year|stringformat:"s" project_param=request.GET.global_project|default:'' %}
+            <div
+                id="global-filter-bar"
+                class="global-filter-bar"
+                data-default-year="{{ global_current_year }}"
+                data-project-count="{{ global_filter_projects|length }}">
+                <span class="global-filter-bar__label">
+                    <i class="fas fa-globe-asia global-filter-bar__icon"></i>
+                    全局筛选
+                </span>
+                <select class="global-filter-bar__select" data-role="global-year">
+                    {% for year in global_year_options %}
+                        {% if forloop.first %}
+                            <option value="all" {% if year_param == 'all' %}selected{% endif %}>全部年度</option>
+                        {% endif %}
+                        <option value="{{ year|stringformat:'s' }}" {% if year_param == year|stringformat:'s' %}selected{% endif %}>{{ year }}年</option>
+                    {% endfor %}
+                </select>
+                <span class="global-filter-bar__divider"></span>
+                <select class="global-filter-bar__select" data-role="global-project" data-placeholder="true">
+                    <option value="" {% if not project_param %}selected{% endif %}>全部项目</option>
+                    {% for project in global_filter_projects %}
+                        <option value="{{ project.code }}" {% if project.code == project_param %}selected{% endif %}>
+                            {{ project.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endwith %}
             <div class="header-user">
                 <i class="fas fa-user-circle"></i>
                 <span>管理员</span>
@@ -812,6 +843,8 @@
         {% block content %}{% endblock %}
     </main>
 
+    <script src="{% static 'js/global-filter-store.js' %}"></script>
+    <script src="{% static 'js/global-filter-component.js' %}"></script>
     <script>
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('sidebar');
