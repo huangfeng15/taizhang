@@ -25,7 +25,6 @@
     }
 
     body {
-        background-color: var(--bg-color);
         font-family: var(--font-family);
     }
 
@@ -401,9 +400,6 @@
                 <a href="{% url 'dashboard' %}">首页</a> /
                 <span>统计分析</span>
             </div>
-        </div>
-        <div class="monitoring-page__filters">
-            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </header>
 

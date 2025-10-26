@@ -2064,10 +2064,16 @@ def update_monitor(request):
             start_date = None
             start_date_raw = ''
     
-    # 如果没有提供起始日期，使用所选年份的1月1日作为默认值
-    if not start_date and selected_year is not None:
-        start_date = date(selected_year, 1, 1)
-        start_date_raw = start_date.isoformat()
+    # 如果没有提供起始日期，根据选择的年份设置默认值
+    if not start_date:
+        if selected_year is not None:
+            # 特定年份：使用该年份的1月1日
+            start_date = date(selected_year, 1, 1)
+            start_date_raw = start_date.strftime('%Y%m%d')
+        else:
+            # 全部年度：使用一个足够早的日期（如2000-01-01）以包含所有历史数据
+            start_date = date(2000, 1, 1)
+            start_date_raw = start_date.strftime('%Y%m%d')
 
     # 构建年度下拉
     base_years = list(range(2019, current_year + 1))
@@ -2077,10 +2083,14 @@ def update_monitor(request):
     ]
 
     service = UpdateMonitorService()
-    snapshot = service.build_snapshot(year=selected_year, start_date=start_date if start_date else date(2019, 1, 1))
+    snapshot = service.build_snapshot(year=selected_year, start_date=start_date)
 
+    # 优化显示信息
     display_year = '全部年度' if selected_year is None else f'{selected_year}年'
-    display_start = start_date.strftime('%Y年%m月%d日') if start_date else '未限制'
+    if selected_year is None:
+        display_start = '2000年01月01日起（全部历史数据）'
+    else:
+        display_start = start_date.strftime('%Y年%m月%d日')
 
     monitoring_filters = [
         {
@@ -2450,6 +2460,9 @@ def generate_report(request):
         current_month = datetime.now().month
         current_quarter = (current_month - 1) // 3 + 1
         
+        # 获取全局筛选参数
+        global_filters = _resolve_global_filters(request)
+        
         context = {
             'page_title': '报表生成',
             'current_year': current_year,
@@ -2458,18 +2471,25 @@ def generate_report(request):
             'available_years': list(range(2019, current_year + 2)),
             'available_months': list(range(1, 13)),
             'available_quarters': [1, 2, 3, 4],
+            'selected_projects': global_filters['project_list'],
+            'global_selected_year': global_filters['year_value'],
+            'global_selected_project': global_filters['project'],
         }
         return render(request, 'reports/form.html', context)
     
     # POST请求 - 生成报表
     try:
+        # 获取全局筛选参数
+        global_filters = _resolve_global_filters(request)
+        project_codes = global_filters['project_list'] if global_filters['project_list'] else None
+        
         report_type = request.POST.get('report_type', 'monthly')
         year = int(request.POST.get('year', datetime.now().year))
         month = int(request.POST.get('month', datetime.now().month))
         quarter = int(request.POST.get('quarter', 1))
         export_format = request.POST.get('export_format', 'preview')  # preview/excel
         
-        # 根据报表类型生成数据
+        # 根据报表类型生成数据，传入项目筛选参数
         if report_type == 'weekly':
             # 周报需要指定具体日期
             target_date_str = request.POST.get('target_date')
@@ -2477,13 +2497,13 @@ def generate_report(request):
                 target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
             else:
                 target_date = date.today()
-            generator = WeeklyReportGenerator(target_date)
+            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
         elif report_type == 'monthly':
-            generator = MonthlyReportGenerator(year, month)
+            generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
         elif report_type == 'quarterly':
-            generator = QuarterlyReportGenerator(year, quarter)
+            generator = QuarterlyReportGenerator(year, quarter, project_codes=project_codes)
         elif report_type == 'annual':
-            generator = AnnualReportGenerator(year)
+            generator = AnnualReportGenerator(year, project_codes=project_codes)
         else:
             return JsonResponse({
                 'success': False,

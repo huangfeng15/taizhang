@@ -91,35 +91,35 @@
     <!-- 排名类型切换 -->
     <div class="ranking-nav">
         <div class="btn-group" role="group">
-            <a href="?type=comprehensive&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=comprehensive&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'comprehensive' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-star"></i> 综合排名
             </a>
-            <a href="?type=procurement_ontime&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=procurement_ontime&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'procurement_ontime' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-clock"></i> 采购准时率
             </a>
-            <a href="?type=procurement_cycle&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=procurement_cycle&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'procurement_cycle' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-tachometer-alt"></i> 采购周期
             </a>
-            <a href="?type=procurement_quantity&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=procurement_quantity&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'procurement_quantity' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-list-ol"></i> 采购数量
             </a>
-            <a href="?type=archive_timeliness&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=archive_timeliness&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'archive_timeliness' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-archive"></i> 归档及时率
             </a>
-            <a href="?type=archive_speed&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=archive_speed&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'archive_speed' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-hourglass-half"></i> 归档速度
             </a>
-            <a href="?type=contract&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=contract&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'contract' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-file-contract"></i> 合同签订
             </a>
-            <a href="?type=settlement&year={{ request.GET.year }}&rank_by={{ rank_by }}"
+            <a href="/monitoring/ranking/?type=settlement&global_year={{ request.GET.global_year|default:'all' }}&rank_by={{ rank_by }}&global_project={{ request.GET.global_project|default:'' }}"
                class="btn btn-sm {% if ranking_type == 'settlement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                 <i class="fas fa-calculator"></i> 结算完成
             </a>

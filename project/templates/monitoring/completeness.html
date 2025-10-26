@@ -27,7 +27,6 @@
     max-width: 1800px;
     margin: 0 auto;
     padding: 24px;
-    background-color: var(--bg-color);
     font-family: var(--font-family);
 }
 
@@ -587,11 +586,6 @@
                 <span> / </span>
                 <span>齐全性检查</span>
             </div>
-        </div>
-        
-        <!-- 年度和项目筛选器 -->
-        <div class="monitoring-page__filters">
-            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </header>
 

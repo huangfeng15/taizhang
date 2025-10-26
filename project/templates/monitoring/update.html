@@ -506,10 +506,61 @@
         grid-template-columns: 90px repeat(12, 1fr);
     }
 }
+
+/* 加载提示样式 */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    font-size: 16px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- 加载提示遮罩 -->
+<div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载数据，请稍候...</div>
+    </div>
+</div>
+
 <div class="dashboard-container">
     <header class="page-header">
         <div>
@@ -559,11 +610,34 @@
 <script src="{% static 'js/update_monitoring.js' %}"></script>
 <script>
 (function() {
+    // 显示加载提示
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('active');
+    }
+
     const dataElement = document.getElementById('update-monitoring-data');
     const monitoringData = dataElement ? JSON.parse(dataElement.textContent) : null;
     const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (char) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[char]));
+
+    // 声明必需的DOM元素引用和全局变量
+    const heatmapContainer = document.getElementById('project-heatmap-container');
+    const statsContainer = document.getElementById('statistics-table-container');
+    const viewByProjectBtn = document.getElementById('view-by-project');
+    const viewByPersonBtn = document.getElementById('view-by-person');
+    
+    // 模块映射和当前视图状态
+    const moduleMap = {
+        'procurement': '采购',
+        'contract': '合同',
+        'payment': '付款',
+        'settlement': '结算',
+        'total': '总计'
+    };
+    const moduleKeys = ['procurement', 'contract', 'payment', 'settlement', 'total'];
+    let currentStatsView = 'project';
 
     function renderKpis() {
         const { totalProjects, overallTimelinessRate, totalEvents, delayedEvents } = monitoringData.kpis || {};
@@ -706,6 +780,11 @@
         renderView(currentStatsView);
         viewByProjectBtn.addEventListener('click', () => currentStatsView !== 'project' && renderView('project'));
         viewByPersonBtn.addEventListener('click', () => currentStatsView !== 'person' && renderView('person'));
+        
+        // 隐藏加载提示
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('active');
+        }
     }
 
     init();

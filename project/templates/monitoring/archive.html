@@ -24,9 +24,6 @@
         --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
-    body {
-        background-color: var(--bg-color);
-    }
 
     .dashboard-container {
         max-width: 1600px;
@@ -450,9 +447,6 @@
     <!-- 页面头部 -->
     <header class="page-header">
         <h1 class="page-title">归档监控仪表盘</h1>
-        <div class="monitoring-page__filters">
-            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
-        </div>
     </header>
 
     <!-- 核心KPI概览 -->
