@@ -44,6 +44,61 @@ def _extract_monitoring_filters(request):
     return year_context, project_codes, project_filter, filter_config
 
 
+def _build_monitoring_filter_fields(filter_config, *, include_project=True, extra_fields=None):
+    """根据监控筛选配置生成筛选组件字段定义。"""
+    selected_year = str(filter_config.get('selected_year_value', 'all'))
+    year_options = [{'value': 'all', 'label': '全部年度'}]
+    year_options.extend(
+        {'value': str(year), 'label': f'{year}年'}
+        for year in filter_config.get('available_years', [])
+    )
+
+    fields = [
+        {
+            'type': 'select',
+            'name': 'year',
+            'label': '年份',
+            'value': selected_year,
+            'autosubmit': True,
+            'options': year_options,
+        }
+    ]
+
+    if include_project:
+        project_options = [{'value': '', 'label': '全部项目'}]
+        project_options.extend(
+            {'value': project.project_code, 'label': project.project_name}
+            for project in filter_config.get('projects', [])
+        )
+        fields.append(
+            {
+                'type': 'select',
+                'name': 'project',
+                'label': '项目',
+                'value': filter_config.get('selected_project_value', ''),
+                'autosubmit': True,
+                'options': project_options,
+            }
+        )
+
+    if extra_fields:
+        fields.extend(extra_fields)
+
+    return fields
+
+
+def _build_pagination_querystring(request, excluded_keys=None, extra_params=None):
+    params = request.GET.copy()
+    excluded_keys = excluded_keys or []
+    for key in excluded_keys:
+        if key in params:
+            params.pop(key, None)
+    extra_params = extra_params or {}
+    for key, value in extra_params.items():
+        params[key] = value
+    return params.urlencode()
+
+
 IMPORT_TEMPLATE_DEFINITIONS = {
     'project': {
         'long': {
@@ -1986,13 +2041,17 @@ def archive_monitor(request):
         contract_paginator = Paginator(contract_overdue, page_size)
         contract_page_obj = contract_paginator.get_page(page if module_param == 'contract' else 1)
 
-    query_params = request.GET.copy()
-    for param in ['page', 'module']:
-        if param in query_params:
-            query_params.pop(param)
-    base_query_string = query_params.urlencode()
-    if base_query_string:
-        base_query_string = f"{base_query_string}&"
+    base_query_string = _build_pagination_querystring(request, excluded_keys=['page', 'module'])
+    procurement_pagination_query = _build_pagination_querystring(
+        request,
+        excluded_keys=['page', 'module'],
+        extra_params={'module': 'procurement'}
+    )
+    contract_pagination_query = _build_pagination_querystring(
+        request,
+        excluded_keys=['page', 'module'],
+        extra_params={'module': 'contract'}
+    )
 
     context = {
         'archive_data': archive_overview,
@@ -2007,8 +2066,10 @@ def archive_monitor(request):
         'selected_project_value': project_codes[0] if project_codes else '',
         'project_performance': project_archive_performance,
         'active_module': module_param,
-        'base_query_string': base_query_string,
+        'procurement_pagination_query': procurement_pagination_query,
+        'contract_pagination_query': contract_pagination_query,
         'page_title': '归档监控',
+        'monitoring_filters': _build_monitoring_filter_fields(filter_config),
         **filter_config,
     }
     return render(request, 'monitoring/archive.html', context)
@@ -2086,6 +2147,35 @@ def update_monitor(request):
     display_year = '全部年度' if selected_year is None else f'{selected_year}年'
     display_start = start_date.strftime('%Y年%m月%d日') if start_date else '未限制'
 
+    monitoring_filters = [
+        {
+            'type': 'select',
+            'name': 'year',
+            'label': '统计年度',
+            'value': selected_year_raw if selected_year is not None else 'all',
+            'autosubmit': True,
+            'options': year_options,
+            'attrs': {
+                'id': 'update-monitoring-year',
+                'data-auto-submit-delay': '0',
+            },
+        },
+        {
+            'type': 'text',
+            'name': 'start_date',
+            'label': '监控起始日期',
+            'value': start_date_raw,
+            'placeholder': '格式: YYYYMMDD 或 YYYY-MM-DD',
+            'help_text': '填写以限定监控时间范围，留空则默认使用所选年度的起始日期。',
+            'attrs': {
+                'id': 'update-monitoring-start-date',
+                'maxlength': '10',
+                'inputmode': 'numeric',
+            },
+            'autosubmit': False,
+        },
+    ]
+
     context = {
         'page_title': '更新监控',
         'monitoring_data': snapshot,
@@ -2095,6 +2185,7 @@ def update_monitor(request):
         'start_date_max': start_date_max,
         'display_year': display_year,
         'display_start': display_start,
+        'monitoring_filters': monitoring_filters,
     }
 
     return render(request, 'monitoring/update.html', context)
@@ -2139,6 +2230,9 @@ def completeness_check(request):
         'available_years': year_context['available_years'],
         'year_filter': year_context['selected_year_value'],
         'project_filter': project_codes[0] if project_codes else '',
+        'monitoring_filters': _build_monitoring_filter_fields(filter_config),
+        'procurement_pagination_query': _build_pagination_querystring(request, excluded_keys=['procurement_page']),
+        'contract_pagination_query': _build_pagination_querystring(request, excluded_keys=['contract_page']),
         **filter_config,
     }
 
@@ -2266,6 +2360,7 @@ def statistics_view(request):
             **settlement_stats,
             'variance_analysis': settlement_variance_analysis
         },
+        'monitoring_filters': _build_monitoring_filter_fields(filter_config),
         
         # 图表数据 - 转换为JSON
         'procurement_method_labels': json.dumps(procurement_method_labels, ensure_ascii=False),
@@ -2329,10 +2424,34 @@ def ranking_view(request):
     # 获取筛选配置
     _, _, _, filter_config = _extract_monitoring_filters(request)
     
+    ranking_filters = _build_monitoring_filter_fields(
+        filter_config,
+        extra_fields=[
+            {
+                'type': 'select',
+                'name': 'rank_by',
+                'label': '维度',
+                'value': rank_by,
+                'autosubmit': True,
+                'options': [
+                    {'value': 'project', 'label': '按项目'},
+                    {'value': 'person', 'label': '按个人'},
+                ],
+            },
+            {
+                'type': 'hidden',
+                'name': 'type',
+                'value': ranking_type,
+            },
+        ],
+    )
+
     context = {
         'page_title': '业务排名',
         'ranking_type': ranking_type,
         'rank_by': rank_by,
+        'monitoring_filters': ranking_filters,
+        'pagination_query': _build_pagination_querystring(request, excluded_keys=['page']),
         **filter_config,  # 添加筛选配置
     }
     

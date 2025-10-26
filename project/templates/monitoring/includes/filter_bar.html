@@ -1,0 +1,88 @@
+{# 监控模块通用筛选栏 #}
+{% load static %}
+{% with form_id=form_id|default:'monitoring-filter-form' %}
+<div class="monitoring-filter {{ layout|default:'monitoring-filter--inline' }}">
+    <form
+        id="{{ form_id }}"
+        method="{{ form_method|default:'get' }}"
+        action="{{ action|default:request.get_full_path }}"
+        class="monitoring-filter__form {{ form_class|default:'' }}">
+
+        {% for field in filters %}
+            {% if field.type == 'hidden' %}
+                <input
+                    type="hidden"
+                    name="{{ field.name }}"
+                    value="{{ field.value|default:'' }}"
+                    {% if field.attrs %}{% for attr, val in field.attrs.items %} {{ attr }}="{{ val }}"{% endfor %}{% endif %}>
+            {% else %}
+                {% with field_id=field.id|default:field.name|default:'filter-field' %}
+                <div class="monitoring-filter__group monitoring-filter__group--{{ field.type|default:'text' }} {% if field.css_class %}{{ field.css_class }}{% endif %}">
+                    {% if field.label %}
+                        <label class="monitoring-filter__label" for="{{ field_id }}-{{ forloop.counter }}">
+                            {{ field.label }}
+                            {% if field.required %}
+                                <span class="monitoring-filter__required">*</span>
+                            {% endif %}
+                        </label>
+                    {% endif %}
+                    <div class="monitoring-filter__control">
+                        {% if field.type == 'select' %}
+                            <select
+                                id="{{ field_id }}-{{ forloop.counter }}"
+                                name="{{ field.name }}"
+                                class="monitoring-filter__select"
+                                {% if field.autosubmit %}data-auto-submit="true"{% endif %}
+                                {% if field.disabled %}disabled{% endif %}
+                                {% if field.attrs %}{% for attr, val in field.attrs.items %} {{ attr }}="{{ val }}"{% endfor %}{% endif %}>
+                                {% if field.placeholder %}
+                                    <option value="">{{ field.placeholder }}</option>
+                                {% endif %}
+                                {% for option in field.options %}
+                                    <option value="{{ option.value }}"
+                                        {% if option.selected or option.value|stringformat:'s' == field.value|stringformat:'s' %}selected{% endif %}>
+                                        {{ option.label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% elif field.type == 'date' or field.type == 'text' %}
+                            <input
+                                id="{{ field_id }}-{{ forloop.counter }}"
+                                type="{{ field.input_type|default:field.type|default:'text' }}"
+                                name="{{ field.name }}"
+                                class="monitoring-filter__input"
+                                value="{{ field.value|default:'' }}"
+                                placeholder="{{ field.placeholder|default:'' }}"
+                                {% if field.autosubmit %}data-auto-submit="true"{% endif %}
+                                {% if field.disabled %}disabled{% endif %}
+                                {% if field.attrs %}{% for attr, val in field.attrs.items %} {{ attr }}="{{ val }}"{% endfor %}{% endif %}>
+                        {% elif field.type == 'custom' %}
+                            {{ field.template|safe }}
+                        {% endif %}
+                        {% if field.help_text %}
+                            <small class="monitoring-filter__help">{{ field.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endwith %}
+            {% endif %}
+        {% endfor %}
+
+        {% if extra_fields %}{{ extra_fields|safe }}{% endif %}
+
+        {% if show_submit|default:True %}
+        <div class="monitoring-filter__actions">
+            <button type="submit" class="btn btn-primary monitoring-filter__submit">
+                {% if submit_icon %}<i class="{{ submit_icon }}"></i>{% endif %}
+                {{ submit_label|default:'查询' }}
+            </button>
+            {% if reset_url %}
+                <a href="{{ reset_url }}" class="monitoring-filter__reset">{{ reset_label|default:'重置' }}</a>
+            {% endif %}
+        </div>
+        {% elif actions %}
+            <div class="monitoring-filter__actions">{{ actions|safe }}</div>
+        {% endif %}
+    </form>
+</div>
+{% endwith %}

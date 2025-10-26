@@ -1,75 +1,77 @@
 <div class="pagination" id="pagination-{{ anchor_id|default:'default' }}">
-    <span class="pagination-info">
-        显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
-    </span>
-    
+    {% if show_info|default:True %}
+        <span class="pagination-info">
+            显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
+        </span>
+    {% endif %}
+
     {% if page_obj.has_other_pages %}
-    <!-- 首页按钮 -->
-    {% if page_obj.has_previous %}
-        <a href="?{{ page_param }}=1{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-btn pagination-no-scroll">
-            <i class="fas fa-angle-double-left"></i> 首页
-        </a>
-        <a href="?{{ page_param }}={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-btn pagination-no-scroll">
-            <i class="fas fa-angle-left"></i> 上一页
-        </a>
-    {% else %}
-        <span class="pagination-btn disabled">
-            <i class="fas fa-angle-double-left"></i> 首页
-        </span>
-        <span class="pagination-btn disabled">
-            <i class="fas fa-angle-left"></i> 上一页
-        </span>
-    {% endif %}
-    
-    <!-- 页码显示 -->
-    <div class="page-numbers">
-        {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-                <span class="current">{{ num }}</span>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <a href="?{{ page_param }}={{ num }}{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-no-scroll">{{ num }}</a>
-            {% elif num == 1 or num == page_obj.paginator.num_pages %}
-                <a href="?{{ page_param }}={{ num }}{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-no-scroll">{{ num }}</a>
-            {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
-                <span class="ellipsis">...</span>
-            {% endif %}
-        {% endfor %}
-    </div>
-    
-    <!-- 下一页和末页按钮 -->
-    {% if page_obj.has_next %}
-        <a href="?{{ page_param }}={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-btn pagination-no-scroll">
-            下一页 <i class="fas fa-angle-right"></i>
-        </a>
-        <a href="?{{ page_param }}={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != page_param and key != 'page_size' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="pagination-btn pagination-no-scroll">
-            末页 <i class="fas fa-angle-double-right"></i>
-        </a>
-    {% else %}
-        <span class="pagination-btn disabled">
-            下一页 <i class="fas fa-angle-right"></i>
-        </span>
-        <span class="pagination-btn disabled">
-            末页 <i class="fas fa-angle-double-right"></i>
-        </span>
-    {% endif %}
+        {% with page_param=page_param|default:'page' %}
+        {% with base_qs=querystring|default:request.GET.urlencode %}
+
+        {% if page_obj.has_previous %}
+            <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}=1" class="pagination-btn pagination-no-scroll">
+                <i class="fas fa-angle-double-left"></i> 首页
+            </a>
+            <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}={{ page_obj.previous_page_number }}" class="pagination-btn pagination-no-scroll">
+                <i class="fas fa-angle-left"></i> 上一页
+            </a>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-angle-double-left"></i> 首页
+            </span>
+            <span class="pagination-btn disabled">
+                <i class="fas fa-angle-left"></i> 上一页
+            </span>
+        {% endif %}
+
+        <div class="page-numbers">
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}={{ num }}" class="pagination-no-scroll">{{ num }}</a>
+                {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}={{ num }}" class="pagination-no-scroll">{{ num }}</a>
+                {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                    <span class="ellipsis">...</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+            <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}={{ page_obj.next_page_number }}" class="pagination-btn pagination-no-scroll">
+                下一页 <i class="fas fa-angle-right"></i>
+            </a>
+            <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}{{ page_param }}={{ page_obj.paginator.num_pages }}" class="pagination-btn pagination-no-scroll">
+                末页 <i class="fas fa-angle-double-right"></i>
+            </a>
+        {% else %}
+            <span class="pagination-btn disabled">
+                下一页 <i class="fas fa-angle-right"></i>
+            </span>
+            <span class="pagination-btn disabled">
+                末页 <i class="fas fa-angle-double-right"></i>
+            </span>
+        {% endif %}
+
+        {% endwith %}
+        {% endwith %}
     {% endif %}
 </div>
 
 <script>
-// 阻止分页链接的默认滚动行为
 document.addEventListener('DOMContentLoaded', function() {
-    // 保存当前滚动位置
-    const scrollPos = sessionStorage.getItem('scrollPos_{{ anchor_id|default:"default" }}');
-    if (scrollPos) {
-        window.scrollTo(0, parseInt(scrollPos));
-        sessionStorage.removeItem('scrollPos_{{ anchor_id|default:"default" }}');
+    const storageKey = 'scrollPos_{{ anchor_id|default:"default" }}';
+    const savedPosition = sessionStorage.getItem(storageKey);
+    if (savedPosition) {
+        window.scrollTo({ top: parseInt(savedPosition, 10), behavior: 'instant' });
+        sessionStorage.removeItem(storageKey);
     }
-    
-    // 为所有分页链接添加点击事件
-    document.querySelectorAll('.pagination-no-scroll').forEach(function(link) {
-        link.addEventListener('click', function(e) {
-            // 保存当前滚动位置到sessionStorage
-            sessionStorage.setItem('scrollPos_{{ anchor_id|default:"default" }}', window.pageYOffset || document.documentElement.scrollTop);
+
+    document.querySelectorAll('#pagination-{{ anchor_id|default:"default" }} .pagination-no-scroll').forEach(function(link) {
+        link.addEventListener('click', function() {
+            sessionStorage.setItem(storageKey, window.pageYOffset || document.documentElement.scrollTop);
         });
     });
 });

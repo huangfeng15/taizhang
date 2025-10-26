@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
 <style>
     :root {
         --primary-color: #1890ff;
@@ -449,39 +450,8 @@
     <!-- 页面头部 -->
     <header class="page-header">
         <h1 class="page-title">归档监控仪表盘</h1>
-        <div class="filters" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-left: auto; width: auto;">
-            <form method="get"
-                  action="{% url 'archive_monitor' %}"
-                  id="archiveFilterForm"
-                  style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                    年份：
-                </label>
-                <select name="year"
-                        class="form-control form-control-sm filter-select"
-                        onchange="this.form.submit()"
-                        style="width: 140px; border-radius: 4px;">
-                    <option value="all" {% if year_filter_value == "all" %}selected{% endif %}>全部年度</option>
-                    {% for year in available_years %}
-                    <option value="{{ year }}" {% if year_filter_value == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
-                    {% endfor %}
-                </select>
-
-                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                    项目：
-                </label>
-                <select name="project"
-                        class="form-control form-control-sm filter-select"
-                        onchange="this.form.submit()"
-                        style="width: 220px; max-width: 240px; border-radius: 4px;">
-                    <option value="" {% if not selected_project_value %}selected{% endif %}>所有项目</option>
-                    {% for project in projects %}
-                    <option value="{{ project.project_code }}" {% if selected_project_value == project.project_code %}selected{% endif %}>
-                        {{ project.project_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
+        <div class="monitoring-page__filters">
+            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </header>
 
@@ -713,25 +683,7 @@
                             </table>
                         </div>
                         {% if procurement_page and procurement_page.paginator.num_pages > 1 %}
-                        <nav class="pagination">
-                            {% if procurement_page.has_previous %}
-                            <a href="?{{ base_query_string }}module=procurement&page=1">&laquo; 首页</a>
-                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.previous_page_number }}">上一页</a>
-                            {% else %}
-                            <span class="disabled">&laquo; 首页</span>
-                            <span class="disabled">上一页</span>
-                            {% endif %}
-                            
-                            <span class="current">{{ procurement_page.number }}</span>
-                            
-                            {% if procurement_page.has_next %}
-                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.next_page_number }}">下一页</a>
-                            <a href="?{{ base_query_string }}module=procurement&page={{ procurement_page.paginator.num_pages }}">末页 &raquo;</a>
-                            {% else %}
-                            <span class="disabled">下一页</span>
-                            <span class="disabled">末页 &raquo;</span>
-                            {% endif %}
-                        </nav>
+                            {% include 'pagination_custom.html' with page_obj=procurement_page querystring=procurement_pagination_query anchor_id='procurement-overdue' show_info=False %}
                         {% endif %}
                     </div>
 
@@ -783,25 +735,7 @@
                             </table>
                         </div>
                         {% if contract_page and contract_page.paginator.num_pages > 1 %}
-                        <nav class="pagination">
-                            {% if contract_page.has_previous %}
-                            <a href="?{{ base_query_string }}module=contract&page=1">&laquo; 首页</a>
-                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.previous_page_number }}">上一页</a>
-                            {% else %}
-                            <span class="disabled">&laquo; 首页</span>
-                            <span class="disabled">上一页</span>
-                            {% endif %}
-                            
-                            <span class="current">{{ contract_page.number }}</span>
-                            
-                            {% if contract_page.has_next %}
-                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.next_page_number }}">下一页</a>
-                            <a href="?{{ base_query_string }}module=contract&page={{ contract_page.paginator.num_pages }}">末页 &raquo;</a>
-                            {% else %}
-                            <span class="disabled">下一页</span>
-                            <span class="disabled">末页 &raquo;</span>
-                            {% endif %}
-                        </nav>
+                            {% include 'pagination_custom.html' with page_obj=contract_page querystring=contract_pagination_query anchor_id='contract-overdue' show_info=False %}
                         {% endif %}
                     </div>
 

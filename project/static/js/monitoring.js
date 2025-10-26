@@ -93,6 +93,28 @@
         });
     }
 
+    // 监控筛选栏自动提交
+    function initMonitoringFilterAutoSubmit() {
+        const autoFields = document.querySelectorAll('.monitoring-filter [data-auto-submit="true"]');
+        autoFields.forEach((field) => {
+            const delay = Number(field.dataset.autoSubmitDelay || 400);
+            const eventName = field.tagName === 'SELECT' ? 'change' : 'input';
+            let timer = null;
+
+            const handler = () => {
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    const form = field.closest('form');
+                    if (form) {
+                        form.requestSubmit ? form.requestSubmit() : form.submit();
+                    }
+                }, delay);
+            };
+
+            field.addEventListener(eventName, handler);
+        });
+    }
+
     // 添加点击波纹效果
     function initRippleEffect() {
         const statItems = document.querySelectorAll('.compact-stat-card .stat-item');
@@ -132,6 +154,7 @@
             initNumberAnimations();
             initHoverEffects();
             initRippleEffect();
+        initMonitoringFilterAutoSubmit();
         }, 300);
 
         // 添加CSS样式

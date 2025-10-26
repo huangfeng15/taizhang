@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
 <style>
 :root {
     --primary-color: #1890ff;
@@ -515,31 +516,9 @@
             <h1 class="page-title"><i class="fas fa-chart-pie"></i> 项目更新准时率</h1>
             <p class="helper-note">当前统计：{{ display_year }} · 监控起始：{{ display_start }}</p>
         </div>
-        <form class="filter-controls" method="get" action="">
-            <label for="yearFilter">
-                <i class="fas fa-calendar-alt"></i> 统计年份
-                <select id="yearFilter" name="year">
-                    {% for option in year_options %}
-                        <option value="{{ option.value }}" {% if option.value == selected_year_value %}selected{% endif %}>
-                            {{ option.label }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label for="startDateFilter">
-                <i class="fas fa-hourglass-start"></i> 监控起始日期
-                <input type="text"
-                       id="startDateFilter"
-                       name="start_date"
-                       value="{{ start_date_value }}"
-                       placeholder="格式: YYYYMMDD 或 YYYY-MM-DD"
-                       maxlength="10"
-                       style="width: 180px;">
-            </label>
-            <button type="submit" class="btn-submit" style="padding: 8px 16px; border: 1px solid var(--primary-color); border-radius: 6px; background: var(--primary-color); color: white; cursor: pointer; font-size: 14px; transition: background 0.3s;">
-                <i class="fas fa-search"></i> 查询
-            </button>
-        </form>
+        <div class="monitoring-page__filters">
+            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path submit_icon='fas fa-search' submit_label='查询' %}
+        </div>
     </header>
 
     <section class="kpi-overview">
@@ -577,30 +556,11 @@
 
 {% block extra_js %}
 {{ monitoring_data|json_script:"update-monitoring-data" }}
+<script src="{% static 'js/update_monitoring.js' %}"></script>
 <script>
 (function() {
     const dataElement = document.getElementById('update-monitoring-data');
     const monitoringData = dataElement ? JSON.parse(dataElement.textContent) : null;
-    if (!monitoringData) {
-        console.warn('未获取到监控数据');
-        return;
-    }
-
-    const moduleMap = (monitoringData.moduleDefinitions || []).reduce((acc, item) => {
-        acc[item.key] = item.name;
-        return acc;
-    }, {});
-    const moduleKeys = monitoringData.statistics?.moduleKeys || Object.keys(moduleMap);
-
-    const yearFilter = document.getElementById('yearFilter');
-    const startDateFilter = document.getElementById('startDateFilter');
-    const heatmapContainer = document.getElementById('project-heatmap-container');
-    const statsContainer = document.getElementById('statistics-table-container');
-    const viewByProjectBtn = document.getElementById('view-by-project');
-    const viewByPersonBtn = document.getElementById('view-by-person');
-
-    let currentStatsView = 'project';
-
     const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (char) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[char]));
@@ -746,86 +706,6 @@
         renderView(currentStatsView);
         viewByProjectBtn.addEventListener('click', () => currentStatsView !== 'project' && renderView('project'));
         viewByPersonBtn.addEventListener('click', () => currentStatsView !== 'person' && renderView('person'));
-        // 年份筛选：立即提交
-        if (yearFilter) {
-            yearFilter.addEventListener('change', () => yearFilter.form.submit());
-        }
-        
-        // 监控起始日期：防抖+验证后提交
-        if (startDateFilter) {
-            let debounceTimer = null;
-            
-            // 验证日期格式（YYYYMMDD 或 YYYY-MM-DD）
-            const isValidDate = (value) => {
-                if (!value) return false;
-                const clean = value.replace(/\D/g, '');
-                if (clean.length !== 8) return false;
-                
-                const year = parseInt(clean.substring(0, 4));
-                const month = parseInt(clean.substring(4, 6));
-                const day = parseInt(clean.substring(6, 8));
-                
-                return year >= 1900 && year <= 2100 &&
-                       month >= 1 && month <= 12 &&
-                       day >= 1 && day <= 31;
-            };
-            
-            // 显示错误提示
-            const showError = (msg) => {
-                startDateFilter.style.borderColor = 'var(--error-color)';
-                let errorEl = startDateFilter.parentElement.querySelector('.date-error');
-                if (!errorEl) {
-                    errorEl = document.createElement('small');
-                    errorEl.className = 'date-error';
-                    errorEl.style.color = 'var(--error-color)';
-                    errorEl.style.fontSize = '12px';
-                    errorEl.style.marginLeft = '8px';
-                    startDateFilter.parentElement.appendChild(errorEl);
-                }
-                errorEl.textContent = msg;
-            };
-            
-            // 清除错误提示
-            const clearError = () => {
-                startDateFilter.style.borderColor = '';
-                const errorEl = startDateFilter.parentElement.querySelector('.date-error');
-                if (errorEl) errorEl.remove();
-            };
-            
-            // 输入事件：防抖1秒后验证并提交
-            startDateFilter.addEventListener('input', () => {
-                clearTimeout(debounceTimer);
-                clearError();
-                
-                const value = startDateFilter.value.trim();
-                
-                debounceTimer = setTimeout(() => {
-                    if (value.length >= 8) {
-                        if (isValidDate(value)) {
-                            clearError();
-                            startDateFilter.form.submit();
-                        } else {
-                            showError('日期格式无效，请输入YYYYMMDD');
-                        }
-                    }
-                }, 1000);
-            });
-            
-            // 回车键：立即验证并提交
-            startDateFilter.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    clearTimeout(debounceTimer);
-                    const value = startDateFilter.value.trim();
-                    if (isValidDate(value)) {
-                        clearError();
-                        startDateFilter.form.submit();
-                    } else {
-                        showError('日期格式无效，请输入YYYYMMDD');
-                    }
-                }
-            });
-        }
     }
 
     init();

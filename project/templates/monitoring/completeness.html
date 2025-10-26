@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
 <style>
 :root {
     --primary-color: #1890ff;
@@ -589,30 +590,8 @@
         </div>
         
         <!-- 年度和项目筛选器 -->
-        <div class="filter-card" style="padding: 12px 16px; margin: 0;">
-            <form method="get" action="" style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                <label style="font-weight: 600; color: var(--text-secondary); margin: 0; white-space: nowrap;">
-                    年份：
-                </label>
-                <select name="year" onchange="this.form.submit()" style="width: 140px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;">
-                    <option value="all" {% if year_filter == 'all' %}selected{% endif %}>全部年度</option>
-                    {% for year in available_years %}
-                    <option value="{{ year }}" {% if year_filter|stringformat:"s" == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
-                    {% endfor %}
-                </select>
-
-                <label style="font-weight: 600; color: var(--text-secondary); margin: 0; white-space: nowrap;">
-                    项目：
-                </label>
-                <select name="project" onchange="this.form.submit()" style="width: 220px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;">
-                    <option value="" {% if not project_filter %}selected{% endif %}>所有项目</option>
-                    {% for project in projects %}
-                    <option value="{{ project.project_code }}" {% if project_filter == project.project_code %}selected{% endif %}>
-                        {{ project.project_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
+        <div class="monitoring-page__filters">
+            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </header>
 
@@ -795,7 +774,7 @@
         <!-- 采购字段分页 -->
         {% if procurement_page_obj.has_other_pages %}
         <div style="margin-top: 20px;">
-            {% include 'pagination_custom.html' with page_obj=procurement_page_obj page_param='procurement_page' anchor_id='procurement-section' %}
+            {% include 'pagination_custom.html' with page_obj=procurement_page_obj page_param='procurement_page' querystring=procurement_pagination_query anchor_id='procurement-section' %}
         </div>
         {% endif %}
         </div>
@@ -862,7 +841,7 @@
         <!-- 合同字段分页 -->
         {% if contract_page_obj.has_other_pages %}
         <div style="margin-top: 20px;">
-            {% include 'pagination_custom.html' with page_obj=contract_page_obj page_param='contract_page' anchor_id='contract-section' %}
+            {% include 'pagination_custom.html' with page_obj=contract_page_obj page_param='contract_page' querystring=contract_pagination_query anchor_id='contract-section' %}
         </div>
         {% endif %}
         </div>

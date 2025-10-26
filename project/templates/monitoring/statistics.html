@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
 <style>
     :root {
         --primary-color: #1890ff;
@@ -401,40 +402,8 @@
                 <span>统计分析</span>
             </div>
         </div>
-        <!-- 年度和项目筛选组件 -->
-        <div class="filters" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-left: auto; width: auto;">
-            <form method="get"
-                  action="{% url 'statistics_view' %}"
-                  id="statisticsFilterForm"
-                  style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                    年份：
-                </label>
-                <select name="year"
-                        class="form-control form-control-sm filter-select"
-                        onchange="this.form.submit()"
-                        style="width: 140px; border-radius: 4px; padding: 8px 12px; border: 1px solid var(--border-color); font-size: 14px;">
-                    <option value="all" {% if year_filter == "all" %}selected{% endif %}>全部年度</option>
-                    {% for year in available_years %}
-                    <option value="{{ year }}" {% if year_filter == year|stringformat:"s" %}selected{% endif %}>{{ year }}年</option>
-                    {% endfor %}
-                </select>
-
-                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                    项目：
-                </label>
-                <select name="project"
-                        class="form-control form-control-sm filter-select"
-                        onchange="this.form.submit()"
-                        style="width: 220px; max-width: 240px; border-radius: 4px; padding: 8px 12px; border: 1px solid var(--border-color); font-size: 14px;">
-                    <option value="" {% if not selected_project %}selected{% endif %}>所有项目</option>
-                    {% for project in projects %}
-                    <option value="{{ project.project_code }}" {% if selected_project == project.project_code %}selected{% endif %}>
-                        {{ project.project_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
+        <div class="monitoring-page__filters">
+            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </header>
 

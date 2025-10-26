@@ -77,44 +77,14 @@
 
 {% block content %}
 <div class="monitoring-ranking">
-    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-        <div>
+    <div class="page-header monitoring-page__header">
+        <div class="monitoring-page__intro">
             <h1><i class="fas fa-trophy"></i> {{ page_title }}</h1>
             <p class="text-muted">通过对项目和个人的工作绩效进行排名展示，激励团队成员提高工作效率和质量</p>
         </div>
-        
-        <!-- 筛选器 - 右上角 -->
-        <div class="filter-section" style="padding: 12px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
-            <form method="get" action="" id="rankingFilterForm" style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                {% for filter in quick_filters %}
-                    {% if filter.type == 'select' %}
-                        <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">
-                            {% if filter.name == 'year' %}年份：{% elif filter.name == 'project' %}项目：{% endif %}
-                        </label>
-                        <select name="{{ filter.name }}"
-                                class="form-control form-control-sm filter-select"
-                                onchange="this.form.submit()"
-                                style="width: {{ filter.width|default:'150px' }}; border-radius: 4px;">
-                            {% for option in filter.options %}
-                                <option value="{{ option.value }}"
-                                        {% if option.value == filter.current_value %}selected{% endif %}>
-                                    {{ option.label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    {% endif %}
-                {% endfor %}
-                
-                <!-- 排名维度选择 -->
-                <label style="font-weight: 600; color: #495057; margin: 0; white-space: nowrap;">维度：</label>
-                <select name="rank_by" class="form-control form-control-sm filter-select" onchange="this.form.submit()" style="width: 120px; border-radius: 4px;">
-                    <option value="project" {% if rank_by == 'project' %}selected{% endif %}>按项目</option>
-                    <option value="person" {% if rank_by == 'person' %}selected{% endif %}>按个人</option>
-                </select>
-                
-                <!-- 保留其他参数 -->
-                <input type="hidden" name="type" value="{{ ranking_type }}">
-            </form>
+
+        <div class="monitoring-page__filters">
+            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path show_submit=False %}
         </div>
     </div>
 

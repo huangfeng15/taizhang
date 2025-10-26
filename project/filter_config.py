@@ -660,8 +660,8 @@ def get_monitoring_filter_config(request, year_context=None):
         {
             'name': 'year',
             'type': 'select',
-            'placeholder': '选择年份',
-            'width': '130px',
+            'label': '年度',
+            'autosubmit': True,
             'current_value': year_context['selected_year_value'],
             'options': (
                 [{'value': 'all', 'label': '全部年度'}] +
@@ -674,9 +674,9 @@ def get_monitoring_filter_config(request, year_context=None):
         {
             'name': 'project',
             'type': 'select',
-            'placeholder': '所有项目',
-            'width': '200px',
-            'current_value': project_values,
+            'label': '项目',
+            'autosubmit': True,
+            'current_value': selected_project,
             'options': [
                 {'value': '', 'label': '全部项目'}
             ] + [

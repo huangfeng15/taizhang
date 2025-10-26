@@ -97,6 +97,8 @@
             background: var(--card-bg);
             border-right: 1px solid var(--border-color);
             overflow-y: auto;
+            overflow-anchor: none;
+            scroll-behavior: auto;
             transition: transform 0.3s;
             z-index: 999;
         }
@@ -830,6 +832,36 @@
                 document.getElementById('sidebar').classList.remove('mobile-open');
             }
         });
+
+        // 防止点击导航菜单时侧边栏滚动
+        (function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            
+            // 页面加载时恢复侧边栏滚动位置
+            const savedScrollTop = sessionStorage.getItem('sidebarScrollTop');
+            if (savedScrollTop !== null) {
+                sidebar.scrollTop = parseInt(savedScrollTop, 10);
+            }
+            
+            // 点击菜单链接时保存当前滚动位置
+            const menuLinks = sidebar.querySelectorAll('.menu-link[href]:not([href="#"])');
+            menuLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // 保存当前侧边栏滚动位置到 sessionStorage
+                    sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
+                });
+            });
+            
+            // 监听侧边栏滚动，实时保存位置（用户主动滚动时）
+            let scrollTimeout;
+            sidebar.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
+                }, 100);
+            });
+        })();
 
         // DOM加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
