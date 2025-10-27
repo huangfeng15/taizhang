@@ -1,0 +1,32 @@
+# 表统计配置
+# 配置需要统计的数据库表信息
+tables:
+  - name: "procurement_procurement"
+    display_name: "采购信息"
+    module: "procurement"
+    model: "Procurement"
+    
+  - name: "contract_contract"
+    display_name: "合同信息"
+    module: "contract"
+    model: "Contract"
+    
+  - name: "payment_payment"
+    display_name: "付款信息"
+    module: "payment"
+    model: "Payment"
+    
+  - name: "settlement_settlement"
+    display_name: "结算信息"
+    module: "settlement"
+    model: "Settlement"
+    
+  - name: "supplier_eval_supplierevaluation"
+    display_name: "供应商评价"
+    module: "supplier_eval"
+    model: "SupplierEvaluation"
+    
+  - name: "project_project"
+    display_name: "项目信息"
+    module: "project"
+    model: "Project"

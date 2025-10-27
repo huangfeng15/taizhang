@@ -1,0 +1,87 @@
+# 采购导入模板配置
+metadata:
+  name: "采购信息导入模板"
+  description: "用于批量导入采购项目基本信息"
+  version: "1.0"
+  module: "procurement"
+  model: "Procurement"
+  
+# 文件生成配置
+file:
+  name_template: "采购信息导入模板_{year}.xlsx"
+  sheet_name: "采购信息"
+  start_row: 3  # 数据从第3行开始（前2行为说明和表头）
+  
+# 说明行配置
+instructions:
+  row: 1
+  content: |
+    导入说明：
+    1. 请勿修改表头行的列名和顺序
+    2. 必填字段不能为空
+    3. 日期格式：YYYY-MM-DD
+    4. 金额单位：元
+    5. 采购方式可选值：{procurement_method_choices}
+
+# 字段配置
+fields:
+  - name: "采购编号"
+    field: "procurement_code"
+    required: true
+    data_type: "string"
+    max_length: 50
+    help_text: "采购项目唯一编号"
+    
+  - name: "项目名称"
+    field: "project__project_name"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "关联的项目名称"
+    
+  - name: "采购方式"
+    field: "procurement_method"
+    required: true
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "公开招标、邀请招标、竞争性谈判等"
+    
+  - name: "预算金额"
+    field: "budget_amount"
+    required: true
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "采购预算金额，单位：元"
+    
+  - name: "中标供应商"
+    field: "winning_supplier"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "中标供应商名称"
+    
+  - name: "结果公示发布时间"
+    field: "result_publicity_release_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "中标结果公示的发布日期"
+
+# 验证规则
+validation:
+  - field: "budget_amount"
+    rule: "positive"
+    message: "预算金额必须大于0"
+    
+  - field: "result_publicity_release_date"
+    rule: "date_range"
+    params:
+      min_year: 2000
+      max_year: "current+1"
+    message: "日期必须在合理范围内"
+
+# 数据导入配置
+import:
+  conflict_strategy: "update"  # update, skip, error
+  batch_size: 100
+  key_fields: ["procurement_code"]  # 用于判断重复的字段

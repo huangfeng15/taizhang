@@ -1,0 +1,89 @@
+# 供应商评价导入模板配置
+metadata:
+  name: "供应商评价导入模板"
+  description: "用于批量导入供应商评价信息"
+  version: "1.0"
+  module: "supplier_eval"
+  model: "SupplierEvaluation"
+  
+# 文件生成配置
+file:
+  name_template: "供应商评价导入模板_{year}.xlsx"
+  sheet_name: "供应商评价"
+  start_row: 3
+  
+# 说明行配置
+instructions:
+  row: 1
+  content: |
+    导入说明：
+    1. 请勿修改表头行的列名和顺序
+    2. 必填字段不能为空
+    3. 日期格式：YYYY-MM-DD
+    4. 评分范围：0-100
+
+# 字段配置
+fields:
+  - name: "评价编号"
+    field: "evaluation_code"
+    required: true
+    data_type: "string"
+    max_length: 50
+    help_text: "评价记录唯一编号"
+    
+  - name: "供应商名称"
+    field: "supplier_name"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "被评价的供应商名称"
+    
+  - name: "项目名称"
+    field: "project__project_name"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "关联的项目名称"
+    
+  - name: "评价日期"
+    field: "evaluation_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "评价日期"
+    
+  - name: "综合评分"
+    field: "total_score"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "综合评分（0-100分）"
+    
+  - name: "评价说明"
+    field: "evaluation_note"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "评价详细说明"
+
+# 验证规则
+validation:
+  - field: "total_score"
+    rule: "range"
+    params:
+      min: 0
+      max: 100
+    message: "综合评分必须在0-100之间"
+    
+  - field: "evaluation_date"
+    rule: "date_range"
+    params:
+      min_year: 2000
+      max_year: "current+1"
+    message: "日期必须在合理范围内"
+
+# 数据导入配置
+import:
+  conflict_strategy: "update"
+  batch_size: 100
+  key_fields: ["evaluation_code"]

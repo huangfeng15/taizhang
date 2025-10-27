@@ -1,0 +1,101 @@
+# 合同导入模板配置
+metadata:
+  name: "合同信息导入模板"
+  description: "用于批量导入合同基本信息"
+  version: "1.0"
+  module: "contract"
+  model: "Contract"
+  
+# 文件生成配置
+file:
+  name_template: "合同信息导入模板_{year}.xlsx"
+  sheet_name: "合同信息"
+  start_row: 3
+  
+# 说明行配置
+instructions:
+  row: 1
+  content: |
+    导入说明：
+    1. 请勿修改表头行的列名和顺序
+    2. 必填字段不能为空
+    3. 日期格式：YYYY-MM-DD
+    4. 金额单位：元
+    5. 文件定位可选值：{file_positioning_choices}
+
+# 字段配置
+fields:
+  - name: "合同编号"
+    field: "contract_code"
+    required: true
+    data_type: "string"
+    max_length: 50
+    help_text: "合同唯一编号"
+    
+  - name: "合同名称"
+    field: "contract_name"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "合同的完整名称"
+    
+  - name: "项目名称"
+    field: "project__project_name"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "关联的项目名称"
+    
+  - name: "甲方单位"
+    field: "party_a"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "合同甲方单位名称"
+    
+  - name: "乙方单位"
+    field: "party_b"
+    required: true
+    data_type: "string"
+    max_length: 200
+    help_text: "合同乙方单位名称"
+    
+  - name: "合同金额"
+    field: "contract_amount"
+    required: true
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "合同总金额，单位：元"
+    
+  - name: "签订日期"
+    field: "signing_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "合同签订日期"
+    
+  - name: "文件定位"
+    field: "file_positioning"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "合同文件存储位置标识"
+
+# 验证规则
+validation:
+  - field: "contract_amount"
+    rule: "positive"
+    message: "合同金额必须大于0"
+    
+  - field: "signing_date"
+    rule: "date_range"
+    params:
+      min_year: 2000
+      max_year: "current+1"
+    message: "日期必须在合理范围内"
+
+# 数据导入配置
+import:
+  conflict_strategy: "update"
+  batch_size: 100
+  key_fields: ["contract_code"]

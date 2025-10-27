@@ -1,0 +1,89 @@
+# 数据清洗配置
+# 使用列名而非列索引，避免硬编码
+input:
+  default_path: "data/imports/raw_data.xlsx"
+  encoding: "utf-8"
+  
+output:
+  default_path: "data/imports/cleaned_data.xlsx"
+  
+# 列映射配置（使用列名而非索引）
+column_mapping:
+  procurement:
+    "采购编号": "procurement_code"
+    "项目名称": "project_name"
+    "采购方式": "procurement_method"
+    "预算金额": "budget_amount"
+    "中标供应商": "winning_supplier"
+    "结果公示发布时间": "result_publicity_release_date"
+  
+  contract:
+    "合同编号": "contract_code"
+    "合同名称": "contract_name"
+    "项目名称": "project_name"
+    "甲方单位": "party_a"
+    "乙方单位": "party_b"
+    "合同金额": "contract_amount"
+    "签订日期": "signing_date"
+    "文件定位": "file_positioning"
+  
+  payment:
+    "付款编号": "payment_code"
+    "合同编号": "contract_code"
+    "付款金额": "payment_amount"
+    "付款日期": "payment_date"
+    "付款说明": "payment_note"
+
+# 数据清洗规则
+cleanup_rules:
+  - field: "budget_amount"
+    rules:
+      - type: "remove_non_numeric"
+      - type: "convert_to_decimal"
+  
+  - field: "contract_amount"
+    rules:
+      - type: "remove_non_numeric"
+      - type: "convert_to_decimal"
+  
+  - field: "payment_amount"
+    rules:
+      - type: "remove_non_numeric"
+      - type: "convert_to_decimal"
+  
+  - field: "result_publicity_release_date"
+    rules:
+      - type: "parse_date"
+        format: "%Y-%m-%d"
+      - type: "validate_date_range"
+        min_year: 2000
+        max_year: 2030
+  
+  - field: "signing_date"
+    rules:
+      - type: "parse_date"
+        format: "%Y-%m-%d"
+      - type: "validate_date_range"
+        min_year: 2000
+        max_year: 2030
+  
+  - field: "payment_date"
+    rules:
+      - type: "parse_date"
+        format: "%Y-%m-%d"
+      - type: "validate_date_range"
+        min_year: 2000
+        max_year: 2030
+  
+  - field: "procurement_method"
+    rules:
+      - type: "trim"
+      - type: "standardize_choices"
+        mapping:
+          "公开招标": "公开招标"
+          "公开竞标": "公开招标"
+          "邀请招标": "邀请招标"
+          "竞争性谈判": "竞争性谈判"
+          "竞争性磋商": "竞争性磋商"
+          "单一来源": "单一来源"
+          "询价": "询价"

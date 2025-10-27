@@ -1,0 +1,79 @@
+# 付款导入模板配置
+metadata:
+  name: "付款信息导入模板"
+  description: "用于批量导入付款记录信息"
+  version: "1.0"
+  module: "payment"
+  model: "Payment"
+  
+# 文件生成配置
+file:
+  name_template: "付款信息导入模板_{year}.xlsx"
+  sheet_name: "付款信息"
+  start_row: 3
+  
+# 说明行配置
+instructions:
+  row: 1
+  content: |
+    导入说明：
+    1. 请勿修改表头行的列名和顺序
+    2. 必填字段不能为空
+    3. 日期格式：YYYY-MM-DD
+    4. 金额单位：元
+
+# 字段配置
+fields:
+  - name: "付款编号"
+    field: "payment_code"
+    required: true
+    data_type: "string"
+    max_length: 50
+    help_text: "付款记录唯一编号"
+    
+  - name: "合同编号"
+    field: "contract__contract_code"
+    required: true
+    data_type: "string"
+    max_length: 50
+    help_text: "关联的合同编号"
+    
+  - name: "付款金额"
+    field: "payment_amount"
+    required: true
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "本次付款金额，单位：元"
+    
+  - name: "付款日期"
+    field: "payment_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "实际付款日期"
+    
+  - name: "付款说明"
+    field: "payment_note"
+    required: false
+    data_type: "string"
+    max_length: 500
+    help_text: "付款备注说明"
+
+# 验证规则
+validation:
+  - field: "payment_amount"
+    rule: "positive"
+    message: "付款金额必须大于0"
+    
+  - field: "payment_date"
+    rule: "date_range"
+    params:
+      min_year: 2000
+      max_year: "current+1"
+    message: "日期必须在合理范围内"
+
+# 数据导入配置
+import:
+  conflict_strategy: "update"
+  batch_size: 100
+  key_fields: ["payment_code"]
