@@ -2076,8 +2076,16 @@ def update_monitor(request):
         None if selected_year_raw == 'all' else global_filters['year_filter']
     )
 
+    # 从session中获取上次的筛选条件
+    session_key = 'update_monitor_filters'
+    saved_filters = request.session.get(session_key, {})
+    
     # Parse start_date filter (支持多种日期格式: YYYYMMDD 或 YYYY-MM-DD)
+    # 优先使用URL参数，其次使用session中保存的值
     start_date_raw = request.GET.get('start_date', '')
+    if not start_date_raw and 'start_date' in saved_filters:
+        start_date_raw = saved_filters['start_date']
+    
     start_date: Optional[date] = None
     start_date_max = f"{current_year}-{timezone.now().month:02d}-{timezone.now().day:02d}"
     
@@ -2107,16 +2115,18 @@ def update_monitor(request):
             start_date = None
             start_date_raw = ''
     
-    # 如果没有提供起始日期，根据选择的年份设置默认值
+    # 如果没有提供起始日期，设置默认值为2025年10月1日
     if not start_date:
-        if selected_year is not None:
-            # 特定年份：使用该年份的1月1日
-            start_date = date(selected_year, 1, 1)
-            start_date_raw = start_date.strftime('%Y%m%d')
-        else:
-            # 全部年度：使用一个足够早的日期（如2000-01-01）以包含所有历史数据
-            start_date = date(2000, 1, 1)
-            start_date_raw = start_date.strftime('%Y%m%d')
+        start_date = date(2025, 10, 1)
+        start_date_raw = start_date.strftime('%Y%m%d')
+    
+    # 保存当前筛选条件到session（只在有URL参数时保存）
+    if request.GET.get('start_date') or request.GET.get('year'):
+        current_filters = {
+            'start_date': start_date_raw,
+            'year': selected_year_raw,
+        }
+        request.session[session_key] = current_filters
 
     # 构建年度下拉
     base_years = list(range(2019, current_year + 1))

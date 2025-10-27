@@ -14,7 +14,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-secret-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
-default_allowed_hosts = ['127.0.0.1', 'localhost']
+# 允许局域网访问
+default_allowed_hosts = ['127.0.0.1', 'localhost', '0.0.0.0', '*']
 env_allowed_hosts = [
     host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
     if host.strip()
