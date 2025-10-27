@@ -288,6 +288,10 @@ class Command(BaseCommand):
             reader = csv.DictReader(csvfile)
             
             for row_num, row in enumerate(reader, start=2):  # 从第2行开始计数(第1行是表头)
+                # 过滤掉模板说明列
+                if '模板说明' in row:
+                    del row['模板说明']
+                
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
                     continue
@@ -354,6 +358,10 @@ class Command(BaseCommand):
             reader = csv.DictReader(csvfile)
             
             for row_num, row in enumerate(reader, start=2):
+                # 过滤掉模板说明列
+                if '模板说明' in row:
+                    del row['模板说明']
+                
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
                     continue
@@ -409,6 +417,10 @@ class Command(BaseCommand):
             reader = csv.DictReader(csvfile)
             
             for row_num, row in enumerate(reader, start=2):
+                # 过滤掉模板说明列
+                if '模板说明' in row:
+                    del row['模板说明']
+                
                 # 跳过完全空的行
                 if not any(v.strip() for v in row.values() if v):
                     continue
