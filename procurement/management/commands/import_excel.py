@@ -281,9 +281,49 @@ class Command(BaseCommand):
             'created': 0,
             'updated': 0,
             'skipped': 0,
+            'empty_rows': 0,
+            'template_rows': 0,
         }
         errors = []
+        error_details = {
+            '数据验证错误': [],
+            '关联数据不存在': [],
+            '数据格式错误': [],
+            '其他错误': [],
+        }
 
+        # 第一遍：统计总行数
+        self.stdout.write('正在分析文件...')
+        total_file_rows = 0
+        with open(file_path, 'r', encoding=encoding) as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                total_file_rows += 1
+                # 跳过完全空的行
+                if not any(v.strip() for v in row.values() if v):
+                    stats['empty_rows'] += 1
+                    continue
+                if self._is_template_note_row(row):
+                    stats['template_rows'] += 1
+                    continue
+                stats['total_rows'] += 1
+        
+        valid_rows = stats['total_rows']
+        self.stdout.write(self.style.SUCCESS(
+            f'文件分析完成：共 {total_file_rows} 行，'
+            f'有效数据 {valid_rows} 行，'
+            f'空行 {stats["empty_rows"]} 行，'
+            f'模板说明 {stats["template_rows"]} 行'
+        ))
+        
+        if valid_rows == 0:
+            self.stdout.write(self.style.WARNING('没有可导入的有效数据'))
+            return
+        
+        # 第二遍：实际导入
+        self.stdout.write(f'\n开始导入 {valid_rows} 条有效数据...')
+        processed = 0
+        
         with open(file_path, 'r', encoding=encoding) as csvfile:
             reader = csv.DictReader(csvfile)
             
@@ -292,13 +332,13 @@ class Command(BaseCommand):
                 if '模板说明' in row:
                     del row['模板说明']
                 
-                # 跳过完全空的行
+                # 跳过完全空的行和模板说明行
                 if not any(v.strip() for v in row.values() if v):
                     continue
                 if self._is_template_note_row(row):
                     continue
                 
-                stats['total_rows'] += 1
+                processed += 1
                 
                 try:
                     if not dry_run:
@@ -312,27 +352,43 @@ class Command(BaseCommand):
                                 stats['success_rows'] += 1
                             elif result == 'skipped':
                                 stats['skipped'] += 1
-                                # 跳过的记录不计入成功行数
                     else:
                         self._validate_long_row(row, module)
                         stats['success_rows'] += 1
                     
-                    # 每处理10行显示进度（包括跳过的）
-                    if (stats['success_rows'] + stats['skipped']) % 10 == 0:
-                        self.stdout.write(f'已处理 {stats["success_rows"] + stats["skipped"]} 行...')
+                    # 更详细的进度显示
+                    if processed % 5 == 0 or processed == valid_rows:
+                        progress = (processed / valid_rows) * 100
+                        self.stdout.write(
+                            f'进度: [{processed}/{valid_rows}] {progress:.1f}% | '
+                            f'成功: {stats["success_rows"]} | '
+                            f'新增: {stats["created"]} | '
+                            f'更新: {stats["updated"]} | '
+                            f'跳过: {stats["skipped"]} | '
+                            f'错误: {stats["error_rows"]}'
+                        )
                 
                 except Exception as e:
                     stats['error_rows'] += 1
-                    error_msg = f'第 {row_num} 行错误: {str(e)}'
-                    errors.append(error_msg)
-                    logger.error(error_msg)
+                    error_msg = str(e)
+                    
+                    # 分类错误
+                    error_category = self._categorize_error(error_msg)
+                    error_details[error_category].append({
+                        'row': row_num,
+                        'message': error_msg,
+                        'data': self._get_key_fields(row, module)
+                    })
+                    
+                    errors.append(f'第 {row_num} 行: {error_msg}')
+                    logger.error(f'第 {row_num} 行错误: {error_msg}')
                     
                     if not skip_errors:
-                        raise CommandError(error_msg)
+                        raise CommandError(f'第 {row_num} 行错误: {error_msg}')
                     else:
-                        self.stdout.write(self.style.WARNING(error_msg))
+                        self.stdout.write(self.style.ERROR(f'✗ 第 {row_num} 行错误: {error_msg}'))
 
-        self._print_summary(stats, errors)
+        self._print_enhanced_summary(stats, errors, error_details, module)
 
     def _handle_contract_two_pass(self, file_path, encoding, skip_errors, dry_run, conflict_mode):
         """处理合同导入（两遍导入策略）"""
@@ -402,14 +458,23 @@ class Command(BaseCommand):
                 
                 except Exception as e:
                     stats['error_rows'] += 1
-                    error_msg = f'第 {row_num} 行错误: {str(e)}'
-                    errors.append(error_msg)
-                    logger.error(error_msg)
+                    error_msg = str(e)
+                    
+                    # 分类错误
+                    error_category = self._categorize_error(error_msg)
+                    error_details[error_category].append({
+                        'row': row_num,
+                        'message': error_msg,
+                        'data': self._get_key_fields(row, 'contract')
+                    })
+                    
+                    errors.append(f'第 {row_num} 行: {error_msg}')
+                    logger.error(f'第 {row_num} 行错误: {error_msg}')
                     
                     if not skip_errors:
-                        raise CommandError(error_msg)
+                        raise CommandError(f'第 {row_num} 行错误: {error_msg}')
                     else:
-                        self.stdout.write(self.style.WARNING(error_msg))
+                        self.stdout.write(self.style.ERROR(f'✗ 第 {row_num} 行错误: {error_msg}'))
         
         # 第二遍：导入补充协议和解除协议
         self.stdout.write(self.style.SUCCESS('\n>>> 第二遍：导入补充协议和解除协议'))
@@ -461,16 +526,25 @@ class Command(BaseCommand):
                 
                 except Exception as e:
                     stats['error_rows'] += 1
-                    error_msg = f'第 {row_num} 行错误: {str(e)}'
-                    errors.append(error_msg)
-                    logger.error(error_msg)
+                    error_msg = str(e)
+                    
+                    # 分类错误
+                    error_category = self._categorize_error(error_msg)
+                    error_details[error_category].append({
+                        'row': row_num,
+                        'message': error_msg,
+                        'data': self._get_key_fields(row, 'contract')
+                    })
+                    
+                    errors.append(f'第 {row_num} 行: {error_msg}')
+                    logger.error(f'第 {row_num} 行错误: {error_msg}')
                     
                     if not skip_errors:
-                        raise CommandError(error_msg)
+                        raise CommandError(f'第 {row_num} 行错误: {error_msg}')
                     else:
-                        self.stdout.write(self.style.WARNING(error_msg))
+                        self.stdout.write(self.style.ERROR(f'✗ 第 {row_num} 行错误: {error_msg}'))
 
-        self._print_summary(stats, errors)
+        self._print_enhanced_summary(stats, errors, error_details, 'contract')
 
     def _handle_wide_table(self, file_path, module, encoding, skip_errors, dry_run, conflict_mode):
         """处理宽表转长表导入"""
@@ -711,10 +785,13 @@ class Command(BaseCommand):
         contract_pks = list(records_by_contract.keys())
         existing_payments = Payment.objects.filter(contract__contract_code__in=contract_pks).select_related('contract')
         existing_by_contract = defaultdict(list)
-        existing_by_code = {}
+        existing_by_month = defaultdict(lambda: defaultdict(list))  # 新增：按合同和月份索引
+        
         for payment in existing_payments:
             existing_by_contract[payment.contract.pk].append(payment)
-            existing_by_code[payment.payment_code] = payment
+            # 建立按月份的索引
+            year_month = (payment.payment_date.year, payment.payment_date.month)
+            existing_by_month[payment.contract.pk][year_month].append(payment)
 
         prepared_entries = []
         for contract_pk, recs in records_by_contract.items():
@@ -723,74 +800,61 @@ class Command(BaseCommand):
             # 按付款日期和来源索引排序（保证顺序一致性）
             recs.sort(key=lambda item: (item['payment_date'], item['source_index']))
 
-            # 获取该合同的现有付款记录，按日期排序
-            existing_list = existing_by_contract.get(contract_pk, [])
-            existing_list.sort(key=lambda item: (item.payment_date, item.created_at, item.payment_code))
-            
-            # 修复：使用简单的序号计数器，避免在循环中重复计算导致编号冲突
-            # 从现有付款数量+1开始顺序分配序号
-            seq_counter = len(existing_list) + 1
-            
             for record in recs:
                 payment_date = record['payment_date']
-                payment_code = f"{base_identifier}-FK-{seq_counter:03d}"
-                seq_counter += 1
-
-                prepared_entries.append({
-                    'payment_code': payment_code,
-                    'contract': contract,
-                    'payment_amount': record['payment_amount'],
-                    'payment_date': payment_date,
-                    'settlement_amount': record['settlement_amount'],
-                    'is_settled': record['is_settled'],
-                })
+                year_month = (payment_date.year, payment_date.month)
+                
+                # 增量导入去重：检查该合同在同一月份是否已有付款记录
+                existing_in_month = existing_by_month[contract_pk].get(year_month, [])
+                
+                if existing_in_month:
+                    # 找到同一月份的付款，更新而不是新增
+                    existing_payment = existing_in_month[0]  # 一个月只应有一条记录
+                    prepared_entries.append({
+                        'payment_code': existing_payment.payment_code,  # 保持原有编号
+                        'contract': contract,
+                        'payment_amount': record['payment_amount'],
+                        'payment_date': payment_date,
+                        'settlement_amount': record['settlement_amount'],
+                        'is_settled': record['is_settled'],
+                        'is_update': True,  # 标记为更新操作
+                    })
+                else:
+                    # 新增付款记录，不生成编号（让模型的save方法自动生成）
+                    prepared_entries.append({
+                        'payment_code': None,  # 让Payment模型自动生成
+                        'contract': contract,
+                        'payment_amount': record['payment_amount'],
+                        'payment_date': payment_date,
+                        'settlement_amount': record['settlement_amount'],
+                        'is_settled': record['is_settled'],
+                        'is_update': False,  # 标记为新增操作
+                    })
 
         if not prepared_entries:
             return stats, errors
-
-        # 数据验证：检查批量编号唯一性
-        payment_codes = [entry['payment_code'] for entry in prepared_entries]
-        is_unique, duplicates = PaymentDataValidator.validate_batch_uniqueness(payment_codes)
-        
-        if not is_unique:
-            error_msg = f'批量数据中发现重复的付款编号: {duplicates}'
-            logger.error(error_msg)
-            self.stdout.write(self.style.ERROR(error_msg))
-            errors.append(error_msg)
-            # 不中断，但记录错误
-        
-        # 数据验证：检查每条数据的完整性
-        validation_errors = []
-        for idx, entry in enumerate(prepared_entries):
-            is_valid, error_messages = PaymentDataValidator.validate_payment_data(entry)
-            if not is_valid:
-                validation_errors.append(f'第{idx+1}条数据验证失败: {", ".join(error_messages)}')
-        
-        if validation_errors:
-            for err in validation_errors[:10]:  # 只显示前10条
-                logger.warning(err)
-                self.stdout.write(self.style.WARNING(err))
-            errors.extend(validation_errors)
 
         now = timezone.now()
         to_update = []
         to_create = []
 
         for entry in prepared_entries:
-            existing = existing_by_code.get(entry['payment_code'])
-            if existing:
-                existing.contract = entry['contract']
-                existing.payment_amount = entry['payment_amount']
-                existing.payment_date = entry['payment_date']
-                existing.settlement_amount = entry['settlement_amount']
-                existing.is_settled = entry['is_settled']
-                existing.updated_at = now
-                to_update.append(existing)
-                stats['updated'] += 1
+            if entry.get('is_update'):
+                # 更新现有记录
+                existing = Payment.objects.filter(payment_code=entry['payment_code']).first()
+                if existing:
+                    existing.contract = entry['contract']
+                    existing.payment_amount = entry['payment_amount']
+                    existing.payment_date = entry['payment_date']
+                    existing.settlement_amount = entry['settlement_amount']
+                    existing.is_settled = entry['is_settled']
+                    existing.updated_at = now
+                    to_update.append(existing)
+                    stats['updated'] += 1
             else:
-                # 创建付款对象，确保 payment_code 已经正确生成
+                # 创建新记录，让Payment模型自动生成编号
                 payment_obj = Payment(
-                    payment_code=entry['payment_code'],
+                    payment_code=None,  # 让模型自动生成
                     contract=entry['contract'],
                     payment_amount=entry['payment_amount'],
                     payment_date=entry['payment_date'],
@@ -813,39 +877,22 @@ class Command(BaseCommand):
                     logger.info(f'成功更新 {len(to_update)} 条付款记录')
 
                 if to_create:
-                    # 最后检查：确保所有 payment_code 都已设置且不重复
-                    codes_to_create = set(p.payment_code for p in to_create)
-                    
-                    if len(codes_to_create) != len(to_create):
-                        error_msg = f'待创建的付款记录中存在重复编号！预期{len(to_create)}条，实际唯一编号{len(codes_to_create)}个'
-                        logger.error(error_msg)
-                        raise CommandError(error_msg)
-                    
-                    existing_codes = set(Payment.objects.filter(payment_code__in=codes_to_create).values_list('payment_code', flat=True))
-                    
-                    # 过滤掉已存在的记录
-                    if existing_codes:
-                        self.stdout.write(self.style.WARNING(
-                            f'检测到 {len(existing_codes)} 个已存在的付款编号，将跳过这些记录: {list(existing_codes)[:5]}...'
-                        ))
-                        to_create_filtered = [p for p in to_create if p.payment_code not in existing_codes]
-                        stats['skipped'] += len(existing_codes)
-                        stats['created'] -= len(existing_codes)
-                        to_create = to_create_filtered
-                    
-                    if to_create:
-                        Payment.objects.bulk_create(to_create, batch_size=500)
-                        logger.info(f'成功创建 {len(to_create)} 条付款记录')
-                        
-                        # 验证导入结果
-                        actual_created = Payment.objects.filter(payment_code__in=[p.payment_code for p in to_create]).count()
-                        if actual_created != len(to_create):
-                            error_msg = f'数据验证失败：预期创建{len(to_create)}条，实际创建{actual_created}条'
+                    # 使用循环保存，让每个对象自动生成编号
+                    created_count = 0
+                    for payment in to_create:
+                        try:
+                            payment.save()
+                            created_count += 1
+                        except Exception as e:
+                            error_msg = f'创建付款记录失败: {str(e)}'
                             logger.error(error_msg)
-                            self.stdout.write(self.style.ERROR(error_msg))
                             errors.append(error_msg)
-                        else:
-                            self.stdout.write(self.style.SUCCESS(f'✓ 数据验证通过：成功创建 {actual_created} 条记录'))
+                            stats['created'] -= 1
+                            stats['error_rows'] += 1
+                    
+                    if created_count > 0:
+                        logger.info(f'成功创建 {created_count} 条付款记录')
+                        self.stdout.write(self.style.SUCCESS(f'✓ 数据验证通过：成功创建 {created_count} 条记录'))
         
         except Exception as e:
             error_msg = f'批量操作失败: {str(e)}'
@@ -1284,15 +1331,6 @@ class Command(BaseCommand):
         except Contract.DoesNotExist:
             raise ValueError(f'合同编号不存在: {contract_code}')
         
-        # 如果付款编号为空，将在模型的save方法中自动生成
-        # 如果付款编号不为空，检查是否已存在
-        if payment_code:
-            existing = Payment.objects.filter(payment_code=payment_code).first()
-            
-            if existing:
-                if conflict_mode == 'skip':
-                    return 'skipped'
-        
         payment_amount = self._parse_decimal(row.get('实付金额(元)'))
         if payment_amount is None:
             raise ValueError('实付金额不能为空')
@@ -1306,23 +1344,41 @@ class Command(BaseCommand):
         is_settled_str = row.get('是否办理结算', '').strip()
         is_settled = is_settled_str in ['是', '已结算', 'True', 'true', '1', 'Y', 'y']
         
-        if conflict_mode in ['update', 'replace']:
-            if payment_code:
-                # 如果提供了付款编号，使用update_or_create
-                obj, created = Payment.objects.update_or_create(
-                    payment_code=payment_code,
-                    defaults={
-                        'contract': contract,
-                        'payment_amount': payment_amount,
-                        'payment_date': payment_date,
-                        'settlement_amount': settlement_amount,
-                        'is_settled': is_settled,
-                    }
-                )
-                return 'created' if created else 'updated'
-            else:
-                # 如果没有提供付款编号，创建新记录（会自动生成编号）
+        # 增量导入去重逻辑改进：
+        # 问题：付款编号是自动生成的，每次导入会生成不同编号导致重复
+        # 解决：使用业务唯一性判断 - 同一合同在同一月的付款视为同一笔
+        # 判断标准：同一个合同 + 同一月份 = 同一笔付款（更新而非新增）
+        existing = None
+        
+        # 优先使用业务规则查找：同一合同+同一月份
+        # 提取年月用于匹配
+        year = payment_date.year
+        month = payment_date.month
+        
+        # 查找同一合同在同一月份的付款记录
+        existing = Payment.objects.filter(
+            contract=contract,
+            payment_date__year=year,
+            payment_date__month=month
+        ).first()
+        
+        # 如果找到了，这是增量导入的重复数据
+        if existing:
+            if conflict_mode == 'skip':
+                return 'skipped'
+            elif conflict_mode in ['update', 'replace']:
+                # 更新现有记录（保持原有编号）
+                existing.payment_amount = payment_amount
+                existing.payment_date = payment_date
+                existing.settlement_amount = settlement_amount
+                existing.is_settled = is_settled
+                existing.save()
+                return 'updated'
+        else:
+            # 创建新记录
+            if conflict_mode in ['update', 'replace']:
                 obj = Payment.objects.create(
+                    payment_code=payment_code if payment_code else None,
                     contract=contract,
                     payment_amount=payment_amount,
                     payment_date=payment_date,
@@ -1330,9 +1386,9 @@ class Command(BaseCommand):
                     is_settled=is_settled,
                 )
                 return 'created'
-        else:
-            # skip模式，不创建新记录
-            return 'skipped'
+            else:
+                # skip模式，不创建新记录
+                return 'skipped'
 
     def _import_evaluation_long(self, row, conflict_mode='update'):
         """导入供应商评价长表数据"""
@@ -1602,6 +1658,124 @@ class Command(BaseCommand):
                 return choice
         
         return None
+
+    def _categorize_error(self, error_msg):
+        """将错误信息分类"""
+        error_lower = error_msg.lower()
+        
+        if '不存在' in error_msg or 'does not exist' in error_lower:
+            return '关联数据不存在'
+        elif '不能为空' in error_msg or '必填' in error_msg or 'required' in error_lower:
+            return '数据验证错误'
+        elif '格式错误' in error_msg or '无法解析' in error_msg or 'invalid' in error_lower:
+            return '数据格式错误'
+        else:
+            return '其他错误'
+    
+    def _get_key_fields(self, row, module):
+        """获取关键字段用于错误展示"""
+        if module == 'project':
+            return {
+                '项目编码': row.get('项目编码', ''),
+                '项目名称': row.get('项目名称', ''),
+            }
+        elif module == 'procurement':
+            return {
+                '招采编号': row.get('招采编号', ''),
+                '采购项目名称': row.get('采购项目名称', ''),
+            }
+        elif module == 'contract':
+            return {
+                '合同编号': row.get('合同编号', ''),
+                '合同名称': row.get('合同名称', ''),
+            }
+        elif module == 'payment':
+            return {
+                '付款编号': row.get('付款编号', ''),
+                '关联合同编号': row.get('关联合同编号', ''),
+            }
+        elif module == 'evaluation':
+            return {
+                '评价编号': row.get('评价编号', ''),
+                '关联合同编号': row.get('关联合同编号', ''),
+            }
+        return {}
+    
+    def _print_enhanced_summary(self, stats, errors, error_details, module):
+        """打印增强的导入统计摘要"""
+        self.stdout.write('\n' + '=' * 70)
+        self.stdout.write(self.style.SUCCESS('📊 导入统计报告'))
+        self.stdout.write('=' * 70)
+        
+        # 数据概况
+        self.stdout.write(self.style.SUCCESS('\n【数据概况】'))
+        self.stdout.write(f'  文件总行数:     {stats.get("total_rows", 0) + stats.get("empty_rows", 0) + stats.get("template_rows", 0)} 行')
+        self.stdout.write(f'  有效数据行:     {stats["total_rows"]} 行')
+        if stats.get("empty_rows", 0) > 0:
+            self.stdout.write(f'  空行数:         {stats["empty_rows"]} 行')
+        if stats.get("template_rows", 0) > 0:
+            self.stdout.write(f'  模板说明行:     {stats["template_rows"]} 行')
+        
+        # 导入结果
+        actual_imported = stats.get("created", 0) + stats.get("updated", 0)
+        success_rate = (actual_imported / stats["total_rows"] * 100) if stats["total_rows"] > 0 else 0
+        
+        self.stdout.write(self.style.SUCCESS('\n【导入结果】'))
+        if actual_imported > 0:
+            self.stdout.write(self.style.SUCCESS(f'  ✓ 成功导入:     {actual_imported} 条 ({success_rate:.1f}%)'))
+        else:
+            self.stdout.write(self.style.WARNING(f'  ✓ 成功导入:     {actual_imported} 条 ({success_rate:.1f}%)'))
+        
+        if stats.get("created", 0) > 0:
+            self.stdout.write(f'    - 新增记录:   {stats["created"]} 条')
+        if stats.get("updated", 0) > 0:
+            self.stdout.write(f'    - 更新记录:   {stats["updated"]} 条')
+        
+        if stats.get("skipped", 0) > 0:
+            skip_rate = (stats["skipped"] / stats["total_rows"] * 100) if stats["total_rows"] > 0 else 0
+            self.stdout.write(self.style.WARNING(f'  ⊘ 跳过记录:     {stats["skipped"]} 条 ({skip_rate:.1f}%) - 数据已存在'))
+        
+        if stats["error_rows"] > 0:
+            error_rate = (stats["error_rows"] / stats["total_rows"] * 100) if stats["total_rows"] > 0 else 0
+            self.stdout.write(self.style.ERROR(f'  ✗ 导入失败:     {stats["error_rows"]} 条 ({error_rate:.1f}%)'))
+        
+        # 错误详情分类展示
+        if stats["error_rows"] > 0 and error_details:
+            self.stdout.write(self.style.ERROR('\n【错误详情】'))
+            
+            for category, error_list in error_details.items():
+                if error_list:
+                    self.stdout.write(f'\n  {category} ({len(error_list)} 条):')
+                    for i, error_info in enumerate(error_list[:5], 1):  # 每类只显示前5条
+                        self.stdout.write(f'    {i}. 第 {error_info["row"]} 行: {error_info["message"]}')
+                        # 显示关键字段
+                        if error_info.get('data'):
+                            key_data = ', '.join([f'{k}={v}' for k, v in error_info['data'].items() if v])
+                            if key_data:
+                                self.stdout.write(f'       数据: {key_data}')
+                    
+                    if len(error_list) > 5:
+                        self.stdout.write(f'       ... 还有 {len(error_list) - 5} 条同类错误')
+        
+        self.stdout.write('\n' + '=' * 70)
+        
+        # 最终建议
+        self.stdout.write(self.style.SUCCESS('\n【导入建议】'))
+        if actual_imported == 0 and stats.get("skipped", 0) > 0:
+            self.stdout.write(self.style.WARNING(
+                f'  所有 {stats["skipped"]} 条记录均已存在数据库中，无需重复导入。'
+            ))
+        elif actual_imported > 0 and stats["error_rows"] == 0:
+            self.stdout.write(self.style.SUCCESS(
+                f'  导入成功！共导入 {actual_imported} 条数据。'
+            ))
+        elif stats["error_rows"] > 0:
+            self.stdout.write(self.style.WARNING(
+                f'  部分数据导入失败，请检查上述错误详情并修正数据后重新导入。'
+            ))
+            self.stdout.write(f'  提示：使用 --skip-errors 参数可以跳过错误行继续导入其他数据。')
+        
+        self.stdout.write('=' * 70 + '\n')
 
     def _print_summary(self, stats, errors):
         """打印导入统计摘要"""
