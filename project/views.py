@@ -52,6 +52,7 @@ from project.services.statistics import get_procurement_statistics, get_contract
 from project.services.metrics import get_combined_statistics
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
 from project.utils.filters import apply_text_filter, apply_multi_field_search
+from project.constants import BASE_YEAR, get_current_year, get_year_range, DEFAULT_MONITOR_START_DATE
 
 
 def _resolve_global_filters(request) -> Dict[str, Any]:
@@ -287,7 +288,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '合同编号或序号',
                 '结算价（元）',
                 '是否办理结算',
-            ] + [f'{year}年{month}月' for year in range(2019, 2026) for month in range(1, 13)] + ['模板说明'],
+            ] + [f'{year}年{month}月' for year in range(BASE_YEAR, get_current_year() + 2) for month in range(1, 13)] + ['模板说明'],
             'notes': [
                 '【宽表格式】第1列填写合同编号或合同序号，后续月份列填写当期付款金额',
                 '【月份范围】已预设2019年1月至2025年12月共84个月份列，覆盖常用时间范围',
@@ -328,7 +329,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             'headers': [
                 '关联合同编号',
                 '供应商名称',
-            ] + [f'{year}年{half}' for year in range(2019, 2026) for half in ['上半年', '下半年']] + ['模板说明'],
+            ] + [f'{year}年{half}' for year in range(BASE_YEAR, get_current_year() + 2) for half in ['上半年', '下半年']] + ['模板说明'],
             'notes': [
                 '【宽表格式】第1列填写合同编号，第2列填写供应商名称',
                 '【评价周期】已预设2019年至2025年，每年上下半年共14个评价周期列',
@@ -2173,9 +2174,9 @@ def update_monitor(request):
             start_date = None
             start_date_raw = ''
     
-    # 如果没有提供起始日期，设置默认值为2025年10月1日
+    # 如果没有提供起始日期，使用配置的默认监控起始日期
     if not start_date:
-        start_date = date(2025, 10, 1)
+        start_date = DEFAULT_MONITOR_START_DATE
         start_date_raw = start_date.strftime('%Y%m%d')
     
     # 保存当前筛选条件到session（只在有URL参数时保存）
@@ -2187,7 +2188,7 @@ def update_monitor(request):
         request.session[session_key] = current_filters
 
     # 构建年度下拉
-    base_years = list(range(2019, current_year + 1))
+    base_years = list(range(BASE_YEAR, current_year + 1))
     available_years = sorted(set(base_years))
     year_options = [{'value': 'all', 'label': '全部年度'}] + [
         {'value': str(year), 'label': f'{year}年'} for year in available_years
@@ -2606,7 +2607,7 @@ def generate_report(request):
             'current_year': current_year,
             'current_month': current_month,
             'current_quarter': current_quarter,
-            'available_years': list(range(2019, current_year + 2)),
+            'available_years': get_year_range(include_future=True),
             'available_months': list(range(1, 13)),
             'available_quarters': [1, 2, 3, 4],
             'selected_projects': global_filters['project_list'],

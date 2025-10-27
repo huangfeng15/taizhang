@@ -15,7 +15,7 @@ django.setup()
 from procurement.models import Procurement
 from contract.models import Contract
 from payment.models import Payment
-import datetime
+from project.constants import BASE_YEAR, get_current_year
 
 def main():
     print('=== 数据统计 ===')
@@ -23,20 +23,23 @@ def main():
     print(f'合同总数: {Contract.objects.count()}')
     print(f'付款总数: {Payment.objects.count()}')
     
+    current_year = get_current_year()
+    
     print('\n=== 采购年份分布（按结果公示发布时间） ===')
-    for year in range(2019, datetime.datetime.now().year + 1):
+    # 使用配置化的基准年份
+    for year in range(BASE_YEAR, current_year + 1):
         count = Procurement.objects.filter(result_publicity_release_date__year=year).count()
         if count > 0:
             print(f'{year}年: {count}条')
     
     print('\n=== 合同年份分布（按签订日期） ===')
-    for year in range(2019, datetime.datetime.now().year + 1):
+    for year in range(BASE_YEAR, current_year + 1):
         count = Contract.objects.filter(signing_date__year=year).count()
         if count > 0:
             print(f'{year}年: {count}条')
     
     print('\n=== 付款年份分布（按付款日期） ===')
-    for year in range(2019, datetime.datetime.now().year + 1):
+    for year in range(BASE_YEAR, current_year + 1):
         count = Payment.objects.filter(payment_date__year=year).count()
         if count > 0:
             print(f'{year}年: {count}条')

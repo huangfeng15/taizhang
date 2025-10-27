@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List
 
 from .models import Project
+from .constants import BASE_YEAR, get_current_year
 
 
 def _resolve_selected_year(request, current_year: int) -> str:
@@ -30,9 +31,9 @@ def global_filter_options(request) -> Dict[str, object]:
             "global_current_year": 2024
         }
     """
-    current_year = datetime.now().year
-    # 允许用户选择从 2019 年到下一年度，便于提前录入计划数据
-    year_start = 2019
+    current_year = get_current_year()
+    # 允许用户选择从基准年份到下一年度，便于提前录入计划数据
+    year_start = BASE_YEAR
     year_end = current_year + 1
     year_options: List[int] = list(range(year_start, year_end + 1))
 
