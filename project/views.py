@@ -580,6 +580,10 @@ def contract_list(request):
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
     
+    # 获取排序参数
+    sort_field = request.GET.get('sort', 'signing_date')
+    sort_order = request.GET.get('order', 'desc')
+    
     # 高级筛选参数
     contract_code_filter = request.GET.get('contract_code', '')
     contract_sequence_filter = request.GET.get('contract_sequence', '')
@@ -746,7 +750,28 @@ def contract_list(request):
         )
     )
 
-    contracts = contracts.order_by('-signing_date')
+    # 应用排序
+    sort_field_mapping = {
+        'contract_sequence': 'contract_sequence',
+        'contract_code': 'contract_code',
+        'contract_name': 'contract_name',
+        'party_b': 'party_b',
+        'contract_amount': 'contract_amount',
+        'signing_date': 'signing_date',
+        'payment_ratio': 'payment_ratio',
+    }
+    
+    # 验证排序字段
+    if sort_field not in sort_field_mapping:
+        sort_field = 'signing_date'
+        sort_order = 'desc'
+    
+    # 构建排序字符串
+    actual_sort_field = sort_field_mapping[sort_field]
+    if sort_order.lower() == 'desc':
+        contracts = contracts.order_by(f'-{actual_sort_field}')
+    else:
+        contracts = contracts.order_by(actual_sort_field)
 
     def _parse_decimal(value: str) -> Optional[Decimal]:
         if value in (None, ''):
@@ -786,7 +811,11 @@ def contract_list(request):
             }
         )
 
-    page_obj.object_list = contract_data
+    # 创建新的分页对象，避免类型不匹配问题
+    from django.core.paginator import Page
+    # 创建新的分页对象，避免类型不匹配问题
+    # 直接使用 contract_data，不修改 page_obj.object_list
+    # 在模板中使用 contract_data 而不是 page_obj.object_list
     
     # 获取所有项目用于过滤
     projects = Project.objects.all()
@@ -795,13 +824,15 @@ def contract_list(request):
     filter_config = get_contract_filter_config(request)
     
     context = {
-        'contracts': page_obj,
+        'contracts': contract_data,  # 使用处理后的 contract_data
         'page_obj': page_obj,
         'projects': projects,
         'search_query': search_query,
         'project_filter': project_filter,
         'file_positioning_filter': file_positioning_filter,
         'file_positionings': Contract._meta.get_field('file_positioning').choices,
+        'current_sort': sort_field,
+        'current_order': sort_order,
         **filter_config,  # 添加筛选配置
     }
     return render(request, 'contract_list.html', context)
@@ -2327,25 +2358,35 @@ def statistics_view(request):
         main_contracts = main_contracts.filter(project__project_code__in=project_filter)
     
     # 按项目聚合
-    project_payments = defaultdict(lambda: {
-        'total_paid': 0,
-        'payment_count': 0,
-        'contract_amount': 0,
-        'project_name': '未知项目'
-    })
+    project_payments = {}
     
     for contract in main_contracts:
         if not contract.project:
             continue
             
         project_key = contract.project.project_code
-        project_payments[project_key]['project_name'] = contract.project.project_name
+        
+        # 初始化项目数据
+        if project_key not in project_payments:
+            project_payments[project_key] = {
+                'total_paid': 0.0,
+                'payment_count': 0,
+                'contract_amount': 0.0,
+                'project_name': contract.project.project_name
+            }
         
         # 使用预计算的值,避免额外查询
-        contract_with_supplements = float(contract.contract_amount or 0) + float(contract.supplements_total or 0)
+        # contract.supplements_total 是通过 annotate 计算的聚合字段
+        supplements_total = getattr(contract, 'supplements_total', 0) or 0
+        contract_with_supplements = float(contract.contract_amount or 0) + float(supplements_total)
+        
+        # contract.total_paid 和 contract.payment_count 也是通过 annotate 计算的字段
+        total_paid = getattr(contract, 'total_paid', 0) or 0
+        payment_count = getattr(contract, 'payment_count', 0) or 0
+        
         project_payments[project_key]['contract_amount'] += contract_with_supplements
-        project_payments[project_key]['total_paid'] += float(contract.total_paid or 0)
-        project_payments[project_key]['payment_count'] += contract.payment_count or 0
+        project_payments[project_key]['total_paid'] += float(total_paid)
+        project_payments[project_key]['payment_count'] += int(payment_count)
     
     # 计算支付率
     for key in project_payments:
@@ -2353,7 +2394,7 @@ def statistics_view(request):
         if contract_amt > 0:
             project_payments[key]['payment_ratio'] = (project_payments[key]['total_paid'] / contract_amt) * 100
         else:
-            project_payments[key]['payment_ratio'] = 0
+            project_payments[key]['payment_ratio'] = 0.0
     
     # 按总付款额排序,取TOP 5
     payment_top_projects = sorted(
