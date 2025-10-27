@@ -1048,9 +1048,36 @@ def procurement_detail(request, procurement_code):
         procurement=procurement
     ).order_by('-signing_date')
     
+    # 获取付款汇总数据
+    # 获取该采购下所有合同的付款记录
+    all_payments = Payment.objects.filter(
+        contract__procurement=procurement
+    ).order_by('-payment_date')
+    
+    # 计算付款统计数据
+    total_paid = all_payments.aggregate(Sum('payment_amount'))['payment_amount__sum'] or 0
+    payment_count = all_payments.count()
+    
+    # 计算结算数量（综合统计：Settlement表 + Payment表中的结算标记）
+    settlement_count = Contract.objects.filter(
+        procurement=procurement
+    ).filter(
+        Q(settlement__isnull=False) |  # Settlement表中有记录
+        Q(payments__is_settled=True) |  # Payment中标记为已结算
+        Q(payments__settlement_amount__isnull=False)  # Payment中有结算价
+    ).distinct().count()
+    
+    # 计算合同总额
+    total_contract_amount = contracts.aggregate(Sum('contract_amount'))['contract_amount__sum'] or 0
+    
     context = {
         'procurement': procurement,
         'contracts': contracts,
+        'all_payments': all_payments[:10],  # 只显示最近10条
+        'total_paid': total_paid,
+        'payment_count': payment_count,
+        'settlement_count': settlement_count,
+        'total_contract_amount': total_contract_amount,
     }
     return render(request, 'procurement_detail.html', context)
 
