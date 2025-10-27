@@ -1128,7 +1128,7 @@ def payment_list(request):
     project_filter = request.GET.getlist('project')  # 改为多选
     is_settled_filter = request.GET.getlist('is_settled')  # 改为多选
     page = request.GET.get('page', 1)
-    page_size = _get_page_size(request, default=20)
+    page_size = _get_page_size(request, default=20, max_size=1000)
     
     # 高级筛选参数
     payment_code_filter = request.GET.get('payment_code', '')

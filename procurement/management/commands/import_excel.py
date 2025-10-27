@@ -24,6 +24,7 @@ from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
 from project.validators import validate_code_field, check_url_safe_string
 from project.enums import FilePositioning, get_enum_values
+from payment.validators import PaymentDataValidator
 
 logger = logging.getLogger(__name__)
 
@@ -470,15 +471,20 @@ class Command(BaseCommand):
         
         self.stdout.write(f'原始数据: {len(df)} 行')
 
+        # 处理模板说明列：直接删除该列，而不是删除包含说明的数据行
         note_column = '模板说明'
         if note_column in df.columns:
-            original_rows = len(df)
-            df[note_column] = df[note_column].fillna('').astype(str).str.strip()
-            df = df[df[note_column] == ''].copy()
-            df[note_column] = ''
-            removed = original_rows - len(df)
-            if removed > 0:
-                self.stdout.write(self.style.WARNING(f'已忽略 {removed} 条模板说明行'))
+            # 检查是否有非空的模板说明
+            has_notes = df[note_column].notna() & (df[note_column].astype(str).str.strip() != '')
+            note_count = has_notes.sum()
+            
+            # 直接删除模板说明列（不影响数据行）
+            df = df.drop(columns=[note_column])
+            
+            if note_count > 0:
+                self.stdout.write(self.style.SUCCESS(
+                    f'已移除"模板说明"列（该列包含 {note_count} 个说明文本，但数据行已全部保留）'
+                ))
         
         # 识别日期列
         date_cols = self._identify_date_columns(df.columns)
@@ -491,8 +497,7 @@ class Command(BaseCommand):
         if module == 'evaluation':
             # 供应商评价：第1列=合同编号，第2列=供应商名称
             id_cols = [df.columns[0], df.columns[1]]
-            if note_column in df.columns and note_column not in id_cols:
-                id_cols.append(note_column)
+            # 模板说明列已被删除，无需检查
             group_col = id_cols[0]  # 按合同编号分组
             df_long = pd.melt(
                 df,
@@ -509,8 +514,7 @@ class Command(BaseCommand):
                 id_cols.append(df.columns[1])
             if len(df.columns) > 2 and '是否' in df.columns[2]:
                 id_cols.append(df.columns[2])
-            if note_column in df.columns and note_column not in id_cols:
-                id_cols.append(note_column)
+            # 模板说明列已被删除，无需检查
             
             group_col = id_cols[0]
             df_long = pd.melt(
@@ -711,22 +715,14 @@ class Command(BaseCommand):
             existing_list = existing_by_contract.get(contract_pk, [])
             existing_list.sort(key=lambda item: (item.payment_date, item.created_at, item.payment_code))
             
-            # 合并现有付款和新付款的日期列表，用于计算正确的序号
-            # 对于每笔新付款，计算它在整个时间线中的位置
+            # 修复：使用简单的序号计数器，避免在循环中重复计算导致编号冲突
+            # 从现有付款数量+1开始顺序分配序号
+            seq_counter = len(existing_list) + 1
+            
             for record in recs:
                 payment_date = record['payment_date']
-                
-                # 计算有多少现有付款的日期早于或等于当前付款日期
-                earlier_existing = sum(1 for p in existing_list if p.payment_date < payment_date)
-                same_date_existing = sum(1 for p in existing_list if p.payment_date == payment_date)
-                
-                # 计算有多少本批次的付款日期早于当前付款日期
-                earlier_new = sum(1 for r in prepared_entries if r['payment_date'] < payment_date)
-                same_date_new = sum(1 for r in prepared_entries if r['payment_date'] == payment_date)
-                
-                # 序号 = 所有早于该日期的付款 + 该日期的现有付款 + 该日期的新付款 + 1
-                seq = earlier_existing + earlier_new + same_date_existing + same_date_new + 1
-                payment_code = f"{base_identifier}-FK-{seq:03d}"
+                payment_code = f"{base_identifier}-FK-{seq_counter:03d}"
+                seq_counter += 1
 
                 prepared_entries.append({
                     'payment_code': payment_code,
@@ -739,6 +735,30 @@ class Command(BaseCommand):
 
         if not prepared_entries:
             return stats, errors
+
+        # 数据验证：检查批量编号唯一性
+        payment_codes = [entry['payment_code'] for entry in prepared_entries]
+        is_unique, duplicates = PaymentDataValidator.validate_batch_uniqueness(payment_codes)
+        
+        if not is_unique:
+            error_msg = f'批量数据中发现重复的付款编号: {duplicates}'
+            logger.error(error_msg)
+            self.stdout.write(self.style.ERROR(error_msg))
+            errors.append(error_msg)
+            # 不中断，但记录错误
+        
+        # 数据验证：检查每条数据的完整性
+        validation_errors = []
+        for idx, entry in enumerate(prepared_entries):
+            is_valid, error_messages = PaymentDataValidator.validate_payment_data(entry)
+            if not is_valid:
+                validation_errors.append(f'第{idx+1}条数据验证失败: {", ".join(error_messages)}')
+        
+        if validation_errors:
+            for err in validation_errors[:10]:  # 只显示前10条
+                logger.warning(err)
+                self.stdout.write(self.style.WARNING(err))
+            errors.extend(validation_errors)
 
         now = timezone.now()
         to_update = []
@@ -770,29 +790,56 @@ class Command(BaseCommand):
                 to_create.append(payment_obj)
                 stats['created'] += 1
 
-        if to_update:
-            Payment.objects.bulk_update(
-                to_update,
-                ['contract', 'payment_amount', 'payment_date', 'settlement_amount', 'is_settled', 'updated_at'],
-            )
+        # 使用事务确保数据一致性
+        try:
+            with transaction.atomic():
+                if to_update:
+                    Payment.objects.bulk_update(
+                        to_update,
+                        ['contract', 'payment_amount', 'payment_date', 'settlement_amount', 'is_settled', 'updated_at'],
+                    )
+                    logger.info(f'成功更新 {len(to_update)} 条付款记录')
 
-        if to_create:
-            # 使用 bulk_create 前，确保所有 payment_code 都已设置
-            # bulk_create 不会调用 save() 方法，因此需要提前验证
-            codes_to_create = set(p.payment_code for p in to_create)
-            existing_codes = set(Payment.objects.filter(payment_code__in=codes_to_create).values_list('payment_code', flat=True))
-            
-            # 过滤掉已存在的记录
-            if existing_codes:
-                self.stdout.write(self.style.WARNING(
-                    f'检测到 {len(existing_codes)} 个已存在的付款编号，将跳过这些记录'
-                ))
-                to_create = [p for p in to_create if p.payment_code not in existing_codes]
-                stats['skipped'] += len(existing_codes)
-                stats['created'] -= len(existing_codes)
-            
-            if to_create:
-                Payment.objects.bulk_create(to_create, batch_size=500)
+                if to_create:
+                    # 最后检查：确保所有 payment_code 都已设置且不重复
+                    codes_to_create = set(p.payment_code for p in to_create)
+                    
+                    if len(codes_to_create) != len(to_create):
+                        error_msg = f'待创建的付款记录中存在重复编号！预期{len(to_create)}条，实际唯一编号{len(codes_to_create)}个'
+                        logger.error(error_msg)
+                        raise CommandError(error_msg)
+                    
+                    existing_codes = set(Payment.objects.filter(payment_code__in=codes_to_create).values_list('payment_code', flat=True))
+                    
+                    # 过滤掉已存在的记录
+                    if existing_codes:
+                        self.stdout.write(self.style.WARNING(
+                            f'检测到 {len(existing_codes)} 个已存在的付款编号，将跳过这些记录: {list(existing_codes)[:5]}...'
+                        ))
+                        to_create_filtered = [p for p in to_create if p.payment_code not in existing_codes]
+                        stats['skipped'] += len(existing_codes)
+                        stats['created'] -= len(existing_codes)
+                        to_create = to_create_filtered
+                    
+                    if to_create:
+                        Payment.objects.bulk_create(to_create, batch_size=500)
+                        logger.info(f'成功创建 {len(to_create)} 条付款记录')
+                        
+                        # 验证导入结果
+                        actual_created = Payment.objects.filter(payment_code__in=[p.payment_code for p in to_create]).count()
+                        if actual_created != len(to_create):
+                            error_msg = f'数据验证失败：预期创建{len(to_create)}条，实际创建{actual_created}条'
+                            logger.error(error_msg)
+                            self.stdout.write(self.style.ERROR(error_msg))
+                            errors.append(error_msg)
+                        else:
+                            self.stdout.write(self.style.SUCCESS(f'✓ 数据验证通过：成功创建 {actual_created} 条记录'))
+        
+        except Exception as e:
+            error_msg = f'批量操作失败: {str(e)}'
+            logger.exception(error_msg)
+            errors.append(error_msg)
+            raise CommandError(error_msg)
 
         return stats, errors
 

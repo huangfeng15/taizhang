@@ -117,10 +117,8 @@
 // 页面加载时检查是否显示自定义输入框
 let paginationScrollKey = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    const pageSize = document.getElementById('pageSize');
-    const customInput = document.getElementById('customPageSize');
-    const applyBtn = document.getElementById('applyCustomBtn');
+// 立即恢复滚动位置，在DOM加载前执行
+(function() {
     const paginationContainer = document.querySelector('.pagination[data-preserve-pagination="true"]');
     const keyBase = paginationContainer?.dataset?.paginationKey || window.location.pathname;
     paginationScrollKey = 'paginationScroll:' + keyBase;
@@ -128,36 +126,51 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedPositionRaw !== null) {
         const savedPosition = parseInt(savedPositionRaw, 10);
         if (!Number.isNaN(savedPosition)) {
-            window.scrollTo({ top: savedPosition, behavior: 'auto' });
+            // 使用 requestAnimationFrame 确保在渲染完成后滚动
+            requestAnimationFrame(function() {
+                window.scrollTo({ top: savedPosition, behavior: 'instant' });
+            });
         }
         sessionStorage.removeItem(paginationScrollKey);
     }
+})();
 
+document.addEventListener('DOMContentLoaded', function() {
+    const pageSize = document.getElementById('pageSize');
+    const customInput = document.getElementById('customPageSize');
+    const applyBtn = document.getElementById('applyCustomBtn');
+    const paginationContainer = document.querySelector('.pagination[data-preserve-pagination="true"]');
+    
+    // 使用事件委托，确保所有分页链接（包括动态生成的）都能触发
     if (paginationContainer) {
-        paginationContainer.querySelectorAll('.pagination-no-scroll').forEach(function(link) {
-            link.addEventListener('click', function() {
+        paginationContainer.addEventListener('click', function(e) {
+            // 检查点击的是否是链接
+            const target = e.target.closest('a.pagination-no-scroll, a[class*="pagination"]');
+            if (target && target.href) {
                 rememberPaginationScroll();
-            });
+            }
         });
     }
 
-    if (pageSize.value === 'custom') {
+    if (pageSize && pageSize.value === 'custom') {
         customInput.style.display = 'inline-block';
         applyBtn.style.display = 'inline-block';
     }
     
     // 监听下拉框变化
-    pageSize.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customInput.style.display = 'inline-block';
-            applyBtn.style.display = 'inline-block';
-            customInput.focus();
-        } else {
-            customInput.style.display = 'none';
-            applyBtn.style.display = 'none';
-            changePageSize(this.value);
-        }
-    });
+    if (pageSize) {
+        pageSize.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customInput.style.display = 'inline-block';
+                applyBtn.style.display = 'inline-block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                applyBtn.style.display = 'none';
+                changePageSize(this.value);
+            }
+        });
+    }
 });
 
 function changePageSize(size) {
