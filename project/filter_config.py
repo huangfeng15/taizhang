@@ -1,7 +1,33 @@
 """
 筛选配置辅助模块
 为各个列表视图提供统一的筛选配置
+基于注册中心和枚举，实现配置化管理
 """
+from project.filter_registry import filter_registry
+from project.enums import get_enum_display_dict
+
+
+def _get_enum_options(module_name, filter_key):
+    """
+    根据模块名和筛选器键获取枚举选项
+    
+    Args:
+        module_name: 模块名称
+        filter_key: 筛选器键名
+    
+    Returns:
+        选项列表，格式: [{'value': ..., 'label': ...}, ...]
+    """
+    filters = filter_registry.get_filters(module_name)
+    for filter_config in filters:
+        if filter_config['key'] == filter_key and 'enum' in filter_config:
+            enum_class = filter_config['enum']
+            return [
+                {'value': choice.value, 'label': choice.label}
+                for choice in enum_class
+            ]
+    return []
+
 
 def _extract_global_filters(request):
     """
@@ -81,21 +107,14 @@ def get_contract_filter_config(request):
                     'name': 'file_positioning',
                     'label': '文件定位',
                     'type': 'select',
-                    'options': [
-                        {'value': '主合同', 'label': '主合同'},
-                        {'value': '补充协议', 'label': '补充协议'},
-                        {'value': '解除协议', 'label': '解除协议'}
-                    ],
+                    'options': _get_enum_options('contract', 'file_positioning'),
                     'current_value': request.GET.getlist('file_positioning')  # 多选值
                 },
                 {
                     'name': 'contract_source',
                     'label': '合同来源',
                     'type': 'select',
-                    'options': [
-                        {'value': '采购合同', 'label': '采购合同'},
-                        {'value': '直接签订', 'label': '直接签订'}
-                    ],
+                    'options': _get_enum_options('contract', 'contract_source'),
                     'current_value': request.GET.getlist('contract_source')  # 多选值
                 }
             ]

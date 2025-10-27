@@ -5,6 +5,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
 from project.validators import validate_code_field, validate_and_clean_code
+from project.enums import FilePositioning, ContractSource, get_enum_choices
+from project.helptext import get_help_text
 
 
 class Contract(BaseModel):
@@ -39,30 +41,21 @@ class Contract(BaseModel):
     )
     
     # ===== 文件定位与关联 =====
-    FILE_POSITIONING_CHOICES = [
-        ('主合同', '主合同'),
-        ('补充协议', '补充协议'),
-        ('解除协议', '解除协议'),
-    ]
     file_positioning = models.CharField(
         '文件定位',
         max_length=20,
-        choices=FILE_POSITIONING_CHOICES,
-        default='主合同',
-        help_text='区分主合同、补充协议和解除协议'
+        choices=get_enum_choices(FilePositioning),
+        default=FilePositioning.MAIN_CONTRACT.value,
+        help_text=get_help_text('contract', 'file_positioning')
     )
     
     # ===== 合同来源分类 =====
-    CONTRACT_SOURCE_CHOICES = [
-        ('采购合同', '采购合同'),
-        ('直接签订', '直接签订'),
-    ]
     contract_source = models.CharField(
         '合同来源',
         max_length=20,
-        choices=CONTRACT_SOURCE_CHOICES,
-        default='采购合同',
-        help_text='标识合同是否来源于采购项目'
+        choices=get_enum_choices(ContractSource),
+        default=ContractSource.PROCUREMENT.value,
+        help_text=get_help_text('contract', 'contract_source')
     )
     
     parent_contract = models.ForeignKey(
@@ -115,21 +108,21 @@ class Contract(BaseModel):
         '甲方法定代表人及联系方式',
         max_length=200,
         blank=True,
-        help_text='甲方法定代表人姓名及联系方式'
+        help_text=get_help_text('contract', 'party_a_legal_representative')
     )
     
     party_a_contact_person = models.CharField(
         '甲方联系人及联系方式',
         max_length=200,
         blank=True,
-        help_text='甲方日常联系人及联系方式'
+        help_text=get_help_text('contract', 'party_a_contact_person')
     )
     
     party_a_manager = models.CharField(
         '甲方负责人及联系方式',
         max_length=200,
         blank=True,
-        help_text='甲方项目负责人及联系方式'
+        help_text=get_help_text('contract', 'party_a_manager')
     )
     
     # ===== 乙方联系信息 =====
@@ -137,21 +130,21 @@ class Contract(BaseModel):
         '乙方法定代表人及联系方式',
         max_length=200,
         blank=True,
-        help_text='乙方法定代表人姓名及联系方式'
+        help_text=get_help_text('contract', 'party_b_legal_representative')
     )
     
     party_b_contact_person = models.CharField(
         '乙方联系人及联系方式',
         max_length=200,
         blank=True,
-        help_text='乙方日常联系人及联系方式'
+        help_text=get_help_text('contract', 'party_b_contact_person')
     )
     
     party_b_manager = models.CharField(
         '乙方负责人及联系方式',
         max_length=200,
         blank=True,
-        help_text='乙方项目负责人及联系方式'
+        help_text=get_help_text('contract', 'party_b_manager')
     )
     
     # ===== 金额与时间 =====

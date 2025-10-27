@@ -5,6 +5,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
 from project.validators import validate_code_field, validate_and_clean_code
+from project.enums import FilePositioning
 
 
 class Settlement(BaseModel):
@@ -25,7 +26,7 @@ class Settlement(BaseModel):
         on_delete=models.PROTECT,
         verbose_name='关联主合同',
         related_name='settlement',
-        limit_choices_to={'file_positioning': '主合同'},
+        limit_choices_to={'file_positioning': FilePositioning.MAIN_CONTRACT.value},
         help_text='只能关联主合同。主合同+所有补充协议+解除协议共用这一条结算记录'
     )
     
@@ -72,7 +73,7 @@ class Settlement(BaseModel):
             )
         
         # 业务规则：只能关联主合同
-        if self.main_contract and self.main_contract.file_positioning != '主合同':
+        if self.main_contract and self.main_contract.file_positioning != FilePositioning.MAIN_CONTRACT.value:
             raise ValidationError('结算记录只能关联主合同，不能关联补充协议或解除协议')
     
     

@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from procurement.models import BaseModel
 from project.validators import validate_code_field, validate_and_clean_code
+from project.helptext import get_help_text
 
 
 class Payment(BaseModel):
@@ -18,7 +19,7 @@ class Payment(BaseModel):
         primary_key=True,
         blank=True,
         validators=[validate_code_field],
-        help_text='付款编号不能包含 / \\ ? # 等URL特殊字符，例如: HT2025001-FK-001，如果为空将自动生成'
+        help_text=get_help_text('payment', 'payment_code')
     )
     
     # ===== 关联 =====
@@ -27,7 +28,7 @@ class Payment(BaseModel):
         on_delete=models.PROTECT,
         verbose_name='关联合同',
         related_name='payments',
-        help_text='该笔付款对应的合同'
+        help_text=get_help_text('payment', 'contract')
     )
     
     # ===== 付款信息 =====
@@ -35,12 +36,12 @@ class Payment(BaseModel):
         '实付金额(元)',
         max_digits=15,
         decimal_places=2,
-        help_text='本次实际支付金额'
+        help_text=get_help_text('payment', 'payment_amount')
     )
     
     payment_date = models.DateField(
         '付款日期',
-        help_text='实际支付的日期',
+        help_text=get_help_text('payment', 'payment_date'),
         db_index=True
     )
     
@@ -51,20 +52,20 @@ class Payment(BaseModel):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='合同的结算价格，如果已办理结算则填写'
+        help_text=get_help_text('payment', 'settlement_amount')
     )
     
     is_settled = models.BooleanField(
         '是否办理结算',
         default=False,
-        help_text='标识该笔付款是否已办理结算'
+        help_text=get_help_text('payment', 'is_settled')
     )
     
     settlement_archive_date = models.DateField(
         '结算资料归档时间',
         null=True,
         blank=True,
-        help_text='结算资料归档的日期'
+        help_text=get_help_text('payment', 'settlement_archive_date')
     )
     
     class Meta:

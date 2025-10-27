@@ -1,0 +1,148 @@
+# 帮助文案配置
+# 可根据部署环境自定义示例数据
+# 用于集中管理模型字段的帮助文本和示例数据
+
+contacts:
+  default:
+    name: "张三"
+    phone: "138****8888"
+    email: "zhangsan@example.com"
+  
+  production:
+    name: "联系人姓名"
+    phone: "联系电话"
+    email: "电子邮箱"
+
+fields:
+  procurement:
+    demand_contact:
+      label: "申请人联系电话（需求部门）"
+      help_text: "需求部门联系人及电话，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入联系人及电话"
+    
+    winning_contact:
+      label: "中标单位联系人及方式"
+      help_text: "中标供应商联系人及电话，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入联系人及电话"
+    
+    procurement_method:
+      label: "采购方式"
+      help_text: "采购方式类型，可选：{procurement_method_choices}"
+      placeholder: "请选择采购方式"
+  
+  contract:
+    party_a_legal_representative:
+      label: "甲方法定代表人及联系方式"
+      help_text: "甲方法定代表人姓名及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入法定代表人及联系方式"
+    
+    party_a_contact_person:
+      label: "甲方联系人及联系方式"
+      help_text: "甲方日常联系人及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入联系人及联系方式"
+    
+    party_a_manager:
+      label: "甲方负责人及联系方式"
+      help_text: "甲方项目负责人及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入负责人及联系方式"
+    
+    party_b_legal_representative:
+      label: "乙方法定代表人及联系方式"
+      help_text: "乙方法定代表人姓名及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入法定代表人及联系方式"
+    
+    party_b_contact_person:
+      label: "乙方联系人及联系方式"
+      help_text: "乙方日常联系人及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入联系人及联系方式"
+    
+    party_b_manager:
+      label: "乙方负责人及联系方式"
+      help_text: "乙方项目负责人及联系方式，示例：{contact_name} {contact_phone}"
+      placeholder: "请输入负责人及联系方式"
+    
+    file_positioning:
+      label: "文件定位"
+      help_text: "区分主合同、补充协议和解除协议，可选：{file_positioning_choices}"
+      placeholder: "请选择文件定位"
+    
+    contract_source:
+      label: "合同来源"
+      help_text: "标识合同是否来源于采购项目，可选：{contract_source_choices}"
+      placeholder: "请选择合同来源"
+  
+  payment:
+    payment_code:
+      label: "付款编号"
+      help_text: "付款编号不能包含URL特殊字符，例如: HT2025001-FK-001，如果为空将自动生成"
+      placeholder: "留空自动生成"
+    
+    contract:
+      label: "关联合同"
+      help_text: "该笔付款对应的合同"
+      placeholder: "请选择合同"
+    
+    payment_amount:
+      label: "实付金额"
+      help_text: "本次实际支付金额，单位：元"
+      placeholder: "请输入金额"
+    
+    payment_date:
+      label: "付款日期"
+      help_text: "实际支付的日期，格式：YYYY-MM-DD"
+      placeholder: "例如：2025-01-15"
+    
+    settlement_amount:
+      label: "结算价"
+      help_text: "合同的结算价格，如果已办理结算则填写，单位：元"
+      placeholder: "请输入结算价"
+    
+    is_settled:
+      label: "是否办理结算"
+      help_text: "标识该笔付款是否已办理结算"
+      placeholder: ""
+    
+    settlement_archive_date:
+      label: "结算资料归档时间"
+      help_text: "结算资料归档的日期，格式：YYYY-MM-DD"
+      placeholder: "例如：2025-01-15"
+
+messages:
+  import:
+    procurement_template: |
+      导入说明：
+      1. 请勿修改表头行的列名和顺序
+      2. 必填字段不能为空（标记*的字段）
+      3. 采购方式可选值：{procurement_method_choices}
+      4. 日期格式：YYYY-MM-DD（例如：2025-01-15）
+      5. 金额单位：元
+      6. 联系方式格式示例：{contact_name} {contact_phone}
+    
+    contract_template: |
+      导入说明：
+      1. 请勿修改表头行的列名和顺序
+      2. 必填字段不能为空（标记*的字段）
+      3. 文件定位可选值：{file_positioning_choices}
+      4. 合同来源可选值：{contract_source_choices}
+      5. 日期格式：YYYY-MM-DD（例如：2025-01-15）
+      6. 金额单位：元
+      7. 联系方式格式示例：{contact_name} {contact_phone}
+    
+    payment_template: |
+      导入说明：
+      1. 请勿修改表头行的列名和顺序
+      2. 必填字段不能为空（标记*的字段）
+      3. 日期格式：YYYY-MM-DD（例如：2025-01-15）
+      4. 金额单位：元
+    
+    supplier_eval_template: |
+      导入说明：
+      1. 请勿修改表头行的列名和顺序
+      2. 必填字段不能为空（标记*的字段）
+      3. 日期格式：YYYY-MM-DD（例如：2025-01-15）
+      4. 评分范围：0-100分
+
+validation:
+  phone_format: "电话格式示例：138****8888 或 13800138000"
+  date_format: "日期格式：YYYY-MM-DD"
+  amount_format: "金额单位：元，支持小数点后两位"

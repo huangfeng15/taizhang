@@ -1,8 +1,11 @@
+"""
+合同管理 Admin 配置
+使用 BusinessModelAdmin 基类统一管理
+"""
 from django.contrib import admin
 from django.urls import reverse
-from django.http import HttpResponseRedirect
-from django.core.exceptions import ValidationError
 from django.db.models import Q, Count, Sum
+from project.admin_base import BusinessModelAdmin
 from .models import Contract
 
 
@@ -26,18 +29,26 @@ class HasProcurementFilter(admin.SimpleListFilter):
 
 
 @admin.register(Contract)
-class ContractAdmin(admin.ModelAdmin):
+class ContractAdmin(BusinessModelAdmin):
+    """合同信息管理"""
+    
+    # 返回前端列表页配置
+    return_to_frontend_list = True
+    frontend_list_url_name = 'contract_list'
+    
     list_display = [
         'contract_sequence', 'contract_code', 'contract_name', 'file_positioning',
         'contract_source', 'party_a', 'party_b',
         'contract_amount', 'signing_date', 'get_procurement_display'
     ]
+    
     search_fields = [
         'contract_code', 'contract_name', 'party_a', 'party_b',
         'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
         'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
         'procurement__procurement_code', 'procurement__project_name'
     ]
+    
     list_filter = [
         'file_positioning',
         'contract_source',
@@ -45,9 +56,9 @@ class ContractAdmin(admin.ModelAdmin):
         'signing_date',
         'created_at'
     ]
-    autocomplete_fields = ['procurement', 'parent_contract']
+    
+    autocomplete_fields = ['procurement', 'parent_contract', 'project']
     date_hierarchy = 'signing_date'
-    list_per_page = 50
     
     @admin.display(description='关联采购', ordering='procurement')
     def get_procurement_display(self, obj):
@@ -59,53 +70,34 @@ class ContractAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """优化查询性能"""
         qs = super().get_queryset(request)
-        return qs.select_related('procurement', 'parent_contract')
+        return qs.select_related('procurement', 'parent_contract', 'project')
     
-    fieldsets = (
-        ('基本信息', {
-            'fields': ('contract_sequence', 'contract_code', 'contract_name', 'file_positioning', 'contract_source', 'contract_officer')
-        }),
-        ('关联信息', {
-            'fields': ('parent_contract', 'procurement', 'project'),
-            'description': '采购合同必须关联采购项目；直接签订合同无需关联采购'
-        }),
-        ('合同双方', {
-            'fields': ('party_a', 'party_b')
-        }),
-        ('甲方联系信息', {
-            'fields': ('party_a_legal_representative', 'party_a_contact_person', 'party_a_manager'),
-            'classes': ('collapse',)
-        }),
-        ('乙方联系信息', {
-            'fields': ('party_b_legal_representative', 'party_b_contact_person', 'party_b_manager'),
-            'classes': ('collapse',)
-        }),
-        ('金额与时间', {
-            'fields': ('contract_amount', 'signing_date', 'duration')
-        }),
-        ('其他信息', {
-            'fields': ('payment_method', 'performance_guarantee_return_date', 'archive_date'),
-            'classes': ('collapse',)
-        }),
-        ('审计信息', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
-    readonly_fields = ['created_at', 'updated_at']
-    
-    def response_add(self, request, obj, post_url_continue=None):
-        """新增后返回前端列表页"""
-        if '_continue' not in request.POST and '_addanother' not in request.POST:
-            return HttpResponseRedirect(reverse('contract_list'))
-        return super().response_add(request, obj, post_url_continue)
-    
-    def response_change(self, request, obj):
-        """修改后返回前端列表页"""
-        if '_continue' not in request.POST and '_addanother' not in request.POST:
-            return HttpResponseRedirect(reverse('contract_list'))
-        return super().response_change(request, obj)
-    
-    def response_delete(self, request, obj_display, obj_id):
-        """删除后返回前端列表页"""
-        return HttpResponseRedirect(reverse('contract_list'))
+    def get_main_fieldsets(self, request, obj=None):
+        """主要字段分组"""
+        return (
+            ('基本信息', {
+                'fields': ('contract_sequence', 'contract_code', 'contract_name', 'file_positioning', 'contract_source', 'contract_officer')
+            }),
+            ('关联信息', {
+                'fields': ('parent_contract', 'procurement', 'project'),
+                'description': '采购合同必须关联采购项目；直接签订合同无需关联采购'
+            }),
+            ('合同双方', {
+                'fields': ('party_a', 'party_b')
+            }),
+            ('甲方联系信息', {
+                'fields': ('party_a_legal_representative', 'party_a_contact_person', 'party_a_manager'),
+                'classes': ('collapse',)
+            }),
+            ('乙方联系信息', {
+                'fields': ('party_b_legal_representative', 'party_b_contact_person', 'party_b_manager'),
+                'classes': ('collapse',)
+            }),
+            ('金额与时间', {
+                'fields': ('contract_amount', 'signing_date', 'duration')
+            }),
+            ('其他信息', {
+                'fields': ('payment_method', 'performance_guarantee_return_date', 'archive_date'),
+                'classes': ('collapse',)
+            }),
+        )

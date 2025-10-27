@@ -23,6 +23,7 @@ from payment.models import Payment
 from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
 from project.validators import validate_code_field, check_url_safe_string
+from project.enums import FilePositioning, get_enum_values
 
 logger = logging.getLogger(__name__)
 
@@ -359,12 +360,12 @@ class Command(BaseCommand):
                     continue
                 
                 # 获取文件定位（第3列）
-                file_positioning = row.get('文件定位', '主合同').strip()
+                file_positioning = row.get('文件定位', FilePositioning.MAIN_CONTRACT.value).strip()
                 if not file_positioning:
-                    file_positioning = '主合同'
+                    file_positioning = FilePositioning.MAIN_CONTRACT.value
                 
                 # 第一遍只处理主合同
-                if file_positioning != '主合同':
+                if file_positioning != FilePositioning.MAIN_CONTRACT.value:
                     continue
                 
                 stats['total_rows'] += 1
@@ -414,12 +415,12 @@ class Command(BaseCommand):
                     continue
                 
                 # 获取文件定位（第3列）
-                file_positioning = row.get('文件定位', '主合同').strip()
+                file_positioning = row.get('文件定位', FilePositioning.MAIN_CONTRACT.value).strip()
                 if not file_positioning:
-                    file_positioning = '主合同'
+                    file_positioning = FilePositioning.MAIN_CONTRACT.value
                 
                 # 第二遍只处理补充协议和解除协议
-                if file_positioning not in ['补充协议', '解除协议']:
+                if file_positioning not in [FilePositioning.SUPPLEMENT.value, FilePositioning.TERMINATION.value]:
                     continue
                 
                 stats['total_rows'] += 1
@@ -1090,15 +1091,15 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f'采购编号不存在: {procurement_code}，将不关联采购'))
         
         # 获取文件定位（第3列），默认为主合同
-        file_positioning = row.get('文件定位', '主合同').strip()
+        file_positioning = row.get('文件定位', FilePositioning.MAIN_CONTRACT.value).strip()
         if not file_positioning:
-            file_positioning = '主合同'
+            file_positioning = FilePositioning.MAIN_CONTRACT.value
         
-        # 验证文件定位
-        valid_types = ['主合同', '补充协议', '解除协议']
+        # 验证文件定位（使用枚举值）
+        valid_types = get_enum_values(FilePositioning)
         if file_positioning not in valid_types:
             self.stdout.write(self.style.WARNING(f'无效的文件定位: {file_positioning}，将设置为主合同'))
-            file_positioning = '主合同'
+            file_positioning = FilePositioning.MAIN_CONTRACT.value
         
         # 获取合同来源（先获取用户输入的值）
         contract_source = row.get('合同来源', '').strip()
@@ -1124,11 +1125,11 @@ class Command(BaseCommand):
                     ))
         
         # 验证文件定位与关联关系的一致性，并自动继承关联数据
-        if file_positioning == '主合同':
+        if file_positioning == FilePositioning.MAIN_CONTRACT.value:
             if parent_contract:
                 self.stdout.write(self.style.WARNING('主合同不能关联其他合同，将清除关联关系'))
                 parent_contract = None
-        elif file_positioning in ['补充协议', '解除协议']:
+        elif file_positioning in [FilePositioning.SUPPLEMENT.value, FilePositioning.TERMINATION.value]:
             # 如果是补充协议或解除协议，必须关联主合同
             if not parent_contract:
                 error_msg = (
@@ -1164,7 +1165,8 @@ class Command(BaseCommand):
         # 确保合同来源正确设置（在继承之后再次检查）
         if not contract_source:
             # 如果CSV中没有指定且没有从主合同继承，根据是否有采购关联来设置
-            contract_source = '采购合同' if procurement else '直接签订'
+            from project.enums import ContractSource
+            contract_source = ContractSource.PROCUREMENT.value if procurement else ContractSource.DIRECT.value
         
         # 获取支付方式
         payment_method = row.get('支付方式', '').strip()

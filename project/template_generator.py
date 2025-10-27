@@ -12,6 +12,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.comments import Comment
 from django.apps import apps
+from project.helptext import get_message
 
 
 class TemplateGenerator:
@@ -61,7 +62,21 @@ class TemplateGenerator:
         return ""
     
     def _format_instructions(self) -> str:
-        """格式化说明文本"""
+        """
+        格式化说明文本
+        优先从 helptext 配置获取，如果不存在则使用模板配置
+        """
+        module_name = self.config['metadata']['module']
+        
+        # 尝试从 helptext 配置获取导入说明
+        try:
+            instructions = get_message('import', f'{module_name}_template')
+            if instructions:
+                return instructions
+        except:
+            pass
+        
+        # 降级到模板配置中的说明
         instructions = self.config['instructions']['content']
         
         # 替换占位符

@@ -3,6 +3,7 @@
 """
 from django.db import models
 from project.validators import validate_code_field, validate_and_clean_code
+from project.helptext import get_help_text
 
 
 class BaseModel(models.Model):
@@ -102,7 +103,7 @@ class Procurement(BaseModel):
         '采购方式',
         max_length=50,
         blank=True,
-        help_text='例如: 公开招标、邀请招标、竞争性谈判等'
+        help_text=get_help_text('procurement', 'procurement_method')
     )
 
     qualification_review_method = models.CharField(
@@ -173,7 +174,7 @@ class Procurement(BaseModel):
         '申请人联系电话（需求部门）',
         max_length=200,
         blank=True,
-        help_text='例如: 张三 13800138000'
+        help_text=get_help_text('procurement', 'demand_contact')
     )
 
     # ===== 中标信息 =====
@@ -188,7 +189,7 @@ class Procurement(BaseModel):
         '中标单位联系人及方式',
         max_length=200,
         blank=True,
-        help_text='例如: 李经理 13900139000'
+        help_text=get_help_text('procurement', 'winning_contact')
     )
 
     # ===== 时间信息 =====
