@@ -28,15 +28,22 @@ class EditModal {
         const modalHTML = `
             <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                    <div id="editModalContent">
-                        <!-- 内容将通过AJAX加载 -->
-                        <div class="modal-content">
-                            <div class="modal-body text-center py-5">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editModalLabel">编辑信息</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                        </div>
+                        <div class="modal-body" id="editModalBody">
+                            <div class="text-center py-5">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">加载中...</span>
                                 </div>
                                 <p class="mt-3 text-muted">正在加载表单...</p>
                             </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-primary" id="saveBtn" onclick="submitEditForm()">保存</button>
                         </div>
                     </div>
                 </div>
@@ -52,14 +59,12 @@ class EditModal {
 
         // 模态框关闭时清理内容
         this.modalElement.addEventListener('hidden.bs.modal', () => {
-            document.getElementById('editModalContent').innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-body text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                        <p class="mt-3 text-muted">正在加载表单...</p>
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
                     </div>
+                    <p class="mt-3 text-muted">正在加载表单...</p>
                 </div>
             `;
         });
@@ -95,10 +100,10 @@ class EditModal {
             }
 
             const html = await response.text();
-            document.getElementById('editModalContent').innerHTML = html;
+            document.getElementById('editModalBody').innerHTML = html;
 
-            // 绑定表单提交事件
-            this.bindFormSubmit();
+            // 绑定保存按钮点击事件（使用全局函数）
+            window.submitEditForm = () => this.submitForm();
 
         } catch (error) {
             console.error('加载表单失败:', error);
@@ -106,62 +111,63 @@ class EditModal {
         }
     }
 
-    bindFormSubmit() {
+    async submitForm() {
         const form = document.getElementById('editForm');
-        if (!form) return;
+        if (!form) {
+            this.showError('表单未加载，请重试');
+            return;
+        }
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        const formData = new FormData(form);
+        const submitUrl = form.action;
 
-            const formData = new FormData(form);
-            const submitUrl = form.action;
+        try {
+            // 禁用提交按钮
+            const submitBtn = document.getElementById('saveBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
 
-            try {
-                // 禁用提交按钮
-                const submitBtn = form.querySelector('button[type="submit"]');
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
-
-                const response = await fetch(submitUrl, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // 成功提示
-                    this.showSuccess(data.message || '保存成功');
-                    
-                    // 关闭模态框
-                    this.modal.hide();
-
-                    // 刷新页面以显示更新后的数据
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
-                } else {
-                    // 显示错误信息
-                    this.showError(data.message || '保存失败');
-                    
-                    // 重新启用提交按钮
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '保存';
+            const response = await fetch(submitUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
+            });
 
-            } catch (error) {
-                console.error('提交表单失败:', error);
-                this.showError('提交失败，请稍后重试');
+            const data = await response.json();
+
+            if (data.success) {
+                // 成功提示
+                this.showSuccess(data.message || '保存成功');
+                
+                // 关闭模态框
+                this.modal.hide();
+
+                // 刷新页面以显示更新后的数据
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // 显示错误信息
+                this.showError(data.message || '保存失败');
                 
                 // 重新启用提交按钮
-                const submitBtn = form.querySelector('button[type="submit"]');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '保存';
             }
-        });
+
+        } catch (error) {
+            console.error('提交表单失败:', error);
+            this.showError('提交失败，请稍后重试');
+            
+            // 重新启用提交按钮
+            const submitBtn = document.getElementById('saveBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '保存';
+            }
+        }
     }
 
     showSuccess(message) {

@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}付款详情 - {{ payment.payment_code }} - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="content-header">
@@ -25,7 +30,7 @@
             <i class="fas fa-file-contract"></i>
             查看合同
         </a>
-        <button type="button" class="btn btn-primary" onclick="openEditModal()">
+        <button type="button" class="btn btn-primary" data-edit-url="{% url 'payment_edit' payment.payment_code %}">
             <i class="fas fa-edit"></i>
             编辑付款
         </button>
@@ -33,29 +38,6 @@
             <i class="fas fa-trash"></i>
             删除付款
         </a>
-    </div>
-</div>
-
-<!-- 编辑模态框 -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel">编辑付款信息</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="savePayment()" id="saveBtn">保存</button>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -314,56 +296,8 @@
 }
 </style>
 
-<script>
-// 打开编辑模态框
-async function openEditModal() {
-    const modal = new bootstrap.Modal(document.getElementById('editModal'));
-    const modalBody = document.getElementById('modalBody');
-    
-    modal.show();
-    
-    try {
-        const response = await fetch('{% url "payment_edit" payment.payment_code %}');
-        const html = await response.text();
-        modalBody.innerHTML = html;
-    } catch (error) {
-        modalBody.innerHTML = '<div class="alert alert-danger">加载表单失败：' + error.message + '</div>';
-    }
-}
+{% endblock %}
 
-// 保存付款信息
-async function savePayment() {
-    const form = document.querySelector('#editModal form');
-    const saveBtn = document.getElementById('saveBtn');
-    const formData = new FormData(form);
-    
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
-    
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-            }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('保存成功！页面即将刷新...');
-            window.location.reload();
-        } else {
-            alert('保存失败：' + (result.message || '未知错误'));
-            saveBtn.disabled = false;
-            saveBtn.textContent = '保存';
-        }
-    } catch (error) {
-        alert('保存失败：' + error.message);
-        saveBtn.disabled = false;
-        saveBtn.textContent = '保存';
-    }
-}
-</script>
+{% block extra_js %}
+<script src="{% static 'js/edit-modal.js' %}"></script>
 {% endblock %}

@@ -3183,7 +3183,15 @@ def project_edit(request, project_code):
     """
     from project.forms import ProjectForm
     
-    project = get_object_or_404(Project, project_code=project_code)
+    try:
+        project = Project.objects.get(project_code=project_code)
+    except Project.DoesNotExist:
+        if request.method == 'POST':
+            return JsonResponse({
+                'success': False,
+                'message': '项目不存在'
+            }, status=404)
+        return HttpResponse('项目不存在', status=404)
     
     if request.method == 'POST':
         form = ProjectForm(request.POST, instance=project)
@@ -3224,7 +3232,15 @@ def contract_edit(request, contract_code):
     """
     from project.forms import ContractForm
     
-    contract = get_object_or_404(Contract, contract_code=contract_code)
+    try:
+        contract = Contract.objects.get(contract_code=contract_code)
+    except Contract.DoesNotExist:
+        if request.method == 'POST':
+            return JsonResponse({
+                'success': False,
+                'message': '合同不存在'
+            }, status=404)
+        return HttpResponse('合同不存在', status=404)
     
     if request.method == 'POST':
         form = ContractForm(request.POST, instance=contract)
@@ -3263,7 +3279,15 @@ def procurement_edit(request, procurement_code):
     """
     from project.forms import ProcurementForm
     
-    procurement = get_object_or_404(Procurement, procurement_code=procurement_code)
+    try:
+        procurement = Procurement.objects.get(procurement_code=procurement_code)
+    except Procurement.DoesNotExist:
+        if request.method == 'POST':
+            return JsonResponse({
+                'success': False,
+                'message': '采购项目不存在'
+            }, status=404)
+        return HttpResponse('采购项目不存在', status=404)
     
     if request.method == 'POST':
         form = ProcurementForm(request.POST, instance=procurement)
@@ -3301,7 +3325,15 @@ def payment_edit(request, payment_code):
     """
     from project.forms import PaymentForm
     
-    payment = get_object_or_404(Payment, payment_code=payment_code)
+    try:
+        payment = Payment.objects.get(payment_code=payment_code)
+    except Payment.DoesNotExist:
+        if request.method == 'POST':
+            return JsonResponse({
+                'success': False,
+                'message': '付款记录不存在'
+            }, status=404)
+        return HttpResponse('付款记录不存在', status=404)
     
     if request.method == 'POST':
         form = PaymentForm(request.POST, instance=payment)
