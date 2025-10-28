@@ -273,6 +273,7 @@
         border-collapse: collapse;
         font-size: 14px;
         margin-bottom: 20px;
+        table-layout: fixed;
     }
 
     .data-table th,
@@ -280,6 +281,8 @@
         padding: 12px 16px;
         text-align: left;
         border-bottom: 1px solid var(--border-color);
+        word-wrap: break-word;
+        word-break: break-word;
     }
 
     .data-table th {
@@ -289,6 +292,43 @@
 
     .data-table tbody tr:hover {
         background-color: #f5f5f5;
+    }
+    
+    /* 设置列宽以适应内容 */
+    .data-table th:nth-child(1),
+    .data-table td:nth-child(1) {
+        width: 12%;
+    }
+    
+    .data-table th:nth-child(2),
+    .data-table td:nth-child(2) {
+        width: 30%;
+        white-space: normal;
+    }
+    
+    .data-table th:nth-child(3),
+    .data-table td:nth-child(3) {
+        width: 10%;
+    }
+    
+    .data-table th:nth-child(4),
+    .data-table td:nth-child(4) {
+        width: 14%;
+    }
+    
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        width: 10%;
+    }
+    
+    .data-table th:nth-child(6),
+    .data-table td:nth-child(6) {
+        width: 10%;
+    }
+    
+    .data-table th:nth-child(7),
+    .data-table td:nth-child(7) {
+        width: 14%;
     }
     
     .table-responsive {
@@ -418,6 +458,37 @@
         .metrics-grid {
             grid-template-columns: 1fr 1fr;
         }
+    }
+
+    /* 项目归档表现表格的列宽设置 */
+    .performance-section .data-table {
+        table-layout: fixed;
+    }
+    
+    .performance-section .data-table th:nth-child(1),
+    .performance-section .data-table td:nth-child(1) {
+        width: 35%;  /* 项目名称 - 最宽 */
+    }
+    
+    .performance-section .data-table th:nth-child(2),
+    .performance-section .data-table td:nth-child(2),
+    .performance-section .data-table th:nth-child(5),
+    .performance-section .data-table td:nth-child(5) {
+        width: 8%;  /* 采购归档进度、合同归档进度 - 较窄 */
+    }
+    
+    .performance-section .data-table th:nth-child(3),
+    .performance-section .data-table td:nth-child(3),
+    .performance-section .data-table th:nth-child(6),
+    .performance-section .data-table td:nth-child(6) {
+        width: 10%;  /* 采购归档率、合同归档率 */
+    }
+    
+    .performance-section .data-table th:nth-child(4),
+    .performance-section .data-table td:nth-child(4),
+    .performance-section .data-table th:nth-child(7),
+    .performance-section .data-table td:nth-child(7) {
+        width: 10%;  /* 采购及时率、合同及时率 */
     }
 
     @media (max-width: 768px) {
@@ -580,12 +651,10 @@
                                 <th>项目名称</th>
                                 <th>采购归档进度</th>
                                 <th>采购归档率</th>
-                                <th>采购及时率</th>
+                                <th style="background-color: #fff7e6;">采购归档及时率</th>
                                 <th>合同归档进度</th>
                                 <th>合同归档率</th>
-                                <th>合同及时率</th>
-                                <th>综合归档率</th>
-                                <th>综合及时率</th>
+                                <th style="background-color: #e6f7ff;">合同归档及时率</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -598,17 +667,15 @@
                                     </td>
                                     <td>{{ project.procurement_archived }}/{{ project.procurement_total }}</td>
                                     <td>{{ project.procurement_rate|floatformat:1 }}%</td>
-                                    <td>{{ project.procurement_timely_rate|floatformat:1 }}%</td>
+                                    <td style="background-color: #fff7e6;">{{ project.procurement_timely_rate|floatformat:1 }}%</td>
                                     <td>{{ project.contract_archived }}/{{ project.contract_total }}</td>
                                     <td>{{ project.contract_rate|floatformat:1 }}%</td>
-                                    <td>{{ project.contract_timely_rate|floatformat:1 }}%</td>
-                                    <td>{{ project.overall_rate|floatformat:1 }}%</td>
-                                    <td>{{ project.overall_timely_rate|floatformat:1 }}%</td>
+                                    <td style="background-color: #e6f7ff;">{{ project.contract_timely_rate|floatformat:1 }}%</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="9" style="text-align: center; padding: 24px;">暂无项目归档统计数据</td>
+                                    <td colspan="7" style="text-align: center; padding: 24px;">暂无项目归档统计数据</td>
                                 </tr>
                             {% endif %}
                         </tbody>
@@ -649,7 +716,7 @@
                                         {% for item in procurement_page %}
                                         <tr>
                                             <td>{{ item.code }}</td>
-                                            <td>{{ item.name|truncatechars:30 }}</td>
+                                            <td>{{ item.name }}</td>
                                             <td>{{ item.reference_date|date:"Y-m-d" }}</td>
                                             <td>{% if item.reference_date %}{{ item.reference_date|date:"Y-m-d" }}后{{ item.deadline_days }}天{% endif %}</td>
                                             <td>-</td>
@@ -701,7 +768,7 @@
                                         {% for item in contract_page %}
                                         <tr>
                                             <td>{{ item.code }}</td>
-                                            <td>{{ item.name|truncatechars:30 }}</td>
+                                            <td>{{ item.name }}</td>
                                             <td>{{ item.reference_date|date:"Y-m-d" }}</td>
                                             <td>{% if item.reference_date %}{{ item.reference_date|date:"Y-m-d" }}后{{ item.deadline_days }}天{% endif %}</td>
                                             <td>-</td>

@@ -2246,6 +2246,7 @@ def completeness_check(request):
 
     procurement_page = request.GET.get('procurement_page', 1)
     contract_page = request.GET.get('contract_page', 1)
+    ranking_page = request.GET.get('ranking_page', 1)
     page_size = 10
 
     overview = get_completeness_overview(
@@ -2262,23 +2263,29 @@ def completeness_check(request):
     contract_paginator = Paginator(contract_field_stats, page_size)
     contract_page_obj = contract_paginator.get_page(contract_page)
 
-    project_rankings = get_project_completeness_ranking(
+    # 获取所有项目的完整性排名（不受project_filter限制，确保显示所有项目）
+    all_project_rankings = get_project_completeness_ranking(
         year=year_context['year_filter'],
-        project_codes=project_filter
+        project_codes=None  # 传入None确保获取所有项目
     )
+    
+    # 对项目排行榜进行分页
+    ranking_paginator = Paginator(all_project_rankings, page_size)
+    ranking_page_obj = ranking_paginator.get_page(ranking_page)
 
     context = {
         'page_title': '完整性监测',
         'overview': overview,
         'procurement_page_obj': procurement_page_obj,
         'contract_page_obj': contract_page_obj,
-        'project_rankings': project_rankings,
+        'ranking_page_obj': ranking_page_obj,
         'available_years': year_context['available_years'],
         'year_filter': year_context['selected_year_value'],
         'project_filter': project_codes[0] if project_codes else '',
         'monitoring_filters': _build_monitoring_filter_fields(filter_config),
         'procurement_pagination_query': _build_pagination_querystring(request, excluded_keys=['procurement_page']),
         'contract_pagination_query': _build_pagination_querystring(request, excluded_keys=['contract_page']),
+        'ranking_pagination_query': _build_pagination_querystring(request, excluded_keys=['ranking_page']),
         **filter_config,
     }
 
@@ -2602,6 +2609,9 @@ def generate_report(request):
         # 获取全局筛选参数
         global_filters = _resolve_global_filters(request)
         
+        # 获取所有项目用于项目报告选择
+        all_projects = Project.objects.all().order_by('project_name')
+        
         context = {
             'page_title': '报表生成',
             'current_year': current_year,
@@ -2610,7 +2620,7 @@ def generate_report(request):
             'available_years': get_year_range(include_future=True),
             'available_months': list(range(1, 13)),
             'available_quarters': [1, 2, 3, 4],
-            'selected_projects': global_filters['project_list'],
+            'selected_projects': all_projects,  # 所有项目用于下拉选择
             'global_selected_year': global_filters['year_value'],
             'global_selected_project': global_filters['project'],
         }
@@ -2619,18 +2629,31 @@ def generate_report(request):
     # POST请求 - 生成报表
     try:
         # POST请求需要从request.POST获取参数，而不是request.GET
+        report_type = request.POST.get('report_type', 'monthly')
+        export_format = request.POST.get('export_format', 'preview')  # preview/excel/word
+        
         # 获取项目筛选参数
         project_param = request.POST.get('project', '').strip()
-        project_codes = [project_param] if project_param else None
+        project_code_param = request.POST.get('project_code', '').strip()  # 项目报告专用
         
-        report_type = request.POST.get('report_type', 'monthly')
+        # 如果是项目报告类型，使用project_code参数
+        if report_type == 'project':
+            project_codes = [project_code_param] if project_code_param else None
+        else:
+            project_codes = [project_param] if project_param else None
+        
         year = int(request.POST.get('year', datetime.now().year))
         month = int(request.POST.get('month', datetime.now().month))
         quarter = int(request.POST.get('quarter', 1))
-        export_format = request.POST.get('export_format', 'preview')  # preview/excel
         
         # 根据报表类型生成数据，传入项目筛选参数
-        if report_type == 'weekly':
+        if report_type == 'project':
+            # 项目报告 - 生成项目全生命周期报告
+            if not project_codes or not project_codes[0]:
+                messages.error(request, '请选择要生成报告的项目')
+                return redirect('generate_report')
+            generator = AnnualReportGenerator(year, project_codes=project_codes)
+        elif report_type == 'weekly':
             # 周报需要指定具体日期
             target_date_str = request.POST.get('target_date')
             if target_date_str:
@@ -2654,7 +2677,55 @@ def generate_report(request):
         report_data = generator.generate_data()
         
         # 根据导出格式处理
-        if export_format == 'excel':
+        if export_format == 'word':
+            # Word导出使用旧的export_to_word，不是professional版本
+            try:
+                from project.services.report_generator import export_to_word
+            except ImportError as e:
+                messages.error(request, f'Word导出功能不可用，请确保已安装python-docx库: pip install python-docx')
+                return redirect('generate_report')
+            
+            # 创建临时文件
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.docx')
+            os.close(tmp_fd)  # 立即关闭文件描述符
+            
+            try:
+                # 导出为Word文档
+                export_to_word(report_data, tmp_path)
+                
+                # 验证文件是否生成成功
+                if not os.path.exists(tmp_path) or os.path.getsize(tmp_path) == 0:
+                    raise Exception('Word文档生成失败，文件为空或不存在')
+                
+                # 读取文件内容
+                with open(tmp_path, 'rb') as f:
+                    word_content = f.read()
+                
+                # 生成安全的文件名
+                safe_title = report_data.get('title', '工作报表').replace('/', '-').replace('\\', '-')
+                filename = f"{safe_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+                
+                # 返回Word文件
+                response = HttpResponse(
+                    word_content,
+                    content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+                # 使用URL编码确保中文文件名正确显示
+                from urllib.parse import quote
+                encoded_filename = quote(filename.encode('utf-8'))
+                response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
+                return response
+            except Exception as e:
+                messages.error(request, f'生成Word文档失败: {str(e)}')
+                return redirect('generate_report')
+            finally:
+                # 清理临时文件
+                try:
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                except Exception:
+                    pass  # 忽略清理错误
+        elif export_format == 'excel':
             # 导出为Excel文件
             # 创建临时文件
             with tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False) as tmp_file:
@@ -2977,3 +3048,283 @@ def monitoring_cockpit(request):
 
 
 
+
+
+# ==================== 专业Word报告生成功能 ====================
+
+@require_http_methods(['GET', 'POST'])
+def generate_professional_report(request):
+    """
+    专业报告生成与导出
+    支持周报、月报、季报、年报，支持单个/多个项目
+    导出Word文档格式
+    """
+    from project.services.professional_report_generator import (
+        WeeklyReportGenerator,
+        MonthlyReportGenerator,
+        QuarterlyReportGenerator,
+        AnnualReportGenerator,
+    )
+    from project.services.word_exporter import export_to_word_professional
+    from datetime import datetime, date
+    import os
+    import tempfile
+    
+    if request.method == 'GET':
+        # 显示报表生成表单
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        current_quarter = (current_month - 1) // 3 + 1
+        
+        # 获取全局筛选参数
+        global_filters = _resolve_global_filters(request)
+        
+        # 获取所有项目用于多选
+        projects = Project.objects.all().order_by('project_name')
+        
+        context = {
+            'page_title': '专业报告生成',
+            'current_year': current_year,
+            'current_month': current_month,
+            'current_quarter': current_quarter,
+            'available_years': get_year_range(include_future=True),
+            'available_months': list(range(1, 13)),
+            'available_quarters': [1, 2, 3, 4],
+            'projects': projects,
+            'selected_projects': global_filters['project_list'],
+            'global_selected_year': global_filters['year_value'],
+            'global_selected_project': global_filters['project'],
+        }
+        return render(request, 'reports/professional_form.html', context)
+    
+    # POST请求 - 生成并导出Word报告
+    try:
+        # 获取项目筛选参数（支持多选）
+        project_codes = request.POST.getlist('projects')
+        if not project_codes:
+            project_param = request.POST.get('project', '').strip()
+            project_codes = [project_param] if project_param else None
+        else:
+            project_codes = [p for p in project_codes if p]  # 过滤空值
+            if not project_codes:
+                project_codes = None
+        
+        report_type = request.POST.get('report_type', 'monthly')
+        year = int(request.POST.get('year', datetime.now().year))
+        month = int(request.POST.get('month', datetime.now().month))
+        quarter = int(request.POST.get('quarter', 1))
+        
+        # 根据报表类型生成数据
+        if report_type == 'weekly':
+            target_date_str = request.POST.get('target_date')
+            if target_date_str:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            else:
+                target_date = date.today()
+            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+        elif report_type == 'monthly':
+            generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
+        elif report_type == 'quarterly':
+            generator = QuarterlyReportGenerator(year, quarter, project_codes=project_codes)
+        elif report_type == 'annual':
+            generator = AnnualReportGenerator(year, project_codes=project_codes)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '不支持的报表类型'
+            }, status=400)
+        
+        # 生成报表数据
+        report_data = generator.generate_report_data()
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.docx', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        try:
+            # 导出为Word文档
+            export_to_word_professional(report_data, tmp_path)
+            
+            # 读取文件内容
+            with open(tmp_path, 'rb') as f:
+                word_content = f.read()
+            
+            # 生成文件名
+            meta = report_data.get('meta', {})
+            report_title = meta.get('report_title', '工作报告')
+            filename = f"{report_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            
+            # 返回Word文件
+            response = HttpResponse(
+                word_content,
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        finally:
+            # 清理临时文件
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    
+    except Exception as e:
+        messages.error(request, f'生成报告失败: {str(e)}')
+
+
+# ==================== 前端编辑功能 ====================
+
+@require_http_methods(['GET', 'POST'])
+def project_edit(request, project_code):
+    """
+    项目编辑视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import ProjectForm
+    
+    project = get_object_or_404(Project, project_code=project_code)
+    
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project)
+        if form.is_valid():
+            try:
+                form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '项目信息更新成功'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败',
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求 - 返回表单HTML
+    form = ProjectForm(instance=project)
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '编辑项目信息',
+        'submit_url': f'/projects/{project_code}/edit/',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def contract_edit(request, contract_code):
+    """
+    合同编辑视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import ContractForm
+    
+    contract = get_object_or_404(Contract, contract_code=contract_code)
+    
+    if request.method == 'POST':
+        form = ContractForm(request.POST, instance=contract)
+        if form.is_valid():
+            try:
+                form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '合同信息更新成功'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败',
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求
+    form = ContractForm(instance=contract)
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '编辑合同信息',
+        'submit_url': f'/contracts/{contract_code}/edit/',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def procurement_edit(request, procurement_code):
+    """
+    采购编辑视图 - AJAX接口
+    """
+    from project.forms import ProcurementForm
+    
+    procurement = get_object_or_404(Procurement, procurement_code=procurement_code)
+    
+    if request.method == 'POST':
+        form = ProcurementForm(request.POST, instance=procurement)
+        if form.is_valid():
+            try:
+                form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '采购信息更新成功'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败',
+                'errors': form.errors
+            }, status=400)
+    
+    form = ProcurementForm(instance=procurement)
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '编辑采购信息',
+        'submit_url': f'/procurements/{procurement_code}/edit/',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def payment_edit(request, payment_code):
+    """
+    付款编辑视图 - AJAX接口
+    """
+    from project.forms import PaymentForm
+    
+    payment = get_object_or_404(Payment, payment_code=payment_code)
+    
+    if request.method == 'POST':
+        form = PaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            try:
+                form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '付款信息更新成功'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败',
+                'errors': form.errors
+            }, status=400)
+    
+    form = PaymentForm(instance=payment)
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '编辑付款信息',
+        'submit_url': f'/payments/{payment_code}/edit/',
+    })

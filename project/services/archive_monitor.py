@@ -388,19 +388,10 @@ class ArchiveMonitorService:
             entry['contract_rate'] = round((contract_archived / contract_total * 100), 2) if contract_total else 0
             entry['contract_timely_rate'] = round((contract_timely / contract_archived * 100), 2) if contract_archived else 0
 
-            overall_total = procurement_total + contract_total
-            overall_archived = procurement_archived + contract_archived
-            overall_timely = procurement_timely + contract_timely
-
-            entry['overall_rate'] = round((overall_archived / overall_total * 100), 2) if overall_total else 0
-            entry['overall_timely_rate'] = round((overall_timely / overall_archived * 100), 2) if overall_archived else 0
-            entry['overall_total'] = overall_total
-            entry['overall_archived'] = overall_archived
-            entry['overall_timely'] = overall_timely
-
             performance_list.append(entry)
 
-        performance_list.sort(key=lambda item: item['overall_rate'], reverse=True)
+        # 按采购归档率排序
+        performance_list.sort(key=lambda item: item['procurement_rate'], reverse=True)
         return performance_list
 
     def get_overdue_list(self, module=None, severity=None, project_id=None):

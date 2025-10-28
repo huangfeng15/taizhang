@@ -31,20 +31,16 @@ class PaymentDataValidator:
         if not payment_data.get('contract'):
             errors.append('缺少关联合同')
         
-        if not payment_data.get('payment_amount'):
+        if payment_data.get('payment_amount') is None:
             errors.append('缺少付款金额')
-        elif payment_data['payment_amount'] <= 0:
-            errors.append(f'付款金额必须大于0，当前值: {payment_data["payment_amount"]}')
         
         if not payment_data.get('payment_date'):
             errors.append('缺少付款日期')
         
         # 结算逻辑检查
         if payment_data.get('is_settled'):
-            if not payment_data.get('settlement_amount'):
+            if payment_data.get('settlement_amount') is None:
                 errors.append('已标记为已结算但缺少结算金额')
-            elif payment_data['settlement_amount'] <= 0:
-                errors.append(f'结算金额必须大于0，当前值: {payment_data["settlement_amount"]}')
         
         # 业务规则检查
         if payment_data.get('settlement_amount') and payment_data.get('payment_amount'):

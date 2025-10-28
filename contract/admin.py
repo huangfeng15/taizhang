@@ -3,8 +3,6 @@
 使用 BusinessModelAdmin 基类统一管理
 """
 from django.contrib import admin
-from django.urls import reverse
-from django.db.models import Q, Count, Sum
 from project.admin_base import BusinessModelAdmin
 from .models import Contract
 

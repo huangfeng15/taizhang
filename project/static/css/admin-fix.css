@@ -1,0 +1,367 @@
+/*
+ * Admin站点样式修复
+ * 主要解决下拉选择框文字对比度问题和按钮对比度问题
+ */
+
+/* =============== 按钮样式修复 =============== */
+
+/* 修复主要按钮（保存、添加、继续编辑） */
+input[type="submit"],
+input[type="button"],
+button,
+.button,
+.default {
+    background-color: #0066cc !important;
+    color: #ffffff !important;
+    border: 1px solid #0066cc !important;
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-weight: 500 !important;
+}
+
+/* 按钮悬停状态 */
+input[type="submit"]:hover,
+input[type="button"]:hover,
+button:hover,
+.button:hover,
+.default:hover {
+    background-color: #0052a3 !important;
+    border-color: #0052a3 !important;
+    color: #ffffff !important;
+}
+
+/* 按钮聚焦状态 */
+input[type="submit"]:focus,
+input[type="button"]:focus,
+button:focus,
+.button:focus,
+.default:focus {
+    outline: 2px solid #0066cc !important;
+    outline-offset: 2px !important;
+}
+
+/* 危险按钮样式 */
+input[type="submit"].destructive,
+.button.danger,
+.link-button-danger {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+    border-color: #dc3545 !important;
+}
+
+input[type="submit"].destructive:hover,
+.button.danger:hover,
+.link-button-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #c82333 !important;
+    color: #ffffff !important;
+}
+
+/* 链接样式按钮 */
+.link-button,
+input[type="submit"].link {
+    background-color: transparent !important;
+    color: #0066cc !important;
+    border: 1px solid transparent !important;
+    padding: 8px 16px !important;
+    text-decoration: none !important;
+}
+
+.link-button:hover,
+input[type="submit"].link:hover {
+    background-color: #f0f0f0 !important;
+    color: #004c99 !important;
+}
+
+/* 表单底部的按钮组 */
+.submit-row {
+    background-color: #f8f9fa !important;
+    padding: 15px !important;
+    border-top: 1px solid #ddd !important;
+    margin-top: 20px !important;
+}
+
+.submit-row input {
+    background-color: #0066cc !important;
+    color: #ffffff !important;
+    border: 1px solid #0066cc !important;
+    padding: 10px 20px !important;
+    margin-right: 10px !important;
+    border-radius: 4px !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    font-weight: 500 !important;
+}
+
+.submit-row input:hover {
+    background-color: #0052a3 !important;
+    border-color: #0052a3 !important;
+    color: #ffffff !important;
+}
+
+.submit-row input:focus {
+    outline: 2px solid #0066cc !important;
+    outline-offset: 2px !important;
+}
+
+.submit-row .deletelink {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+    border: 1px solid #dc3545 !important;
+    padding: 10px 20px !important;
+    border-radius: 4px !important;
+    text-decoration: none !important;
+    font-size: 14px !important;
+}
+
+.submit-row .deletelink:hover {
+    background-color: #c82333 !important;
+    border-color: #c82333 !important;
+    color: #ffffff !important;
+}
+
+/* 对象工具栏按钮 */
+.object-tools a {
+    background-color: #0066cc !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    border-radius: 4px !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    border: 1px solid #0066cc !important;
+}
+
+.object-tools a:hover {
+    background-color: #0052a3 !important;
+    border-color: #0052a3 !important;
+    color: #ffffff !important;
+}
+
+/* =============== 下拉选择框样式修复 =============== */
+
+/* 修复下拉选择框文字颜色和背景对比度 */
+select,
+select.form-control,
+select:not([multiple]) {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+
+/* 修复下拉选项的颜色 */
+select option {
+    color: #333 !important;
+    background-color: #fff !important;
+    padding: 8px !important;
+}
+
+/* 修复多选下拉框 */
+select[multiple] {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+}
+
+select[multiple] option {
+    color: #333 !important;
+    background-color: #fff !important;
+    padding: 6px 8px !important;
+}
+
+/* 修复多选下拉框选中项的背景色 */
+select[multiple] option:checked {
+    background: #0066cc !important;
+    color: #fff !important;
+}
+
+/* 表单域样式增强 */
+.form-row select {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    padding: 6px 12px !important;
+    font-size: 14px !important;
+    min-height: 36px !important;
+}
+
+/* 聚焦状态 */
+select:focus,
+select.form-control:focus {
+    border-color: #0066cc !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1) !important;
+}
+
+/* 悬停状态 */
+select:hover,
+select.form-control:hover {
+    border-color: #999 !important;
+}
+
+/* 修复admin变更页面的下拉框 */
+#content select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 修复filter下拉框 */
+.filter-container select,
+.inline-group select {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+}
+
+/* 修复相关对象选择框 */
+.related-widget-wrapper select {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ccc !important;
+}
+
+/* admin表单的select样式 */
+.form-horizontal .form-control {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 修复横向表单的select */
+.form-row .field-project select,
+.form-row .field-contract select,
+.form-row .field-status select,
+.form-row .field-type select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 修复空选项的颜色 */
+select option:first-child {
+    color: #666 !important;
+}
+
+/* 修复disabled状态的select */
+select:disabled {
+    color: #999 !important;
+    background-color: #f5f5f5 !important;
+    cursor: not-allowed !important;
+}
+
+/* 修复表单验证错误时的select */
+.error select,
+.error select.form-control {
+    border-color: #dc3545 !important;
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 表单集样式修复 */
+.formset tbody tr td select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 内联表单样式修复 */
+.inline-container select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 修复分组选择框 */
+.fieldset select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 修复复杂嵌套select */
+select select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 增强可读性 */
+select option:hover {
+    background-color: #e6f2ff !important;
+    color: #000 !important;
+}
+
+select option:focus {
+    background-color: #0066cc !important;
+    color: #fff !important;
+}
+
+/* 修复时间选择器中的select */
+.timezonefilter select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 日期层次选择器 */
+.date-hierarchy select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 搜索表单select */
+.search-form select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 工具栏select */
+.toolbar select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 动作下拉框 */
+.actions select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 确保所有select元素都有足够的对比度 */
+body select,
+html select {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+/* 特殊处理admin行内的select */
+.form-row > td select {
+    color: #333 !important;
+    background-color: #fff !important;
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+}
+
+/* 修复多选列表框 */
+.aligned select[multiple] {
+    color: #333 !important;
+    background-color: #fff !important;
+}
+
+.aligned select[multiple] option {
+    color: #333 !important;
+    background-color: #fff !important;
+    padding: 4px 6px !important;
+}
+
+/* 强制覆盖所有下拉框样式 */
+select[class*=""],
+select {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 8px center !important;
+    background-size: 16px !important;
+    padding-right: 32px !important;
+}

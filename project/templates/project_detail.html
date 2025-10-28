@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ project.project_name }} - 项目详情{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="content-header">
@@ -22,10 +27,10 @@
             项目基本信息
         </h2>
         <div>
-            <a href="/admin/project/project/{{ project.project_code }}/change/" class="btn btn-primary">
+            <button class="btn-edit" data-edit-url="{% url 'project_edit' project.project_code %}">
                 <i class="fas fa-edit"></i>
                 编辑项目
-            </a>
+            </button>
         </div>
     </div>
     
@@ -248,10 +253,10 @@
                             <i class="fas fa-eye"></i>
                             查看
                         </a>
-                        <a href="/admin/procurement/procurement/{{ proc.procurement_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                        <button class="btn-edit" data-edit-url="{% url 'procurement_edit' proc.procurement_code %}" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-edit"></i>
                             编辑
-                        </a>
+                        </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -330,10 +335,10 @@
                             <i class="fas fa-eye"></i>
                             查看
                         </a>
-                        <a href="/admin/contract/contract/{{ contract.contract_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                        <button class="btn-edit" data-edit-url="{% url 'contract_edit' contract.contract_code %}" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-edit"></i>
                             编辑
-                        </a>
+                        </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -351,4 +356,8 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/edit-modal.js' %}"></script>
 {% endblock %}

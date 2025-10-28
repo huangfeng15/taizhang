@@ -139,14 +139,16 @@ def get_procurement_statistics(year=None, project_codes=None):
         planned_completion_date__isnull=False,
         result_publicity_release_date__isnull=False
     ):
-        deviation_days = (proc.result_publicity_release_date - proc.planned_completion_date).days
-        if deviation_days != 0:  # 只统计有偏差的
-            top_deviations.append({
-                'project_name': proc.project_name,
-                'planned_date': proc.planned_completion_date,
-                'actual_date': proc.result_publicity_release_date,
-                'deviation_days': deviation_days
-            })
+        # 确保两个日期都不为None后再进行计算
+        if proc.result_publicity_release_date is not None and proc.planned_completion_date is not None:
+            deviation_days = (proc.result_publicity_release_date - proc.planned_completion_date).days
+            if deviation_days != 0:  # 只统计有偏差的
+                top_deviations.append({
+                    'project_name': proc.project_name,
+                    'planned_date': proc.planned_completion_date,
+                    'actual_date': proc.result_publicity_release_date,
+                    'deviation_days': deviation_days
+                })
     
     # 按偏差绝对值排序,取前5
     top_deviations.sort(key=lambda x: abs(x['deviation_days']), reverse=True)
@@ -353,11 +355,20 @@ def get_payment_statistics(year=None, project_codes=None):
             })
     
     # 计算预计剩余支付金额
-    # 获取所有主合同
-    main_contracts = Contract.objects.filter(file_positioning='主合同')
+    # 获取所有主合同（应用年份和项目筛选）
+    main_contracts_query = Contract.objects.filter(file_positioning='主合同')
+    
+    # 应用项目筛选
+    if project_codes:
+        main_contracts_query = main_contracts_query.filter(project__project_code__in=project_codes)
+    
+    # 应用年份筛选（按签订日期）
+    if year is not None:
+        main_contracts_query = main_contracts_query.filter(signing_date__year=year)
+    
     total_remaining = Decimal('0')
     
-    for contract in main_contracts:
+    for contract in main_contracts_query:
         # 获取合同+补充协议总额
         contract_total = contract.get_contract_with_supplements_amount()
         
@@ -373,13 +384,15 @@ def get_payment_statistics(year=None, project_codes=None):
         except:
             base_amount = contract_total
         
-        # 获取已付金额
-        paid_amount = contract.get_total_paid_amount()
+        # 获取已付金额（需要应用相同的筛选条件）
+        paid_query = Payment.objects.filter(contract=contract)
+        if year is not None:
+            paid_query = paid_query.filter(payment_date__year=year)
+        paid_amount = paid_query.aggregate(total=Sum('payment_amount'))['total'] or Decimal('0')
         
-        # 计算剩余
+        # 计算剩余（包括负值，即超付情况）
         remaining = base_amount - paid_amount
-        if remaining > 0:
-            total_remaining += remaining
+        total_remaining += remaining
     
     return {
         'year': year if year is not None else '全部',
@@ -400,7 +413,9 @@ def get_payment_statistics(year=None, project_codes=None):
 
 def get_settlement_statistics(year=None, project_codes=None):
     """
-    结算统计 - 从Payment表中统计已结算的数据
+    结算统计 - 从Payment表中统计已结算付款的结算金额
+    
+    注意：settlement_amount是合同的结算总价，需要按合同去重避免重复计算
     
     Args:
         year: 统计年份，None表示全部年份，整数表示具体年份
@@ -413,14 +428,15 @@ def get_settlement_statistics(year=None, project_codes=None):
     from contract.models import Contract
     from payment.models import Payment
     
-    # 从Payment表中查询已结算的记录
+    # 从Payment表中查询已结算的记录（有结算金额的付款）
     queryset = Payment.objects.filter(
         is_settled=True,
         settlement_amount__isnull=False
-    ).select_related('contract', 'contract__project').only(
+    ).select_related('contract', 'contract__project', 'contract__parent_contract').only(
         'payment_code', 'settlement_amount', 'payment_date',
         'contract__contract_code', 'contract__file_positioning',
-        'contract__project__project_code'
+        'contract__project__project_code',
+        'contract__parent_contract__contract_code'
     )
     
     # 年份筛选 - 按付款日期统计
@@ -431,21 +447,41 @@ def get_settlement_statistics(year=None, project_codes=None):
     if project_codes:
         queryset = queryset.filter(contract__project__project_code__in=project_codes)
     
-    # 统计已结算的合同数量（去重）
-    settled_contracts = queryset.values('contract').distinct()
-    total_count = settled_contracts.count()
+    # 按主合同分组统计，避免重复计算
+    # settlement_amount 是合同的结算总价，同一合同的多笔付款会重复这个值
+    settlement_by_contract = {}
     
-    # 统计结算总金额
-    total_amount = queryset.aggregate(total=Sum('settlement_amount'))['total'] or Decimal('0')
+    for payment in queryset:
+        if not payment.contract:
+            continue
+        
+        # 确定主合同编号
+        if payment.contract.file_positioning == '主合同':
+            main_contract_code = payment.contract.contract_code
+        elif payment.contract.parent_contract:
+            main_contract_code = payment.contract.parent_contract.contract_code
+        else:
+            # 补充协议但没有父合同，跳过
+            continue
+        
+        # 每个主合同只记录一次结算金额（取第一次遇到的值）
+        if main_contract_code not in settlement_by_contract:
+            settlement_by_contract[main_contract_code] = payment.settlement_amount or Decimal('0')
     
-    # 平均结算金额
-    avg_amount = queryset.aggregate(avg=Avg('settlement_amount'))['avg'] or Decimal('0')
+    # 统计已结算的合同数量
+    total_count = len(settlement_by_contract)
+    
+    # 统计结算总金额 - 按合同去重后求和
+    total_amount = sum(settlement_by_contract.values())
+    
+    # 平均结算金额（按合同平均）
+    avg_amount = total_amount / total_count if total_count > 0 else Decimal('0')
     
     # 按年份统计
     yearly_stats = queryset.annotate(
         year=TruncYear('payment_date')
     ).values('year').annotate(
-        count=Count('contract', distinct=True),
+        count=Count('payment_code'),
         amount=Sum('settlement_amount')
     ).order_by('year')
     
@@ -469,10 +505,9 @@ def get_settlement_statistics(year=None, project_codes=None):
     total_main_contracts = main_contracts_query.count()
     settlement_rate = round(total_count / total_main_contracts * 100, 2) if total_main_contracts > 0 else 0
     
-    # 待结算合同统计 - 排除已经有结算付款的合同
-    settled_contract_ids = queryset.values_list('contract_id', flat=True).distinct()
+    # 待结算合同统计 - 排除已有结算付款的主合同
     pending_settlements = main_contracts_query.exclude(
-        contract_code__in=settled_contract_ids
+        contract_code__in=settlement_by_contract.keys()
     )
     
     pending_count = pending_settlements.count()
@@ -480,30 +515,23 @@ def get_settlement_statistics(year=None, project_codes=None):
     for contract in pending_settlements:
         pending_amount += contract.get_contract_with_supplements_amount()
     
-    # 结算与合同差异分析 - 按合同分组统计
+    # 结算与合同差异分析 - 使用去重后的结算数据
     variance_analysis = []
     
-    # 获取每个合同的结算金额（使用Python去重）
-    seen_contracts = set()
-    for payment in queryset.select_related('contract'):
-        contract = payment.contract
-        if not contract or contract.contract_code in seen_contracts:
+    for contract_code, settlement_amount in settlement_by_contract.items():
+        try:
+            contract = Contract.objects.get(contract_code=contract_code)
+        except Contract.DoesNotExist:
             continue
         
-        seen_contracts.add(contract.contract_code)
-        
         # 获取合同总额（主合同+补充协议）
-        if contract.file_positioning == '主合同':
-            contract_amount = contract.get_contract_with_supplements_amount()
-        else:
-            contract_amount = contract.contract_amount or Decimal('0')
+        contract_amount = contract.get_contract_with_supplements_amount()
         
-        settlement_amount = payment.settlement_amount or Decimal('0')
         variance = settlement_amount - contract_amount
         variance_rate = float(variance / contract_amount * 100) if contract_amount > 0 else 0
         
         variance_analysis.append({
-            'settlement_code': payment.payment_code,
+            'settlement_code': contract_code,
             'contract_amount': float(contract_amount) / 10000,  # 转换为万元
             'settlement_amount': float(settlement_amount) / 10000,  # 转换为万元
             'variance': float(variance) / 10000,  # 转换为万元

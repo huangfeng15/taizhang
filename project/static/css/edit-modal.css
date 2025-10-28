@@ -1,0 +1,263 @@
+/**
+ * 编辑模态框样式
+ * 提供美观的表单编辑界面
+ */
+
+/* 模态框样式优化 */
+#editModal .modal-dialog {
+    max-width: 800px;
+}
+
+#editModal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: none;
+    padding: 1.5rem;
+}
+
+#editModal .modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+#editModal .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+#editModal .modal-body {
+    padding: 2rem;
+    max-height: calc(100vh - 250px);
+    overflow-y: auto;
+}
+
+#editModal .modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 1rem 2rem;
+    background-color: #f8f9fa;
+}
+
+/* 表单字段样式 */
+#editModal .form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+#editModal .form-label .text-danger {
+    margin-left: 0.25rem;
+}
+
+#editModal .form-control,
+#editModal .form-select {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#editModal .form-control:focus,
+#editModal .form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+#editModal .form-control[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+#editModal textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+#editModal .form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+#editModal .invalid-feedback {
+    font-size: 0.875rem;
+    color: #dc3545;
+    margin-top: 0.25rem;
+}
+
+/* 按钮样式 */
+#editModal .btn {
+    padding: 0.625rem 1.25rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease-in-out;
+}
+
+#editModal .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+#editModal .btn-primary:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #63408a 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+#editModal .btn-primary:disabled {
+    background: linear-gradient(135deg, #a8b3f0 0%, #b093c9 100%);
+    transform: none;
+    box-shadow: none;
+}
+
+#editModal .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+#editModal .btn-secondary:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+    transform: translateY(-1px);
+}
+
+/* 错误提示样式 */
+#editModal .alert {
+    border-radius: 0.375rem;
+    margin-bottom: 1.5rem;
+}
+
+#editModal .alert ul {
+    padding-left: 1.5rem;
+}
+
+/* 加载动画 */
+#editModal .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Toast通知样式 */
+.toast-container {
+    z-index: 9999;
+}
+
+.toast {
+    min-width: 300px;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.toast-body {
+    padding: 0.75rem 1rem;
+}
+
+/* 编辑按钮样式 */
+.btn-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-edit:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #63408a 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+.btn-edit:active {
+    transform: translateY(0);
+}
+
+.btn-edit i {
+    font-size: 1rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #editModal .modal-dialog {
+        max-width: 95%;
+        margin: 0.5rem auto;
+    }
+
+    #editModal .modal-body {
+        padding: 1.5rem 1rem;
+    }
+
+    #editModal .modal-footer {
+        padding: 1rem;
+    }
+
+    .btn-edit {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* 日期输入样式优化 */
+#editModal input[type="date"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+/* 复选框样式 */
+#editModal .form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+    cursor: pointer;
+}
+
+#editModal .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+#editModal .form-check-label {
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+/* 数字输入样式 */
+#editModal input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+#editModal input[type="number"]::-webkit-outer-spin-button,
+#editModal input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 平滑滚动 */
+#editModal .modal-body {
+    scroll-behavior: smooth;
+}
+
+#editModal .modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+#editModal .modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#editModal .modal-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#editModal .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

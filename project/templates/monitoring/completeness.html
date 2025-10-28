@@ -623,7 +623,7 @@
 
     <!-- 项目字段完整性排行榜 -->
     <div class="main-content-card">
-        <div class="card-header-custom" style="background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);">
+        <div id="ranking-section" class="card-header-custom" style="background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);">
             <h5>
                 <i class="fas fa-trophy"></i> 项目字段完整性排行榜
             </h5>
@@ -631,7 +631,7 @@
 
         <div class="info-note">
             <i class="fas fa-info-circle"></i>
-            综合评估各项目在采购、合同模块的字段填写完整度
+            综合评估所有项目在采购、合同模块的字段填写完整度（共 {{ ranking_page_obj.paginator.count }} 个项目）
         </div>
 
         <div class="table-responsive">
@@ -648,8 +648,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% if project_rankings %}
-                        {% for item in project_rankings %}
+                    {% if ranking_page_obj %}
+                        {% for item in ranking_page_obj %}
                         <tr>
                             <td>
                                 <span class="rank-badge {% if item.rank == 1 %}rank-1{% elif item.rank == 2 %}rank-2{% elif item.rank == 3 %}rank-3{% else %}rank-other{% endif %}">
@@ -690,6 +690,13 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- 排行榜分页 -->
+        {% if ranking_page_obj.has_other_pages %}
+        <div style="margin-top: 20px;">
+            {% include 'pagination_custom.html' with page_obj=ranking_page_obj page_param='ranking_page' querystring=ranking_pagination_query anchor_id='ranking-section' %}
+        </div>
+        {% endif %}
     </div>
 
     <!-- 字段齐全性详情(标签页) -->

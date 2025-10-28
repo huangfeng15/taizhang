@@ -17,6 +17,12 @@ class ProjectAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     list_per_page = 50
     
+    # 添加自定义CSS（全局注入到admin模板）
+    class Media:
+        css = {
+            'all': ('css/admin-fix.css',),
+        }
+    
     fieldsets = (
         ('基本信息', {
             'fields': ('project_code', 'project_name', 'description')

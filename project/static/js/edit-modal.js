@@ -1,0 +1,219 @@
+/**
+ * 通用编辑模态框处理脚本
+ * 提供前端编辑功能，替代Django Admin界面
+ */
+
+class EditModal {
+    constructor() {
+        this.modal = null;
+        this.modalElement = null;
+        this.init();
+    }
+
+    init() {
+        // 创建模态框容器
+        this.createModalContainer();
+        
+        // 绑定编辑按钮点击事件
+        this.bindEditButtons();
+    }
+
+    createModalContainer() {
+        // 检查是否已存在模态框
+        if (document.getElementById('editModal')) {
+            return;
+        }
+
+        // 创建模态框HTML
+        const modalHTML = `
+            <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div id="editModalContent">
+                        <!-- 内容将通过AJAX加载 -->
+                        <div class="modal-content">
+                            <div class="modal-body text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                                <p class="mt-3 text-muted">正在加载表单...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 添加到页面
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // 初始化Bootstrap模态框
+        this.modalElement = document.getElementById('editModal');
+        this.modal = new bootstrap.Modal(this.modalElement);
+
+        // 模态框关闭时清理内容
+        this.modalElement.addEventListener('hidden.bs.modal', () => {
+            document.getElementById('editModalContent').innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3 text-muted">正在加载表单...</p>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    bindEditButtons() {
+        // 使用事件委托处理动态添加的编辑按钮
+        document.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('[data-edit-url]');
+            if (editBtn) {
+                e.preventDefault();
+                const editUrl = editBtn.dataset.editUrl;
+                this.loadForm(editUrl);
+            }
+        });
+    }
+
+    async loadForm(url) {
+        try {
+            // 显示模态框
+            this.modal.show();
+
+            // 加载表单
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const html = await response.text();
+            document.getElementById('editModalContent').innerHTML = html;
+
+            // 绑定表单提交事件
+            this.bindFormSubmit();
+
+        } catch (error) {
+            console.error('加载表单失败:', error);
+            this.showError('加载表单失败，请稍后重试');
+        }
+    }
+
+    bindFormSubmit() {
+        const form = document.getElementById('editForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            const submitUrl = form.action;
+
+            try {
+                // 禁用提交按钮
+                const submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+
+                const response = await fetch(submitUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 成功提示
+                    this.showSuccess(data.message || '保存成功');
+                    
+                    // 关闭模态框
+                    this.modal.hide();
+
+                    // 刷新页面以显示更新后的数据
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    // 显示错误信息
+                    this.showError(data.message || '保存失败');
+                    
+                    // 重新启用提交按钮
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '保存';
+                }
+
+            } catch (error) {
+                console.error('提交表单失败:', error);
+                this.showError('提交失败，请稍后重试');
+                
+                // 重新启用提交按钮
+                const submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '保存';
+            }
+        });
+    }
+
+    showSuccess(message) {
+        this.showToast(message, 'success');
+    }
+
+    showError(message) {
+        this.showToast(message, 'danger');
+    }
+
+    showToast(message, type = 'info') {
+        // 创建Toast容器（如果不存在）
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '9999';
+            document.body.appendChild(toastContainer);
+        }
+
+        // 创建Toast
+        const toastId = 'toast-' + Date.now();
+        const toastHTML = `
+            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+
+        // 显示Toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: 3000
+        });
+        toast.show();
+
+        // Toast隐藏后移除元素
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', () => {
+    new EditModal();
+});

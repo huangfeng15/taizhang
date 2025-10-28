@@ -262,6 +262,13 @@
                     <div class="label">年报</div>
                     <div class="description">年度数据总结</div>
                 </label>
+                
+                <label class="report-type-card" for="project">
+                    <input type="radio" name="report_type" id="project" value="project">
+                    <div class="icon">📋</div>
+                    <div class="label">项目报告</div>
+                    <div class="description">项目全周期报告</div>
+                </label>
             </div>
         </div>
         
@@ -341,6 +348,22 @@
                     </select>
                 </div>
             </div>
+            
+            <!-- 项目报告参数 -->
+            <div id="projectFields" class="dynamic-fields">
+                <div class="form-group">
+                    <label for="project_code">选择项目：</label>
+                    <select id="project_code" name="project_code">
+                        <option value="">请选择项目</option>
+                        {% for project in selected_projects %}
+                        <option value="{{ project.project_code }}">
+                            {{ project.project_name }} ({{ project.project_code }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small style="color: #666;">生成该项目的全生命周期管理报告</small>
+                </div>
+            </div>
         </div>
         
         <div class="action-buttons">
@@ -349,6 +372,9 @@
             </button>
             <button type="submit" name="export_format" value="excel" class="btn btn-secondary">
                 📥 导出Excel
+            </button>
+            <button type="submit" name="export_format" value="word" class="btn btn-secondary" style="background-color: #ff9800;">
+                📄 导出Word
             </button>
         </div>
     </form>
@@ -361,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportTypeCards = document.querySelectorAll('.report-type-card');
     const reportTypeRadios = document.querySelectorAll('input[name="report_type"]');
     const dynamicFields = document.querySelectorAll('.dynamic-fields');
+    const form = document.getElementById('reportForm');
     
     // 切换报表类型
     function switchReportType(type) {
@@ -370,7 +397,20 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 显示对应的参数字段
         dynamicFields.forEach(field => field.classList.remove('active'));
-        document.getElementById(`${type}Fields`).classList.add('active');
+        const targetFields = document.getElementById(`${type}Fields`);
+        if (targetFields) {
+            targetFields.classList.add('active');
+        }
+        
+        // 动态控制project_code的required属性
+        const projectCodeSelect = document.getElementById('project_code');
+        if (projectCodeSelect) {
+            if (type === 'project') {
+                projectCodeSelect.setAttribute('required', 'required');
+            } else {
+                projectCodeSelect.removeAttribute('required');
+            }
+        }
     }
     
     // 监听单选按钮变化
@@ -414,6 +454,82 @@ document.addEventListener('DOMContentLoaded', function() {
     if (projectSelect) {
         projectSelect.addEventListener('change', function() {
             syncFilterToHiddenField();
+        });
+    }
+    
+    // 处理表单提交 - 使用fetch下载文件
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitButton = e.submitter;
+            if (!submitButton) return;
+            
+            const exportFormat = submitButton.value;
+            
+            // 预览模式直接提交表单
+            if (exportFormat === 'preview') {
+                form.submit();
+                return;
+            }
+            
+            // Excel和Word导出使用fetch处理文件下载
+            const originalHTML = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+            
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('生成报表失败');
+                }
+                
+                // 从响应头获取文件名
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = `报表_${new Date().getTime()}.${exportFormat === 'excel' ? 'xlsx' : 'docx'}`;
+                
+                if (contentDisposition) {
+                    const matches = contentDisposition.match(/filename\*=UTF-8''(.+)|filename="?([^"]+)"?/);
+                    if (matches) {
+                        filename = decodeURIComponent(matches[1] || matches[2]);
+                    }
+                }
+                
+                return response.blob().then(blob => ({blob, filename}));
+            })
+            .then(({blob, filename}) => {
+                // 创建下载链接
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // 恢复按钮
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalHTML;
+                
+                alert('报表生成成功!');
+            })
+            .catch(error => {
+                console.error('下载失败:', error);
+                alert('生成报表失败: ' + error.message);
+                
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalHTML;
+            });
         });
     }
 });

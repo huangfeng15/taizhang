@@ -407,6 +407,12 @@ class Command(BaseCommand):
             'skipped': 0,
         }
         errors = []
+        error_details = {
+            '数据验证错误': [],
+            '关联数据不存在': [],
+            '数据格式错误': [],
+            '其他错误': [],
+        }
         
         # 第一遍：只导入主合同
         self.stdout.write(self.style.SUCCESS('\n>>> 第一遍：导入主合同'))
@@ -711,7 +717,7 @@ class Command(BaseCommand):
                 continue
 
             amount = self._parse_decimal(record.get('value'))
-            if amount is None or amount <= 0:
+            if amount is None:
                 stats['skipped'] += 1
                 stats['success_rows'] += 1
                 continue
@@ -1466,7 +1472,7 @@ class Command(BaseCommand):
         period = row['period']  # 日期列标签
         amount = self._parse_decimal(row['value'])
         
-        if amount is None or amount <= 0:
+        if amount is None:
             return 'skipped'
         
         # 尝试通过合同序号查找(优先),如果失败则通过合同编号查找
