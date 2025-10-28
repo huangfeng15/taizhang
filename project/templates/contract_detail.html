@@ -21,14 +21,112 @@
             <i class="fas fa-arrow-left"></i>
             返回列表
         </a>
-        <a href="/admin/contract/contract/{{ contract.contract_code }}/change/" class="btn btn-primary">
+        <button type="button" class="btn btn-primary" onclick="openEditModal()">
             <i class="fas fa-edit"></i>
             编辑合同
-        </a>
+        </button>
         <a href="/admin/contract/contract/{{ contract.contract_code }}/delete/" class="btn btn-error">
             <i class="fas fa-trash"></i>
             删除合同
         </a>
+    </div>
+</div>
+
+<!-- 编辑模态框 -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">编辑合同信息</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" method="post" action="{% url 'contract_edit' contract.contract_code %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="contract_code" class="form-label">合同编号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="contract_code" name="contract_code" value="{{ contract.contract_code }}" readonly disabled>
+                        <div class="form-text">合同编号不能包含 / \ ? # 等URL特殊字符，例如: HT2025001</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="contract_name" class="form-label">合同名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="contract_name" name="contract_name" value="{{ contract.contract_name }}" required>
+                        <div class="form-text">合同的正式名称</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="file_positioning" class="form-label">文件定位</label>
+                            <select class="form-control" id="file_positioning" name="file_positioning">
+                                <option value="主合同" {% if contract.file_positioning == '主合同' %}selected{% endif %}>主合同</option>
+                                <option value="补充协议" {% if contract.file_positioning == '补充协议' %}selected{% endif %}>补充协议</option>
+                                <option value="解除协议" {% if contract.file_positioning == '解除协议' %}selected{% endif %}>解除协议</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="contract_source" class="form-label">合同来源</label>
+                            <select class="form-control" id="contract_source" name="contract_source">
+                                <option value="采购合同" {% if contract.contract_source == '采购合同' %}selected{% endif %}>采购合同</option>
+                                <option value="直接签订" {% if contract.contract_source == '直接签订' %}selected{% endif %}>直接签订</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="party_a" class="form-label">甲方</label>
+                            <input type="text" class="form-control" id="party_a" name="party_a" value="{{ contract.party_a|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="party_b" class="form-label">乙方</label>
+                            <input type="text" class="form-control" id="party_b" name="party_b" value="{{ contract.party_b|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="contract_amount" class="form-label">合同金额（元）</label>
+                            <input type="number" class="form-control" id="contract_amount" name="contract_amount" value="{{ contract.contract_amount|default:'' }}" step="0.01">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="signing_date" class="form-label">签订日期</label>
+                            <input type="date" class="form-control" id="signing_date" name="signing_date" value="{{ contract.signing_date|date:'Y-m-d'|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="contract_officer" class="form-label">签订经办人</label>
+                            <input type="text" class="form-control" id="contract_officer" name="contract_officer" value="{{ contract.contract_officer|default:'' }}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="archive_date" class="form-label">归档日期</label>
+                            <input type="date" class="form-control" id="archive_date" name="archive_date" value="{{ contract.archive_date|date:'Y-m-d'|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">支付方式</label>
+                        <textarea class="form-control" id="payment_method" name="payment_method" rows="2">{{ contract.payment_method|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="duration" class="form-label">合同工期/服务期限</label>
+                        <textarea class="form-control" id="duration" name="duration" rows="2">{{ contract.duration|default:'' }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveContract()" id="saveBtn">保存</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -503,4 +601,53 @@
     color: #333;
 }
 </style>
+
+<script>
+// 打开编辑模态框
+function openEditModal() {
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+}
+
+// 保存合同信息
+async function saveContract() {
+    const form = document.getElementById('editForm');
+    const saveBtn = document.getElementById('saveBtn');
+    const formData = new FormData(form);
+    
+    // 禁用保存按钮，防止重复提交
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+    
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // 成功提示
+            alert('保存成功！页面即将刷新...');
+            // 刷新页面以显示最新数据
+            window.location.reload();
+        } else {
+            // 错误提示
+            alert('保存失败：' + (result.message || '未知错误'));
+            // 恢复按钮状态
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    } catch (error) {
+        alert('保存失败：' + error.message);
+        // 恢复按钮状态
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存';
+    }
+}
+</script>
 {% endblock %}

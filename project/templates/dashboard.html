@@ -20,7 +20,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">项目总数</div>
-            <div class="stat-value">{{ stats.project_count }}</div>
+            <div class="stat-value">{{ stats.project_count }} 个</div>
         </div>
     </div>
     
@@ -30,7 +30,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">采购项目</div>
-            <div class="stat-value">{{ stats.procurement_count }}</div>
+            <div class="stat-value">{{ stats.procurement_count }} 个</div>
         </div>
     </div>
     
@@ -40,7 +40,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">合同总数</div>
-            <div class="stat-value">{{ stats.contract_count }}</div>
+            <div class="stat-value">{{ stats.contract_count }} 份</div>
         </div>
     </div>
     
@@ -50,7 +50,7 @@
         </div>
         <div class="stat-content">
             <div class="stat-label">合同总金额</div>
-            <div class="stat-value">{{ stats.total_amount|floatformat:0 }}</div>
+            <div class="stat-value">{{ stats.total_amount_wan|floatformat:2 }} 万元</div>
         </div>
     </div>
 </div>

@@ -204,10 +204,10 @@
                             <i class="fas fa-eye"></i>
                             查看
                         </a>
-                        <a href="/admin/contract/contract/{{ contract.contract_code }}/change/" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="openEditModal('{{ contract.contract_code }}')">
                             <i class="fas fa-edit"></i>
                             编辑
-                        </a>
+                        </button>
                     </td>
                 </tr>
                 {% endwith %}
@@ -228,6 +228,29 @@
     
     <!-- 分页 -->
     {% include 'pagination.html' with module_type='contract' %}
+</div>
+
+<!-- 编辑模态框 -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">编辑合同信息</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveContract()" id="saveBtn">保存</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -623,5 +646,56 @@
             });
         });
     });
+    
+    // 打开编辑模态框
+    async function openEditModal(contractCode) {
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        const modalBody = document.getElementById('modalBody');
+        
+        modal.show();
+        
+        try {
+            const response = await fetch(`/contracts/${contractCode}/edit/`);
+            const html = await response.text();
+            modalBody.innerHTML = html;
+        } catch (error) {
+            modalBody.innerHTML = '<div class="alert alert-danger">加载表单失败：' + error.message + '</div>';
+        }
+    }
+    
+    // 保存合同信息
+    async function saveContract() {
+        const form = document.querySelector('#editModal form');
+        const saveBtn = document.getElementById('saveBtn');
+        const formData = new FormData(form);
+        
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+        
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('保存成功！页面即将刷新...');
+                window.location.reload();
+            } else {
+                alert('保存失败：' + (result.message || '未知错误'));
+                saveBtn.disabled = false;
+                saveBtn.textContent = '保存';
+            }
+        } catch (error) {
+            alert('保存失败：' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
 </script>
 {% endblock %}

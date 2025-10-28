@@ -374,11 +374,13 @@ def dashboard(request):
         payment_scope = payment_scope.filter(payment_date__year=year_filter)
 
     # 统计数据 - 每次访问时实时计算
+    total_amount_yuan = contract_scope.aggregate(Sum('contract_amount'))['contract_amount__sum'] or 0
     stats = {
         'project_count': project_scope.count(),
         'procurement_count': procurement_scope.count(),
         'contract_count': contract_scope.count(),
-        'total_amount': contract_scope.aggregate(Sum('contract_amount'))['contract_amount__sum'] or 0,
+        'total_amount': total_amount_yuan,
+        'total_amount_wan': round(float(total_amount_yuan) / 10000, 2),  # 转换为万元
     }
     
     # 项目列表(前5个) - 实时计算每个项目的统计数据
