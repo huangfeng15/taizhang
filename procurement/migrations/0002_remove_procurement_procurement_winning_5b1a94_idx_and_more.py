@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='procurement',
             name='bid_awarding_method',
-            field=models.CharField(blank=True, help_text='例如: 委员会评审法、最低价法', max_length=50, verbose_name='定标方法'),
+            field=models.CharField(blank=True, help_text='例如: 竞争定标法、票决定标法、集体议事法、最低价法、综合评审法', max_length=50, verbose_name='定标方法'),
         ),
         migrations.AddField(
             model_name='procurement',

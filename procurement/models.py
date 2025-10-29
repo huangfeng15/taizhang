@@ -94,7 +94,7 @@ class Procurement(BaseModel):
         max_length=100,
         blank=True,
         choices=get_enum_choices(ProcurementCategory),
-        help_text='采购类别，例如：货物、工程、服务'
+        help_text=f'采购类别，可选值：{", ".join([c.label for c in ProcurementCategory])}'
     )
 
     procurement_platform = models.CharField(

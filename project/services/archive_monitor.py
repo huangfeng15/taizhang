@@ -6,6 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from procurement.models import Procurement
 from contract.models import Contract
+from project.enums import FilePositioning
 
 
 class ArchiveMonitorService:

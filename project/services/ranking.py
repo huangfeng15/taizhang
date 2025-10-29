@@ -66,7 +66,11 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
     )
     
     if rank_type == 'project':
-        # 按项目排名
+        # 获取所有项目
+        all_projects = Project.objects.all()
+        project_data = {}
+        
+        # 统计有数据的项目
         rankings = queryset.values('project__project_code', 'project__project_name').annotate(
             total_count=Count('procurement_code'),
             # 按时完成：result_publicity_release_date <= planned_completion_date
@@ -82,8 +86,22 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
             )
         ).order_by('-on_time_count', '-total_count')
         
+        # 构建项目数据字典
+        for item in rankings:
+            project_data[item['project__project_code']] = item
+        
         result = []
-        for idx, item in enumerate(rankings, 1):
+        rank_idx = 1
+        
+        # 遍历所有项目，确保包含没有数据的项目
+        for project in all_projects:
+            code = project.project_code
+            item = project_data.get(code, {
+                'total_count': 0,
+                'on_time_count': 0,
+                'avg_advance_days': None
+            })
+            
             total = item['total_count']
             on_time = item['on_time_count']
             on_time_rate = (on_time / total * 100) if total > 0 else 0
@@ -102,15 +120,24 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
                 advance_text = "-"
             
             result.append({
-                'rank': idx,
-                'name': item['project__project_name'] or '未分配项目',
-                'project_code': item['project__project_code'],
+                'rank': rank_idx,
+                'name': project.project_name or '未分配项目',
+                'project_code': project.project_code,
                 'total_count': total,
                 'on_time_count': on_time,
                 'on_time_rate': round(on_time_rate, 1),
                 'advance_text': advance_text,
-                'medal': get_medal(idx)
+                'medal': get_medal(rank_idx)
             })
+            rank_idx += 1
+        
+        # 按准时率重新排序
+        result.sort(key=lambda x: (-x['on_time_rate'], -x['total_count']))
+        
+        # 重新分配排名
+        for idx, item in enumerate(result, 1):
+            item['rank'] = idx
+            item['medal'] = get_medal(idx)
     else:
         # 按采购经办人排名
         rankings = queryset.values('procurement_officer').annotate(
@@ -193,6 +220,11 @@ def get_procurement_cycle_ranking(rank_type='project', year=None, method=None):
     )
     
     if rank_type == 'project':
+        # 获取所有项目
+        all_projects = Project.objects.all()
+        project_data = {}
+        
+        # 统计有数据的项目
         rankings = queryset.values('project__project_code', 'project__project_name').annotate(
             total_count=Count('procurement_code'),
             avg_cycle=Avg(
@@ -203,18 +235,40 @@ def get_procurement_cycle_ranking(rank_type='project', year=None, method=None):
             )
         ).order_by('avg_cycle')  # 升序：周期越短排名越高
         
+        # 构建项目数据字典
+        for item in rankings:
+            project_data[item['project__project_code']] = item
+        
         result = []
-        for idx, item in enumerate(rankings, 1):
+        rank_idx = 1
+        
+        # 遍历所有项目，确保包含没有数据的项目
+        for project in all_projects:
+            code = project.project_code
+            item = project_data.get(code, {
+                'total_count': 0,
+                'avg_cycle': None
+            })
+            
             avg_days = item['avg_cycle'].days if item['avg_cycle'] else 0
             
             result.append({
-                'rank': idx,
-                'name': item['project__project_name'] or '未分配项目',
-                'project_code': item['project__project_code'],
+                'rank': rank_idx,
+                'name': project.project_name or '未分配项目',
+                'project_code': project.project_code,
                 'total_count': item['total_count'],
                 'avg_cycle_days': avg_days,
-                'medal': get_medal(idx)
+                'medal': get_medal(rank_idx)
             })
+            rank_idx += 1
+        
+        # 按平均周期排序（没有数据的项目排在后面）
+        result.sort(key=lambda x: (x['avg_cycle_days'] == 0, x['avg_cycle_days']))
+        
+        # 重新分配排名
+        for idx, item in enumerate(result, 1):
+            item['rank'] = idx
+            item['medal'] = get_medal(idx)
     else:
         rankings = queryset.values('procurement_officer').annotate(
             total_count=Count('procurement_code'),
@@ -279,25 +333,52 @@ def get_procurement_quantity_ranking(rank_type='project', year=None):
             months = 1
     
     if rank_type == 'project':
+        # 获取所有项目
+        all_projects = Project.objects.all()
+        project_data = {}
+        
+        # 统计有数据的项目
         rankings = queryset.values('project__project_code', 'project__project_name').annotate(
             total_count=Count('procurement_code'),
             total_amount=Sum('winning_amount')
         ).order_by('-total_count')
         
+        # 构建项目数据字典
+        for item in rankings:
+            project_data[item['project__project_code']] = item
+        
         result = []
-        for idx, item in enumerate(rankings, 1):
+        rank_idx = 1
+        
+        # 遍历所有项目，确保包含没有数据的项目
+        for project in all_projects:
+            code = project.project_code
+            item = project_data.get(code, {
+                'total_count': 0,
+                'total_amount': 0
+            })
+            
             total = item['total_count']
             monthly_avg = total / months
             
             result.append({
-                'rank': idx,
-                'name': item['project__project_name'] or '未分配项目',
-                'project_code': item['project__project_code'],
+                'rank': rank_idx,
+                'name': project.project_name or '未分配项目',
+                'project_code': project.project_code,
                 'total_count': total,
                 'monthly_avg': round(monthly_avg, 2),
                 'total_amount': item['total_amount'] or 0,
-                'medal': get_medal(idx)
+                'medal': get_medal(rank_idx)
             })
+            rank_idx += 1
+        
+        # 按总数量重新排序
+        result.sort(key=lambda x: (-x['total_count'], -x['total_amount']))
+        
+        # 重新分配排名
+        for idx, item in enumerate(result, 1):
+            item['rank'] = idx
+            item['medal'] = get_medal(idx)
     else:
         rankings = queryset.values('procurement_officer').annotate(
             total_count=Count('procurement_code'),
@@ -465,6 +546,8 @@ def get_archive_speed_ranking(rank_type='project', year=None):
             
             total_count = proc_qs.count() + contract_qs.count()
             
+            # 计算平均归档周期（即使没有数据也要包含）
+            avg_cycle_days = 0
             if total_count > 0:
                 proc_avg = proc_qs.aggregate(
                     avg=Avg(ExpressionWrapper(
@@ -480,23 +563,23 @@ def get_archive_speed_ranking(rank_type='project', year=None):
                     ))
                 )['avg']
                 
-                avg_cycle_days = 0
                 if proc_avg and contract_avg:
                     avg_cycle_days = (proc_avg.days + contract_avg.days) / 2
                 elif proc_avg:
                     avg_cycle_days = proc_avg.days
                 elif contract_avg:
                     avg_cycle_days = contract_avg.days
-                
-                result.append({
-                    'name': project.project_name,
-                    'project_code': project.project_code,
-                    'total_count': total_count,
-                    'avg_cycle_days': int(avg_cycle_days)
-                })
+            
+            # 包含所有项目，包括没有归档数据的项目
+            result.append({
+                'name': project.project_name,
+                'project_code': project.project_code,
+                'total_count': total_count,
+                'avg_cycle_days': int(avg_cycle_days)
+            })
         
-        # 按平均周期排序（升序）
-        result.sort(key=lambda x: x['avg_cycle_days'])
+        # 按平均周期排序（没有数据的项目排在后面）
+        result.sort(key=lambda x: (x['avg_cycle_days'] == 0, x['avg_cycle_days']))
         
         # 添加排名和奖牌
         for idx, item in enumerate(result, 1):
@@ -544,21 +627,48 @@ def get_contract_ranking(rank_type='project', year=None):
         queryset = queryset.filter(signing_date__year=year)
     
     if rank_type == 'project':
+        # 获取所有项目
+        all_projects = Project.objects.all()
+        project_data = {}
+        
+        # 统计有数据的项目
         rankings = queryset.values('project__project_code', 'project__project_name').annotate(
             total_count=Count('contract_code'),
             total_amount=Coalesce(Sum('contract_amount'), Value(0), output_field=DecimalField())
         ).order_by('-total_count')
         
+        # 构建项目数据字典
+        for item in rankings:
+            project_data[item['project__project_code']] = item
+        
         result = []
-        for idx, item in enumerate(rankings, 1):
+        rank_idx = 1
+        
+        # 遍历所有项目，确保包含没有数据的项目
+        for project in all_projects:
+            code = project.project_code
+            item = project_data.get(code, {
+                'total_count': 0,
+                'total_amount': 0
+            })
+            
             result.append({
-                'rank': idx,
-                'name': item['project__project_name'] or '未分配项目',
-                'project_code': item['project__project_code'],
+                'rank': rank_idx,
+                'name': project.project_name or '未分配项目',
+                'project_code': project.project_code,
                 'total_count': item['total_count'],
                 'total_amount': item['total_amount'],
-                'medal': get_medal(idx)
+                'medal': get_medal(rank_idx)
             })
+            rank_idx += 1
+        
+        # 按总数量重新排序
+        result.sort(key=lambda x: (-x['total_count'], -x['total_amount']))
+        
+        # 重新分配排名
+        for idx, item in enumerate(result, 1):
+            item['rank'] = idx
+            item['medal'] = get_medal(idx)
         
         return result
     
@@ -576,21 +686,48 @@ def get_settlement_ranking(rank_type='project'):
     queryset = Settlement.objects.all()
     
     if rank_type == 'project':
+        # 获取所有项目
+        all_projects = Project.objects.all()
+        project_data = {}
+        
+        # 统计有数据的项目
         rankings = queryset.values('main_contract__project__project_code', 'main_contract__project__project_name').annotate(
             total_count=Count('settlement_code'),
             total_amount=Coalesce(Sum('final_amount'), Value(0), output_field=DecimalField())
         ).order_by('-total_count')
         
+        # 构建项目数据字典
+        for item in rankings:
+            project_data[item['main_contract__project__project_code']] = item
+        
         result = []
-        for idx, item in enumerate(rankings, 1):
+        rank_idx = 1
+        
+        # 遍历所有项目，确保包含没有数据的项目
+        for project in all_projects:
+            code = project.project_code
+            item = project_data.get(code, {
+                'total_count': 0,
+                'total_amount': 0
+            })
+            
             result.append({
-                'rank': idx,
-                'name': item['main_contract__project__project_name'] or '未分配项目',
-                'project_code': item['main_contract__project__project_code'],
+                'rank': rank_idx,
+                'name': project.project_name or '未分配项目',
+                'project_code': project.project_code,
                 'total_count': item['total_count'],
                 'total_amount': item['total_amount'],
-                'medal': get_medal(idx)
+                'medal': get_medal(rank_idx)
             })
+            rank_idx += 1
+        
+        # 按总数量重新排序
+        result.sort(key=lambda x: (-x['total_count'], -x['total_amount']))
+        
+        # 重新分配排名
+        for idx, item in enumerate(result, 1):
+            item['rank'] = idx
+            item['medal'] = get_medal(idx)
         
         return result
     
@@ -649,17 +786,16 @@ def get_comprehensive_ranking(year=None):
             data_quality_score * 0.2
         )
         
-        # 只统计有业务的项目
-        if proc_on_time_score > 0 or archive_score > 0:
-            result.append({
-                'name': project.project_name,
-                'project_code': project.project_code,
-                'comprehensive_score': round(comprehensive_score, 2),
-                'procurement_score': round(proc_on_time_score, 1),
-                'procurement_cycle_score': round(proc_cycle_score, 1),
-                'archive_score': round(archive_score, 1),
-                'data_quality_score': round(data_quality_score, 1)
-            })
+        # 统计所有项目，包括没有业务数据的项目
+        result.append({
+            'name': project.project_name,
+            'project_code': project.project_code,
+            'comprehensive_score': round(comprehensive_score, 2),
+            'procurement_score': round(proc_on_time_score, 1),
+            'procurement_cycle_score': round(proc_cycle_score, 1),
+            'archive_score': round(archive_score, 1),
+            'data_quality_score': round(data_quality_score, 1)
+        })
     
     # 按综合得分排序
     result.sort(key=lambda x: x['comprehensive_score'], reverse=True)

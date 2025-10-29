@@ -14,6 +14,10 @@ def get_procurement_statistics(year=None, project_codes=None):
     """
     采购统计
     
+    按采购项目名称去重统计：
+    - 相同项目名称只统计一次
+    - 预算金额、中标金额、控制价取该名称下的最大值
+    
     Args:
         year: 统计年份，None表示全部年份，整数表示具体年份
         project_codes: 项目编码列表，None表示全部项目
@@ -26,7 +30,7 @@ def get_procurement_statistics(year=None, project_codes=None):
     # 基础查询集 - 使用select_related和only优化查询
     queryset = Procurement.objects.select_related('project').only(
         'procurement_code', 'project_name', 'procurement_method',
-        'budget_amount', 'winning_amount', 'archive_date',
+        'budget_amount', 'winning_amount', 'control_price', 'archive_date',
         'result_publicity_release_date', 'requirement_approval_date',
         'notice_issue_date', 'planned_completion_date',
         'project__project_code', 'project__project_name'
@@ -41,32 +45,76 @@ def get_procurement_statistics(year=None, project_codes=None):
     if project_codes:
         queryset = queryset.filter(project__project_code__in=project_codes)
     
-    # 基本统计
-    total_count = queryset.count()
-    total_budget = queryset.aggregate(total=Sum('budget_amount'))['total'] or Decimal('0')
-    total_winning = queryset.aggregate(total=Sum('winning_amount'))['total'] or Decimal('0')
+    # 按采购项目名称分组，取每组的最大值
+    # 使用字典存储每个项目名称的最大值
+    project_name_max_values = {}
+    
+    for proc in queryset:
+        project_name = proc.project_name
+        if not project_name:
+            continue
+            
+        if project_name not in project_name_max_values:
+            project_name_max_values[project_name] = {
+                'budget_amount': proc.budget_amount or Decimal('0'),
+                'winning_amount': proc.winning_amount or Decimal('0'),
+                'control_price': proc.control_price or Decimal('0'),
+                'procurement_method': proc.procurement_method,
+                'archive_date': proc.archive_date,
+            }
+        else:
+            # 更新为最大值
+            current = project_name_max_values[project_name]
+            current['budget_amount'] = max(
+                current['budget_amount'],
+                proc.budget_amount or Decimal('0')
+            )
+            current['winning_amount'] = max(
+                current['winning_amount'],
+                proc.winning_amount or Decimal('0')
+            )
+            current['control_price'] = max(
+                current['control_price'],
+                proc.control_price or Decimal('0')
+            )
+            # 归档日期取最新的（非空）
+            if proc.archive_date:
+                if not current['archive_date'] or proc.archive_date > current['archive_date']:
+                    current['archive_date'] = proc.archive_date
+    
+    # 基本统计 - 按项目名称去重后统计
+    total_count = len(project_name_max_values)
+    total_budget = sum(item['budget_amount'] for item in project_name_max_values.values())
+    total_winning = sum(item['winning_amount'] for item in project_name_max_values.values())
+    total_control_price = sum(item['control_price'] for item in project_name_max_values.values())
     
     # 节约率计算
     savings_rate = 0
     if total_budget > 0:
         savings_rate = float((total_budget - total_winning) / total_budget * 100)
     
-    # 采购方式分布
-    procurement_methods = queryset.values('procurement_method').annotate(
-        count=Count('procurement_code'),
-        amount=Sum('winning_amount')
-    ).order_by('-count')
+    # 采购方式分布 - 基于去重后的数据
+    method_stats = {}
+    for project_name, values in project_name_max_values.items():
+        method = values['procurement_method']
+        if method:
+            if method not in method_stats:
+                method_stats[method] = {
+                    'count': 0,
+                    'amount': Decimal('0')
+                }
+            method_stats[method]['count'] += 1
+            method_stats[method]['amount'] += values['winning_amount']
     
     # 处理采购方式数据
     method_distribution = []
-    for method in procurement_methods:
-        if method['procurement_method']:
-            method_distribution.append({
-                'method': method['procurement_method'],
-                'count': method['count'],
-                'amount': float(method['amount'] or 0) / 10000,  # 转换为万元
-                'percentage': round(method['count'] / total_count * 100, 2) if total_count > 0 else 0
-            })
+    for method, stats in sorted(method_stats.items(), key=lambda x: x[1]['count'], reverse=True):
+        method_distribution.append({
+            'method': method,
+            'count': stats['count'],
+            'amount': float(stats['amount']) / 10000,  # 转换为万元
+            'percentage': round(stats['count'] / total_count * 100, 2) if total_count > 0 else 0
+        })
     
     # 采购周期分析（从需求审批到中标通知）
     cycle_data = queryset.filter(
@@ -87,8 +135,8 @@ def get_procurement_statistics(year=None, project_codes=None):
         if count > 0:
             avg_cycle_days = total_days / count
     
-    # 归档情况统计
-    archived_count = queryset.filter(archive_date__isnull=False).count()
+    # 归档情况统计 - 基于去重后的数据
+    archived_count = sum(1 for values in project_name_max_values.values() if values['archive_date'] is not None)
     archive_rate = round(archived_count / total_count * 100, 2) if total_count > 0 else 0
     
     # 月度趋势
@@ -159,6 +207,7 @@ def get_procurement_statistics(year=None, project_codes=None):
         'total_count': total_count,
         'total_budget': float(total_budget) / 10000,  # 转换为万元
         'total_winning': float(total_winning) / 10000,  # 转换为万元
+        'total_control_price': float(total_control_price) / 10000,  # 转换为万元
         'savings_amount': float(total_budget - total_winning) / 10000,  # 转换为万元
         'savings_rate': round(savings_rate, 2),
         'method_distribution': method_distribution,

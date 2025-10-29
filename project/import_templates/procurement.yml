@@ -48,24 +48,206 @@ fields:
     
   - name: "预算金额"
     field: "budget_amount"
-    required: true
+    required: false
     data_type: "decimal"
     decimal_places: 2
     help_text: "采购预算金额，单位：元"
     
-  - name: "中标供应商"
-    field: "winning_supplier"
+  - name: "采购控制价"
+    field: "control_price"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "采购控制价上限，单位：元"
+    
+  - name: "中标金额"
+    field: "winning_amount"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "最终中标金额，单位：元"
+    
+  - name: "采购单位"
+    field: "procurement_unit"
     required: false
     data_type: "string"
     max_length: 200
-    help_text: "中标供应商名称"
+    help_text: "发起采购的部门或单位"
+    
+  - name: "采购类别"
+    field: "procurement_category"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "采购类别，如：工程、货物、服务"
+    
+  - name: "采购平台"
+    field: "procurement_platform"
+    required: false
+    data_type: "string"
+    max_length: 100
+    help_text: "例如：深圳市阳光采购平台"
+    
+  - name: "资格审查方式"
+    field: "qualification_review_method"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "例如：资格预审、资格后审"
+    
+  - name: "评标谈判方式"
+    field: "bid_evaluation_method"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "例如：综合评分法、竞争性谈判"
+    
+  - name: "定标方法"
+    field: "bid_awarding_method"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "例如：票决法、最低价法"
+    
+  - name: "采购经办人"
+    field: "procurement_officer"
+    required: false
+    data_type: "string"
+    max_length: 50
+    help_text: "负责该采购的经办人名称"
+    
+  - name: "需求部门"
+    field: "demand_department"
+    required: false
+    data_type: "string"
+    max_length: 100
+    help_text: "需求方部门名称"
+    
+  - name: "申请人联系电话"
+    field: "demand_contact"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "需求部门申请人联系电话"
+    
+  - name: "中标单位"
+    field: "winning_bidder"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "最终确定的中标供应商"
+    
+  - name: "中标单位联系人及方式"
+    field: "winning_contact"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "中标单位联系人及联系方式"
+    
+  - name: "计划结束采购时间"
+    field: "planned_completion_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "计划采购完成日期"
+    
+  - name: "采购需求书审批完成日期"
+    field: "requirement_approval_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "OA系统中需求书审批完成的日期"
+    
+  - name: "公告发布时间"
+    field: "announcement_release_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "采购公告在平台发布的日期"
+    
+  - name: "报名截止时间"
+    field: "registration_deadline"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "报名截止日期"
+    
+  - name: "开标时间"
+    field: "bid_opening_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "开标的日期"
+    
+  - name: "候选人公示结束时间"
+    field: "candidate_publicity_end_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "候选人公示期的结束日期"
     
   - name: "结果公示发布时间"
     field: "result_publicity_release_date"
     required: false
     data_type: "date"
     format: "%Y-%m-%d"
-    help_text: "中标结果公示的发布日期"
+    help_text: "结果公示发布的日期"
+    
+  - name: "中标通知书发放日期"
+    field: "notice_issue_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "发放中标通知书的日期"
+    
+  - name: "资料归档日期"
+    field: "archive_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "相关资料归档的日期"
+    
+  - name: "评标委员会成员"
+    field: "evaluation_committee"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "评标委员会成员名单，多个成员用逗号分隔"
+    
+  - name: "投标担保形式及金额"
+    field: "bid_guarantee"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "例如：银行保函 500000.00 或 保证金 48000.00"
+    
+  - name: "投标担保退回日期"
+    field: "bid_guarantee_return_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "退还投标担保的日期"
+    
+  - name: "履约担保形式及金额"
+    field: "performance_guarantee"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "例如：银行保函 450000.00"
+    
+  - name: "候选人公示期质疑情况"
+    field: "candidate_publicity_issue"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "记录公示期内质疑的受理与处理情况"
+    
+  - name: "应招未招说明"
+    field: "non_bidding_explanation"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "如从公开招标调整为单一来源或邀请招标需说明原因"
 
 # 验证规则
 validation:

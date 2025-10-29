@@ -87,12 +87,12 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='procurement',
             name='bid_awarding_method',
-            field=models.CharField(blank=True, help_text='例如: 票决法、最低价法', max_length=50, verbose_name='定标方法'),
+            field=models.CharField(blank=True, help_text='例如: 竞争定标法、票决定标法、集体议事法、最低价法、综合评审法', max_length=50, verbose_name='定标方法'),
         ),
         migrations.AlterField(
             model_name='procurement',
             name='bid_evaluation_method',
-            field=models.CharField(blank=True, help_text='例如: 综合评分法、竞争性谈判', max_length=50, verbose_name='评标谈判方式'),
+            field=models.CharField(blank=True, help_text='例如: 综合评分法、竞争性谈判、经评审的合理低价法、最低价法', max_length=50, verbose_name='评标谈判方式'),
         ),
         migrations.AlterField(
             model_name='procurement',

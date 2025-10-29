@@ -23,7 +23,7 @@ from payment.models import Payment
 from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
 from project.validators import validate_code_field, check_url_safe_string
-from project.enums import FilePositioning, get_enum_values
+from project.enums import FilePositioning, get_enum_values, ENUM_ALIASES
 from payment.validators import PaymentDataValidator
 
 logger = logging.getLogger(__name__)
@@ -1112,12 +1112,12 @@ class Command(BaseCommand):
                     'project': project,
                     'project_name': project_name,
                     'procurement_unit': row.get('采购单位', '').strip(),
-                    'procurement_category': row.get('采购类别', '').strip(),
+                    'procurement_category': self._clean_enum_field(row.get('采购类别', ''), 'procurement_category'),
                     'procurement_platform': row.get('采购平台', '').strip(),
-                    'procurement_method': row.get('采购方式', '').strip(),
-                    'qualification_review_method': row.get('资格审查方式', '').strip(),
-                    'bid_evaluation_method': row.get('评标谈判方式', '').strip(),
-                    'bid_awarding_method': row.get('定标方法', '').strip(),
+                    'procurement_method': self._clean_enum_field(row.get('采购方式', ''), 'procurement_method'),
+                    'qualification_review_method': self._clean_enum_field(row.get('资格审查方式', ''), 'qualification_review_method'),
+                    'bid_evaluation_method': self._clean_enum_field(row.get('评标谈判方式', ''), 'bid_evaluation_method'),
+                    'bid_awarding_method': self._clean_enum_field(row.get('定标方法', ''), 'bid_awarding_method'),
                     'budget_amount': self._parse_decimal(row.get('采购预算金额（元）') or row.get('采购预算金额(元)')),
                     'control_price': self._parse_decimal(row.get('采购控制价（元）')),
                     'winning_amount': self._parse_decimal(row.get('中标金额（元）')),
@@ -1664,6 +1664,34 @@ class Command(BaseCommand):
                 return choice
         
         return None
+    
+    def _clean_enum_field(self, value, field_type=None):
+        """
+        清理枚举字段值
+        将 '/' 视为空值，返回空字符串
+        这样可以通过模型验证，且在统计时按0处理
+        
+        同时处理别名映射（从 project.enums.ENUM_ALIASES 读取配置）
+        
+        Args:
+            value: 字段值
+            field_type: 字段类型，如 'bid_evaluation_method'，用于查找对应的别名映射
+        """
+        if value is None:
+            return ''
+        value_str = str(value).strip()
+        
+        # 将 '/' 等空值标记转换为空字符串
+        if value_str in ['/', '-', '—', '无', 'N/A', 'n/a']:
+            return ''
+        
+        # 处理别名映射（从配置文件读取）
+        if field_type and field_type in ENUM_ALIASES:
+            aliases = ENUM_ALIASES[field_type]
+            if value_str in aliases:
+                return aliases[value_str]
+        
+        return value_str
 
     def _categorize_error(self, error_msg):
         """将错误信息分类"""

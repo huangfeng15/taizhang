@@ -62,7 +62,7 @@ fields:
     
   - name: "合同金额"
     field: "contract_amount"
-    required: true
+    required: false
     data_type: "decimal"
     decimal_places: 2
     help_text: "合同总金额，单位：元"
@@ -80,6 +80,111 @@ fields:
     data_type: "choice"
     choices_from_model: true
     help_text: "合同文件存储位置标识"
+    
+  - name: "合同来源"
+    field: "contract_source"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "采购合同或直接签订"
+    
+  - name: "关联主合同编号"
+    field: "parent_contract__contract_code"
+    required: false
+    data_type: "string"
+    max_length: 50
+    help_text: "若为补充协议，则关联主合同编号"
+    
+  - name: "关联采购编号"
+    field: "procurement__procurement_code"
+    required: false
+    data_type: "string"
+    max_length: 50
+    help_text: "当合同来源为采购合同时填写"
+    
+  - name: "合同序号"
+    field: "contract_sequence"
+    required: false
+    data_type: "string"
+    max_length: 50
+    help_text: "合同的序号，支持字符串格式"
+    
+  - name: "甲方法定代表人及联系方式"
+    field: "party_a_legal_representative"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "甲方法定代表人及联系方式"
+    
+  - name: "甲方联系人及联系方式"
+    field: "party_a_contact_person"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "甲方联系人及联系方式"
+    
+  - name: "甲方负责人及联系方式"
+    field: "party_a_manager"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "甲方负责人及联系方式"
+    
+  - name: "乙方法定代表人及联系方式"
+    field: "party_b_legal_representative"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "乙方法定代表人及联系方式"
+    
+  - name: "乙方联系人及联系方式"
+    field: "party_b_contact_person"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "乙方联系人及联系方式"
+    
+  - name: "乙方负责人及联系方式"
+    field: "party_b_manager"
+    required: false
+    data_type: "string"
+    max_length: 200
+    help_text: "乙方负责人及联系方式"
+    
+  - name: "合同工期/服务期限"
+    field: "duration"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "例如: 2025年1月1日至2025年12月31日"
+    
+  - name: "合同签订经办人"
+    field: "contract_officer"
+    required: false
+    data_type: "string"
+    max_length: 50
+    help_text: "负责签订的经办人"
+    
+  - name: "支付方式"
+    field: "payment_method"
+    required: false
+    data_type: "string"
+    max_length: 1000
+    help_text: "例如: 预付30%、完工后验收支付70%"
+    
+  - name: "履约担保退回时间"
+    field: "performance_guarantee_return_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "履约担保退回的日期"
+    
+  - name: "资料归档日期"
+    field: "archive_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "合同资料归档的日期"
 
 # 验证规则
 validation:

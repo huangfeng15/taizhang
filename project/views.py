@@ -3214,10 +3214,22 @@ def project_edit(request, project_code):
                     'message': f'保存失败: {str(e)}'
                 }, status=400)
         else:
+            # 构建详细的错误信息
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            detailed_message = '表单验证失败：\n' + '\n'.join(error_messages)
+            
             return JsonResponse({
                 'success': False,
-                'message': '表单验证失败',
-                'errors': form.errors
+                'message': detailed_message,
+                'errors': form.errors,
+                'field_errors': {
+                    field: list(errors) for field, errors in form.errors.items()
+                }
             }, status=400)
     
     # GET请求 - 返回表单HTML
@@ -3263,10 +3275,22 @@ def contract_edit(request, contract_code):
                     'message': f'保存失败: {str(e)}'
                 }, status=400)
         else:
+            # 构建详细的错误信息
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            detailed_message = '表单验证失败：\n' + '\n'.join(error_messages)
+            
             return JsonResponse({
                 'success': False,
-                'message': '表单验证失败',
-                'errors': form.errors
+                'message': detailed_message,
+                'errors': form.errors,
+                'field_errors': {
+                    field: list(errors) for field, errors in form.errors.items()
+                }
             }, status=400)
     
     # GET请求
@@ -3310,10 +3334,22 @@ def procurement_edit(request, procurement_code):
                     'message': f'保存失败: {str(e)}'
                 }, status=400)
         else:
+            # 构建详细的错误信息
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            detailed_message = '表单验证失败：\n' + '\n'.join(error_messages)
+            
             return JsonResponse({
                 'success': False,
-                'message': '表单验证失败',
-                'errors': form.errors
+                'message': detailed_message,
+                'errors': form.errors,
+                'field_errors': {
+                    field: list(errors) for field, errors in form.errors.items()
+                }
             }, status=400)
     
     form = ProcurementForm(instance=procurement)
@@ -3356,10 +3392,22 @@ def payment_edit(request, payment_code):
                     'message': f'保存失败: {str(e)}'
                 }, status=400)
         else:
+            # 构建详细的错误信息
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            detailed_message = '表单验证失败：\n' + '\n'.join(error_messages)
+            
             return JsonResponse({
                 'success': False,
-                'message': '表单验证失败',
-                'errors': form.errors
+                'message': detailed_message,
+                'errors': form.errors,
+                'field_errors': {
+                    field: list(errors) for field, errors in form.errors.items()
+                }
             }, status=400)
     
     form = PaymentForm(instance=payment)

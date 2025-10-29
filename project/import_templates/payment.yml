@@ -47,17 +47,30 @@ fields:
     
   - name: "付款日期"
     field: "payment_date"
-    required: false
+    required: true
     data_type: "date"
     format: "%Y-%m-%d"
     help_text: "实际付款日期"
     
-  - name: "付款说明"
-    field: "payment_note"
+  - name: "结算价"
+    field: "settlement_amount"
     required: false
-    data_type: "string"
-    max_length: 500
-    help_text: "付款备注说明"
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "结算价，单位：元"
+    
+  - name: "是否办理结算"
+    field: "is_settled"
+    required: false
+    data_type: "boolean"
+    help_text: "是否办理结算"
+    
+  - name: "结算资料归档时间"
+    field: "settlement_archive_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "结算资料归档的日期"
 
 # 验证规则
 validation:

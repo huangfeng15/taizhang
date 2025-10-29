@@ -1,0 +1,571 @@
+<![CDATA[
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>采购合同管理系统 - 技术与数据手册</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --sidebar-active-bg: #34495e;
+            --sidebar-active-border: #3498db;
+            --main-bg: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #34495e;
+            --heading-color: #2c3e50;
+            --accent-color: #3498db;
+            --border-color: #dfe4ea;
+            --highlight-bg: #fffbe6;
+            --highlight-border: #ffe58f;
+            --highlight-text: #d46b08;
+        }
+        body {
+            background-color: var(--main-bg);
+            color: var(--text-color);
+            font-size: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 320px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            overflow-y: auto;
+            transition: width 0.3s ease;
+        }
+        .sidebar-header {
+            padding: 25px;
+            text-align: center;
+            background: #233140;
+        }
+        .sidebar-header h3 { font-size: 20px; font-weight: 600; }
+        .nav-section-title {
+            padding: 20px 25px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: rgba(236, 240, 241, 0.5);
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 25px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-left: 5px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-item i { width: 20px; margin-right: 15px; text-align: center; }
+        .nav-item:hover { background: var(--sidebar-active-bg); }
+        .nav-item.active {
+            background: var(--sidebar-active-bg);
+            border-left-color: var(--sidebar-active-border);
+            font-weight: 600;
+        }
+        .main-content {
+            margin-left: 320px;
+            padding: 40px;
+            transition: margin-left 0.3s ease;
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .page-header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+        .page-header h1 { font-size: 32px; font-weight: 700; color: var(--heading-color); }
+        .page-header p { font-size: 18px; color: #7f8c8d; }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            background: #f8f9fa;
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--heading-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .card-body { padding: 25px; }
+        .code-block {
+            background: #2d3436;
+            color: #dfe6e9;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'SF Mono', 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .table th { background-color: #f2f4f6; font-weight: 600; }
+        .table td .highlight {
+            background-color: var(--highlight-bg);
+            border: 1px solid var(--highlight-border);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: var(--highlight-text);
+        }
+        .formula {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .formula strong { color: #096dd9; }
+        .enum-list { list-style-type: none; padding-left: 0; column-count: 2; }
+        .enum-list li {
+            background: #f8f9fa;
+            margin-bottom: 8px;
+            padding: 10px 15px;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>技术与数据手册</h3>
+        </div>
+        <div class="nav-section-title">数据导入规范</div>
+        <a href="#import-guide" class="nav-item active" onclick="showSection('import-guide')"><i class="fas fa-file-import"></i> 导入指南</a>
+        <a href="#import-procurement" class="nav-item" onclick="showSection('import-procurement')"><i class="fas fa-shopping-cart"></i> 采购数据</a>
+        <a href="#import-contract" class="nav-item" onclick="showSection('import-contract')"><i class="fas fa-file-contract"></i> 合同数据</a>
+        <a href="#import-payment" class="nav-item" onclick="showSection('import-payment')"><i class="fas fa-money-check-alt"></i> 付款数据</a>
+
+        <div class="nav-section-title">监控中心计算逻辑</div>
+        <a href="#monitoring-stats" class="nav-item" onclick="showSection('monitoring-stats')"><i class="fas fa-calculator"></i> 统计分析模块</a>
+        <a href="#monitoring-archive" class="nav-item" onclick="showSection('monitoring-archive')"><i class="fas fa-archive"></i> 归档监控模块</a>
+        <a href="#monitoring-completeness" class="nav-item" onclick="showSection('monitoring-completeness')"><i class="fas fa-check-double"></i> 齐全性监控</a>
+        <a href="#monitoring-update" class="nav-item" onclick="showSection('monitoring-update')"><i class="fas fa-clock"></i> 更新监控模块</a>
+    </nav>
+
+    <main class="main-content">
+        <section id="import-guide" class="content-section active">
+            <div class="page-header">
+                <h1><i class="fas fa-file-import"></i> 数据导入指南</h1>
+                <p>本部分详细说明了数据导入的规则、字段限制和枚举值要求，是保证数据质量的关键。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">核心导入原则</div>
+                <div class="card-body">
+                    <ul>
+                        <li><strong>使用最新模板：</strong> 务必从系统中下载最新的Excel导入模板，不要使用旧版或自行修改表头。</li>
+                        <li><strong>枚举值精确匹配：</strong> 所有涉及选择的字段（如采购方式），必须填写系统预定义的标准枚举值，不能有任何偏差。</li>
+                        <li><strong>关联数据先行：</strong> 导入有关联关系的数据时（如合同关联采购），请确保被关联的数据已存在于系统中。</li>
+                        <li><strong>编号唯一性：</strong> 各类编号（项目编号、采购编号、合同编号）是唯一标识，不能重复。</li>
+                        <li><strong>日期格式：</strong> 所有日期字段必须使用 <code>YYYY-MM-DD</code> 格式，例如 <code>2025-10-29</code>。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="import-procurement" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-shopping-cart"></i> 采购数据导入规范</h1>
+                <p>采购信息导入模板 (<code>procurement.yml</code>) 字段详细要求。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">字段限制与说明</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead><tr><th>字段名</th><th>必填</th><th>类型</th><th>限制与说明</th></tr></thead>
+                            <tbody>
+                                <tr><td>采购编号</td><td>是</td><td>字符串</td><td>唯一标识，不能包含 <code>/ \ ? #</code> 等特殊字符。</td></tr>
+                                <tr><td>项目名称</td><td>是</td><td>字符串</td><td>必须与系统中已存在的项目名称完全匹配。</td></tr>
+                                <tr><td>采购方式</td><td>是</td><td>枚举</td><td><span class="highlight">必须</span>为下方列表中的15个标准值之一。</td></tr>
+                                <tr><td>采购类别</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“货物”、“服务”、“工程”之一。</td></tr>
+                                <tr><td>资格审查方式</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“资格预审”、“资格后审”、“投标报名”之一。</td></tr>
+                                <tr><td>评标谈判方式</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“综合评分法”、“竞争性谈判”、“价格竞争法”之一。注意：系统会自动处理“综合评估法”、“最低价法”等别名。</td></tr>
+                                <tr><td>定标方法</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“竞争定标法”、“票决定标法”、“集体议事法”之一。</td></tr>
+                                <tr><td>所有日期字段</td><td>否</td><td>日期</td><td>格式必须为 <code>YYYY-MM-DD</code>。</td></tr>
+                                <tr><td>所有金额字段</td><td>否</td><td>数字</td><td>单位：元，最多2位小数。</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">枚举值完整列表</div>
+                <div class="card-body">
+                    <h5>采购方式 (<code>ProcurementMethod</code>)</h5>
+                    <ul class="enum-list">
+                        <li>公开招标</li><li>邀请招标</li><li>公开询价</li><li>邀请询价</li><li>公开竞价</li><li>邀请竞价</li><li>公开比选</li><li>邀请比选</li><li>单一来源采购</li><li>公开竞争性谈判</li><li>公开竞争性磋商</li><li>邀请竞争性谈判</li><li>邀请竞争性磋商</li><li>直接采购</li><li>战采结果应用</li>
+                    </ul>
+                    <h5 class="mt-4">采购类别 (<code>ProcurementCategory</code>)</h5>
+                    <ul class="enum-list" style="column-count: 3;">
+                        <li>货物</li><li>服务</li><li>工程</li>
+                    </ul>
+                    <h5 class="mt-4">资格审查方式 (<code>QualificationReviewMethod</code>)</h5>
+                    <ul class="enum-list" style="column-count: 3;">
+                        <li>资格预审</li><li>资格后审</li><li>投标报名</li>
+                    </ul>
+                    <h5 class="mt-4">评标方式 (<code>BidEvaluationMethod</code>)</h5>
+                     <ul class="enum-list" style="column-count: 3;">
+                        <li>综合评分法</li><li>竞争性谈判</li><li>价格竞争法</li>
+                    </ul>
+                    <h5 class="mt-4">定标方法 (<code>BidAwardingMethod</code>)</h5>
+                     <ul class="enum-list" style="column-count: 3;">
+                        <li>竞争定标法</li><li>票决定标法</li><li>集体议事法</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="import-contract" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-file-contract"></i> 合同数据导入规范</h1>
+                <p>合同信息导入模板 (<code>contract.yml</code>) 字段详细要求。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">字段限制与说明</div>
+                <div class="card-body">
+                     <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead><tr><th>字段名</th><th>必填</th><th>类型</th><th>限制与说明</th></tr></thead>
+                            <tbody>
+                                <tr><td>合同编号</td><td>是</td><td>字符串</td><td>唯一标识，不能包含特殊字符。</td></tr>
+                                <tr><td>项目名称</td><td>是</td><td>字符串</td><td>必须与系统中已存在的项目名称完全匹配。</td></tr>
+                                <tr><td>文件定位</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“主合同”、“补充协议”、“解除协议”、“框架协议”之一。默认为“主合同”。</td></tr>
+                                <tr><td>合同来源</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为“采购合同”、“直接签订”之一。默认为“采购合同”。</td></tr>
+                                <tr><td>关联主合同编号</td><td>条件必填</td><td>字符串</td><td>当“文件定位”为“补充协议”或“解除协议”时，<span class="highlight">此项必填</span>，且主合同必须已存在。</td></tr>
+                                <tr><td>关联采购编号</td><td>条件必填</td><td>字符串</td><td>当“合同来源”为“采购合同”时，<span class="highlight">此项必填</span>，且采购项目必须已存在。</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+             <div class="card">
+                <div class="card-header">相关枚举列表</div>
+                <div class="card-body">
+                    <h5>文件定位 (<code>FilePositioning</code>)</h5>
+                    <ul class="enum-list" style="column-count: 2;">
+                        <li>主合同</li>
+                        <li>补充协议</li>
+                        <li>解除协议</li>
+                        <li>框架协议</li>
+                    </ul>
+                    <h5 class="mt-4">合同来源 (<code>ContractSource</code>)</h5>
+                    <ul class="enum-list" style="column-count: 2;">
+                        <li>采购合同</li>
+                        <li>直接签订</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="import-payment" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-money-check-alt"></i> 付款数据导入规范</h1>
+                <p>付款信息导入模板 (<code>payment.yml</code>) 字段详细要求。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">字段限制与说明</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead><tr><th>字段名</th><th>必填</th><th>类型</th><th>限制与说明</th></tr></thead>
+                            <tbody>
+                                <tr><td>付款编号</td><td>否</td><td>字符串</td><td>唯一标识。若留空，系统将根据 <code>合同序号-FK-序号</code> 规则自动生成。</td></tr>
+                                <tr><td>合同编号</td><td>是</td><td>字符串</td><td><span class="highlight">必须</span>为系统中已存在的合同编号。</td></tr>
+                                <tr><td>付款金额</td><td>是</td><td>数字</td><td>单位：元，最多2位小数。</td></tr>
+                                <tr><td>付款日期</td><td>是</td><td>日期</td><td>格式：<code>YYYY-MM-DD</code>。</td></tr>
+                                <tr><td>是否办理结算</td><td>否</td><td>布尔值</td><td>填写 <code>TRUE</code> / <code>FALSE</code> 或 <code>1</code> / <code>0</code>。</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="monitoring-stats" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-calculator"></i> 统计分析模块计算逻辑</h1>
+                <p>本部分详细解释统计分析页面 (<code>monitoring/statistics.html</code>) 中各项数据的计算方法，源于 <code>project/services/statistics.py</code>。</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="background-color: var(--highlight-bg); border-left: 5px solid var(--accent-color);">
+                    <i class="fas fa-star"></i> <strong>核心指标卡数据计算详解</strong>
+                </div>
+                <div class="card-body">
+                    <p>统计分析页面的顶部卡片展示了最关键的业务指标，以下是每个指标的详细计算方法：</p>
+
+                    <h4 class="mt-4">采购统计核心指标</h4>
+                    <div class="formula">
+                        <strong>采购项目总数 (Total Count)</strong>
+                        <p>对所有符合筛选条件的采购记录，按“采购项目名称”进行去重后的项目总数。</p>
+                        <p class="mb-0"><small><strong>逻辑：</strong><code>COUNT(DISTINCT project_name)</code></small></p>
+                    </div>
+                    <div class="formula">
+                        <strong>总中标金额 (Total Winning Amount)</strong>
+                        <p>对所有采购记录按“采购项目名称”去重，对每个项目名称取其所有记录中最大的“中标金额”，然后将这些最大值求和。</p>
+                        <p class="mb-0"><small><strong>逻辑：</strong><code>SUM(MAX(winning_amount) GROUP BY project_name)</code></small></p>
+                    </div>
+                    <div class="formula">
+                        <strong>资金节约率 (Savings Rate)</strong>
+                        <p>基于去重后的数据计算节约率。</p>
+                        <p class="mb-0"><small><strong>公式：</strong><code>(去重后总预算金额 - 去重后总中标金额) / 去重后总预算金额 * 100%</code></small></p>
+                    </div>
+                    <div class="formula">
+                        <strong>平均采购周期 (Avg Cycle Days)</strong>
+                        <p>计算从“采购需求书审批完成日期”到“中标通知书发放日期”的平均天数。此项不进行去重。</p>
+                        <p class="mb-0"><small><strong>公式：</strong><code>AVERAGE(notice_issue_date - requirement_approval_date)</code></small></p>
+                    </div>
+
+                    <h4 class="mt-4">合同统计核心指标</h4>
+                    <div class="formula">
+                        <strong>合同总数 (Total Count)</strong>
+                        <p>所有符合筛选条件的合同记录总数。</p>
+                    </div>
+                    <div class="formula">
+                        <strong>合同总金额 (Total Amount)</strong>
+                        <p>所有符合筛选条件的合同记录的 `contract_amount` 字段之和。</p>
+                        <p class="mb-0"><small><strong>逻辑：</strong><code>SUM(contract_amount)</code></small></p>
+                    </div>
+
+                    <h4 class="mt-4">付款与结算核心指标</h4>
+                    <div class="formula">
+                        <strong>付款总金额 (Total Payment Amount)</strong>
+                        <p>所有符合筛选条件的付款记录的 `payment_amount` 字段之和。</p>
+                    </div>
+                    <div class="formula">
+                        <strong>预计剩余支付 (Estimated Remaining)</strong>
+                        <p>所有主合同的“基准金额”之和减去其“已付总额”之和。基准金额优先取结算价，若无则取（主合同金额+补充协议金额）。</p>
+                    </div>
+                    <div class="formula">
+                        <strong>结算率 (Settlement Rate)</strong>
+                        <p>已办理结算的主合同数量占所有主合同总数的比例。</p>
+                        <p class="mb-0"><small><strong>公式：</strong><code>(已结算主合同数 / 总主合同数) * 100%</code></small></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">采购统计 (get_procurement_statistics)</div>
+                <div class="card-body">
+                    <h3>核心去重规则</h3>
+                    <div class="alert alert-primary">
+                        <strong>关键逻辑：</strong> 为了避免因同一采购项目分多次导入或存在多条记录而导致的重复计算，采购统计的核心是按 <span class="highlight">采购项目名称 (`project_name`)</span> 进行去重。
+                    </div>
+                    <p>如果多个采购记录有相同的 `project_name`，系统会将其视为一个整体项目，并按以下规则合并统计：</p>
+                    <ul>
+                        <li><strong>数量统计：</strong> 多个同名项目只计为 <strong>1</strong> 个。</li>
+                        <li><strong>金额合并规则：</strong>
+                            <ul>
+                                <li>`预算金额`：取所有同名记录中的 <span class="highlight">最大值 (MAX)</span>。</li>
+                                <li>`中标金额`：取所有同名记录中的 <span class="highlight">最大值 (MAX)</span>。</li>
+                                <li>`采购控制价`：取所有同名记录中的 <span class="highlight">最大值 (MAX)</span>。</li>
+                            </ul>
+                        </li>
+                         <li><strong>归档日期合并规则：</strong> 取所有同名记录中最新的一个非空日期。</li>
+                    </ul>
+                    <p>此去重逻辑的目的是为了从多条可能重复或分阶段的记录中，提取出最能代表该采购项目整体情况的数值。该逻辑定义在 <code>docs/采购统计去重说明.md</code> 和 <code>project/services/statistics.py</code> 中。</p>
+
+                    <h3>关键指标计算公式</h3>
+                    <div class="formula">
+                        <strong>节约率 (Savings Rate)</strong> = <code>(总预算金额 - 总中标金额) / 总预算金额 * 100%</code>
+                        <br>
+                        <small>注：此处的总金额均基于上述去重规则合并后的数据进行计算。</small>
+                    </div>
+                    <div class="formula">
+                        <strong>平均采购周期 (Avg Cycle Days)</strong> = <code>AVERAGE(中标通知书发放日期 - 采购需求书审批完成日期)</code>
+                        <br>
+                        <small>注：此项计算 <span class="highlight">不进行去重</span>，而是统计所有同时具有这两个日期的原始记录，以反映实际操作的平均耗时。</small>
+                    </div>
+                     <div class="formula">
+                        <strong>采购方式分布 (Method Distribution)</strong> = 对去重合并后的记录，按 `procurement_method` 字段进行分组计数和金额汇总。
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">合同与付款统计</div>
+                <div class="card-body">
+                    <h3>合同统计 (get_contract_statistics)</h3>
+                    <p>合同统计相对直接，主要基于筛选条件（年份、项目）下的合同记录进行聚合。</p>
+                    <div class="formula">
+                        <strong>总金额 (Total Amount)</strong> = <code>SUM(所有符合条件合同的 'contract_amount')</code>
+                    </div>
+                    <p><strong>类型/来源分布：</strong> 按 `file_positioning` (主合同, 补充协议等) 或 `contract_source` (采购合同, 直接签订) 字段分组，分别统计数量和金额。</p>
+
+                    <h3 class="mt-5">付款统计 (get_payment_statistics)</h3>
+                    <div class="formula">
+                        <strong>预计剩余支付 (Estimated Remaining)</strong> = <code>(所有主合同的基准金额之和) - (所有主合同的已付金额之和)</code>
+                    </div>
+                    <p>其中, <strong>基准金额</strong> 的确定逻辑至关重要：</p>
+                    <ol>
+                        <li>系统首先找到所有符合筛选条件的主合同。</li>
+                        <li>对每一个主合同，检查其是否有对应的结算记录。</li>
+                        <li><strong>如果有结算价：</strong> 基准金额 = <code>结算价 (settlement.final_amount)</code>。</li>
+                        <li><strong>如果没有结算价：</strong> 基准金额 = <code>主合同金额 + 所有其补充协议的金额之和</code>。</li>
+                    </ol>
+                    <p>这个逻辑确保了付款进度的计算是基于最准确的合同最终价值。</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">结算统计 (get_settlement_statistics)</div>
+                <div class="card-body">
+                    <h3>核心去重规则</h3>
+                    <div class="alert alert-primary">
+                        <strong>关键逻辑：</strong> 结算金额 (`settlement_amount`) 是针对整个合同的最终价值，但它可能记录在同一合同的多笔付款记录中。为避免重复计算结算总额，统计时按 <span class="highlight">主合同</span> 进行去重。
+                    </div>
+                    <p>系统通过以下步骤计算结算总额：</p>
+                    <ol>
+                        <li>找出所有 `is_settled=True` 且 `settlement_amount` 不为空的付款记录。</li>
+                        <li>根据这些付款记录找到其关联的合同，并最终追溯到主合同。</li>
+                        <li>为每个唯一的主合同，只取一次 `settlement_amount` 值进行累加。</li>
+                    </ol>
+                     <div class="formula">
+                        <strong>结算率 (Settlement Rate)</strong> = <code>(已结算的主合同数量 / 总主合同数量) * 100%</code>
+                        <br>
+                        <small>注：总主合同数量会根据页面筛选条件（年份、项目）进行相应筛选。</small>
+                    </div>
+                    <div class="formula">
+                        <strong>结算差异分析 (Variance Analysis)</strong> = <code>结算金额 - (主合同金额 + 补充协议总金额)</code>
+                        <br>
+                        <small>此分析用于找出结算价与原始合同价差异最大的项目。</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="monitoring-archive" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-archive"></i> 归档监控计算逻辑</h1>
+                <p>源于 <code>project/services/archive_monitor.py</code>。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">采购归档</div>
+                <div class="card-body">
+                    <ul>
+                        <li><strong>统计对象：</strong> 所有已填写 <span class="highlight">`结果公示发布时间`</span> 的采购记录。</li>
+                        <li><strong>归档时限：</strong> 40天。</li>
+                        <li><strong>逾期判断：</strong> <code>(当前日期 - 结果公示发布时间) > 40天</code> 且 `归档日期` 为空。</li>
+                        <li><strong>及时归档判断：</strong> <code>(归档日期 - 结果公示发布时间) <= 40天</code>。</li>
+                    </ul>
+                    <h4>预警分级 (按逾期天数)</h4>
+                    <ul>
+                        <li><strong style="color: #e74c3c;">严重逾期 (红色)：</strong> > 30天 (即公示后70天仍未归档)。</li>
+                        <li><strong style="color: #f39c12;">中度逾期 (橙色)：</strong> 16-30天 (即公示后56-70天仍未归档)。</li>
+                        <li><strong style="color: #f1c40f;">轻微逾期 (黄色)：</strong> 1-15天 (即公示后41-55天仍未归档)。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">合同归档</div>
+                <div class="card-body">
+                    <ul>
+                        <li><strong>统计对象：</strong> 所有已填写 <span class="highlight">`签订日期`</span> 的主合同 (`file_positioning` 为 '主合同')。</li>
+                        <li><strong>归档时限：</strong> 30天。</li>
+                        <li><strong>逾期判断：</strong> <code>(当前日期 - 签订日期) > 30天</code> 且 `归档日期` 为空。</li>
+                        <li><strong>及时归档判断：</strong> <code>(归档日期 - 签订日期) <= 30天</code>。</li>
+                    </ul>
+                    <h4>预警分级 (按逾期天数)</h4>
+                    <ul>
+                        <li><strong style="color: #e74c3c;">严重逾期 (红色)：</strong> > 30天 (即签订后60天仍未归档)。</li>
+                        <li><strong style="color: #f39c12;">中度逾期 (橙色)：</strong> 16-30天 (即签订后46-60天仍未归档)。</li>
+                        <li><strong style="color: #f1c40f;">轻微逾期 (黄色)：</strong> 1-15天 (即签订后31-45天仍未归档)。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="monitoring-completeness" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-check-double"></i> 齐全性监控计算逻辑</h1>
+                <p>源于 <code>project/services/completeness.py</code>。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">字段齐全性</div>
+                <div class="card-body">
+                    <p>本模块检查核心业务记录的关键字段是否填写完整。齐全率 = (已填写的字段数 / 应填写的总字段数) * 100%。</p>
+                    <p><strong>采购记录检查 (共26个关键字段):</strong> 包括 `招采编号`, `采购项目名称`, `采购单位`, `中标单位`, `采购方式`, `预算金额`, `中标金额`, `结果公示发布时间`, `中标通知书发放日期` 等。</p>
+                    <p><strong>合同记录检查 (共17个关键字段):</strong> 包括 `合同序号`, `合同编号`, `合同名称`, `甲方`, `乙方`, `合同金额`, `签订日期`, `文件定位`, `合同来源` 等。</p>
+                </div>
+            </div>
+             <div class="card">
+                <div class="card-header">关联完整性</div>
+                <div class="card-body">
+                    <p>本模块检查数据之间的逻辑关系是否正确，并按严重性分级。</p>
+                    <ul>
+                        <li><strong style="color: #e74c3c;">【错误】</strong>补充协议/解除协议未关联主合同。</li>
+                        <li><strong style="color: #e74c3c;">【错误】</strong>采购合同未关联采购项目。</li>
+                        <li><strong style="color: #e74c3c;">【错误】</strong>付款总额超过合同金额（或结算价）。</li>
+                        <li><strong style="color: #f39c12;">【警告】</strong>直接签订的合同错误地关联了采购项目。</li>
+                        <li><strong style="color: #f39c12;">【警告】</strong>结算金额与合同金额差异超过10%。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="monitoring-update" class="content-section">
+            <div class="page-header">
+                <h1><i class="fas fa-clock"></i> 更新监控计算逻辑</h1>
+                <p>源于 <code>project/services/update_monitor.py</code>。</p>
+            </div>
+            <div class="card">
+                <div class="card-header">数据更新及时性</div>
+                <div class="card-body">
+                    <p>本模块监控核心业务事件发生后，其信息是否被及时录入或更新到系统中。</p>
+                    <h4>监控事件触发点</h4>
+                    <ul>
+                        <li><strong>采购：</strong> `结果公示发布时间`</li>
+                        <li><strong>合同：</strong> `签订日期`</li>
+                        <li><strong>付款：</strong> `付款日期`</li>
+                        <li><strong>结算：</strong> `结算完成日期`</li>
+                    </ul>
+                    <h4>及时性判断标准</h4>
+                    <div class="formula">
+                        业务事件发生后，必须在 <span class="highlight">次月月底前</span> 在系统中完成数据录入/更新。
+                    </div>
+                    <p><strong>判断依据：</strong> 系统会比较记录的最后更新时间 (`updated_at`) 与事件发生日期的“次月最后一天”这个截止日期。</p>
+                    <p><strong>示例：</strong> 一笔采购的“结果公示发布时间”是 <strong>2025年10月15日</strong>。那么，这条记录的系统更新时间 (`updated_at`) 必须早于或等于 <strong>2025年11月30日</strong>，才被认为是及时更新。</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`[href="#${sectionId}"]`).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash && document.getElementById(hash)) {
+                showSection(hash);
+            } else {
+                showSection('import-guide');
+            }
+            window.addEventListener('hashchange', () => {
+                const hash = window.location.hash.substring(1);
+                if (hash && document.getElementById(hash)) {
+                    showSection(hash);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+]]>

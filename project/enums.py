@@ -50,20 +50,26 @@ class QualificationReviewMethod(models.TextChoices):
     """资格审查方式枚举"""
     PRE_QUALIFICATION = '资格预审', '资格预审'
     POST_QUALIFICATION = '资格后审', '资格后审'
+    BID_REGISTRATION = '投标报名', '投标报名'
 
 
 class BidEvaluationMethod(models.TextChoices):
-    """评标方式枚举"""
-    COMPREHENSIVE_SCORING = '综合评分法', '综合评分法'
+    """评标方式枚举
+    
+    注意：
+    - 综合评分法包含多个别名（综合评分法、综合评估法、综合评审法）
+    - 价格竞争法包含多个别名（价格竞争法、最低价法、经评审的合理低价法）
+    """
+    COMPREHENSIVE_SCORING = '综合评分法', '综合评分法（含综合评估法、综合评审法）'
     COMPETITIVE_NEGOTIATION = '竞争性谈判', '竞争性谈判'
-    LOWEST_PRICE = '最低价法', '最低价法'
+    PRICE_COMPETITION = '价格竞争法', '价格竞争法（含最低价法、经评审的合理低价法）'
 
 
 class BidAwardingMethod(models.TextChoices):
     """定标方法枚举"""
-    VOTING = '票决法', '票决法'
-    LOWEST_PRICE = '最低价法', '最低价法'
-    COMPREHENSIVE_EVALUATION = '综合评审', '综合评审'
+    COMPETITIVE_DECISION = '竞争定标法', '竞争定标法'
+    VOTING = '票决定标法', '票决定标法'
+    COLLECTIVE_DELIBERATION = '集体议事法', '集体议事法'
 
 
 # 枚举辅助函数
@@ -232,35 +238,126 @@ PROCUREMENT_CATEGORIES_ALL_LABELS = [
 QUALIFICATION_REVIEW_METHODS_ALL = [
     QualificationReviewMethod.PRE_QUALIFICATION.value,
     QualificationReviewMethod.POST_QUALIFICATION.value,
+    QualificationReviewMethod.BID_REGISTRATION.value,
 ]
 
 QUALIFICATION_REVIEW_METHODS_ALL_LABELS = [
     QualificationReviewMethod.PRE_QUALIFICATION.label,
     QualificationReviewMethod.POST_QUALIFICATION.label,
+    QualificationReviewMethod.BID_REGISTRATION.label,
 ]
 
 # 评标方式配置常量
 BID_EVALUATION_METHODS_ALL = [
     BidEvaluationMethod.COMPREHENSIVE_SCORING.value,
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.value,
-    BidEvaluationMethod.LOWEST_PRICE.value,
+    BidEvaluationMethod.PRICE_COMPETITION.value,
 ]
 
 BID_EVALUATION_METHODS_ALL_LABELS = [
     BidEvaluationMethod.COMPREHENSIVE_SCORING.label,
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.label,
-    BidEvaluationMethod.LOWEST_PRICE.label,
+    BidEvaluationMethod.PRICE_COMPETITION.label,
 ]
 
 # 定标方法配置常量
 BID_AWARDING_METHODS_ALL = [
+    BidAwardingMethod.COMPETITIVE_DECISION.value,
     BidAwardingMethod.VOTING.value,
-    BidAwardingMethod.LOWEST_PRICE.value,
-    BidAwardingMethod.COMPREHENSIVE_EVALUATION.value,
+    BidAwardingMethod.COLLECTIVE_DELIBERATION.value,
 ]
 
 BID_AWARDING_METHODS_ALL_LABELS = [
+    BidAwardingMethod.COMPETITIVE_DECISION.label,
     BidAwardingMethod.VOTING.label,
-    BidAwardingMethod.LOWEST_PRICE.label,
-    BidAwardingMethod.COMPREHENSIVE_EVALUATION.label,
+    BidAwardingMethod.COLLECTIVE_DELIBERATION.label,
 ]
+
+
+# 枚举别名映射配置
+# 用于导入时自动转换不同的表述为标准枚举值
+ENUM_ALIASES = {
+    # 评标方式别名
+    'bid_evaluation_method': {
+        '综合评估法': '综合评分法',
+        '综合评审法': '综合评分法',
+        '最低价法': '价格竞争法',
+        '经评审的合理低价法': '价格竞争法',
+    },
+    # 可以在此添加其他枚举的别名映射
+}
+
+
+# 统一获取枚举值的函数
+def get_enum_value(enum_class, value):
+    """
+    根据值获取对应的枚举值，支持值和标签两种输入方式
+    
+    Args:
+        enum_class: Django TextChoices 枚举类
+        value: 可以是枚举值或标签
+    
+    Returns:
+        对应的枚举值，如果找不到则返回原值
+    """
+    # 先尝试作为值匹配
+    for choice in enum_class:
+        if choice.value == value:
+            return choice.value
+    
+    # 如果作为值没找到，尝试作为标签匹配
+    for choice in enum_class:
+        if choice.label == value:
+            return choice.value
+    
+    # 都没找到，返回原值
+    return value
+
+
+def get_enum_label(enum_class, value):
+    """
+    根据值获取对应的枚举标签
+    
+    Args:
+        enum_class: Django TextChoices 枚举类
+        value: 枚举值
+    
+    Returns:
+        对应的枚举标签，如果找不到则返回原值
+    """
+    for choice in enum_class:
+        if choice.value == value:
+            return choice.label
+    return value
+
+
+# 批量替换函数
+def replace_hardcoded_values(text, enum_class):
+    """
+    替换文本中的硬编码枚举值为标准枚举值
+    
+    Args:
+        text: 包含硬编码枚举值的文本
+        enum_class: Django TextChoices 枚举类
+    
+    Returns:
+        替换后的文本
+    """
+    if not text:
+        return text
+    
+    # 创建替换映射
+    replacements = {}
+    for choice in enum_class:
+        # 标签替换为值
+        replacements[choice.label] = choice.value
+        # 值保持不变
+        replacements[choice.value] = choice.value
+    
+    # 执行替换
+    result = text
+    for old_value, new_value in replacements.items():
+        if old_value in result:
+            result = result.replace(old_value, new_value)
+    
+    return result

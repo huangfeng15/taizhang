@@ -5,6 +5,10 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from project.models import Project
+from project.enums import (
+    ProcurementCategory, ProcurementMethod, QualificationReviewMethod,
+    BidEvaluationMethod, BidAwardingMethod, get_enum_choices
+)
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
@@ -72,6 +76,24 @@ class ProjectForm(forms.ModelForm):
 class ContractForm(forms.ModelForm):
     """合同编辑表单"""
     
+    procurement = forms.ModelChoiceField(
+        queryset=Procurement.objects.all(),
+        empty_label='请选择采购项目（可选）',
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        })
+    )
+    
+    parent_contract = forms.ModelChoiceField(
+        queryset=Contract.objects.filter(file_positioning='主合同'),
+        empty_label='请选择主合同（补充协议时必填）',
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        })
+    )
+    
     class Meta:
         model = Contract
         fields = [
@@ -79,13 +101,22 @@ class ContractForm(forms.ModelForm):
             'contract_name',
             'file_positioning',
             'contract_source',
+            'parent_contract',
+            'contract_sequence',
             'party_a',
             'party_b',
+            'party_a_legal_representative',
+            'party_a_contact_person',
+            'party_a_manager',
+            'party_b_legal_representative',
+            'party_b_contact_person',
+            'party_b_manager',
             'contract_amount',
             'signing_date',
+            'duration',
             'contract_officer',
             'payment_method',
-            'duration',
+            'performance_guarantee_return_date',
             'archive_date',
         ]
         widgets = {
@@ -104,6 +135,10 @@ class ContractForm(forms.ModelForm):
             'contract_source': forms.Select(attrs={
                 'class': 'form-control',
             }),
+            'contract_sequence': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '合同序号，如: BHHY-NH-001',
+            }),
             'party_a': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入甲方名称',
@@ -111,6 +146,30 @@ class ContractForm(forms.ModelForm):
             'party_b': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入乙方名称',
+            }),
+            'party_a_legal_representative': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '甲方法定代表人及联系方式',
+            }),
+            'party_a_contact_person': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '甲方联系人及联系方式',
+            }),
+            'party_a_manager': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '甲方负责人及联系方式',
+            }),
+            'party_b_legal_representative': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '乙方法定代表人及联系方式',
+            }),
+            'party_b_contact_person': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '乙方联系人及联系方式',
+            }),
+            'party_b_manager': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '乙方负责人及联系方式',
             }),
             'contract_amount': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -121,6 +180,11 @@ class ContractForm(forms.ModelForm):
                 'class': 'form-control',
                 'type': 'date',
             }, format='%Y-%m-%d'),
+            'duration': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': '请输入合同工期/服务期限',
+                'rows': 2,
+            }),
             'contract_officer': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入经办人',
@@ -130,11 +194,10 @@ class ContractForm(forms.ModelForm):
                 'placeholder': '请输入支付方式',
                 'rows': 2,
             }),
-            'duration': forms.Textarea(attrs={
+            'performance_guarantee_return_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'placeholder': '请输入合同工期/服务期限',
-                'rows': 2,
-            }),
+                'type': 'date',
+            }, format='%Y-%m-%d'),
             'archive_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
@@ -145,6 +208,11 @@ class ContractForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['contract_code'].disabled = True
+            # 设置初始值
+            if self.instance.procurement:
+                self.fields['procurement'].initial = self.instance.procurement
+            if self.instance.parent_contract:
+                self.fields['parent_contract'].initial = self.instance.parent_contract
 
 
 class ProcurementForm(forms.ModelForm):
@@ -156,16 +224,35 @@ class ProcurementForm(forms.ModelForm):
             'procurement_code',
             'project_name',
             'procurement_unit',
-            'winning_bidder',
-            'winning_contact',
-            'procurement_method',
             'procurement_category',
+            'procurement_platform',
+            'procurement_method',
+            'qualification_review_method',
+            'bid_evaluation_method',
+            'bid_awarding_method',
             'budget_amount',
             'control_price',
             'winning_amount',
+            'procurement_officer',
+            'demand_department',
+            'demand_contact',
+            'winning_bidder',
+            'winning_contact',
+            'planned_completion_date',
+            'requirement_approval_date',
+            'announcement_release_date',
+            'registration_deadline',
             'bid_opening_date',
+            'candidate_publicity_end_date',
             'result_publicity_release_date',
+            'notice_issue_date',
             'archive_date',
+            'evaluation_committee',
+            'bid_guarantee',
+            'bid_guarantee_return_date',
+            'performance_guarantee',
+            'candidate_publicity_issue',
+            'non_bidding_explanation',
         ]
         widgets = {
             'procurement_code': forms.TextInput(attrs={
@@ -181,6 +268,52 @@ class ProcurementForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': '请输入采购单位',
             }),
+            'procurement_category': forms.Select(attrs={
+                'class': 'form-control',
+            }, choices=[('', '请选择采购类别')] + get_enum_choices(ProcurementCategory)),
+            'procurement_platform': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '例如: 深圳市阳光采购平台',
+            }),
+            'procurement_method': forms.Select(attrs={
+                'class': 'form-control',
+            }, choices=[('', '请选择采购方式')] + get_enum_choices(ProcurementMethod)),
+            'qualification_review_method': forms.Select(attrs={
+                'class': 'form-control',
+            }, choices=[('', '请选择资格审查方式')] + get_enum_choices(QualificationReviewMethod)),
+            'bid_evaluation_method': forms.Select(attrs={
+                'class': 'form-control',
+            }, choices=[('', '请选择评标方式')] + get_enum_choices(BidEvaluationMethod)),
+            'bid_awarding_method': forms.Select(attrs={
+                'class': 'form-control',
+            }, choices=[('', '请选择定标方法')] + get_enum_choices(BidAwardingMethod)),
+            'budget_amount': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '采购预算金额（元）',
+                'step': '0.01',
+            }),
+            'control_price': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '采购控制价（元）',
+                'step': '0.01',
+            }),
+            'winning_amount': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '中标金额（元）',
+                'step': '0.01',
+            }),
+            'procurement_officer': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '请输入采购经办人',
+            }),
+            'demand_department': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '请输入需求部门',
+            }),
+            'demand_contact': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '申请人联系电话（需求部门）',
+            }),
             'winning_bidder': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入中标单位',
@@ -189,27 +322,27 @@ class ProcurementForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': '请输入联系人及方式',
             }),
-            'procurement_method': forms.TextInput(attrs={
+            'planned_completion_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'placeholder': '如: 公开招标、单一来源采购、公开询价等',
-            }),
-            'procurement_category': forms.TextInput(attrs={
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+            'requirement_approval_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'placeholder': '如: 货物、服务、工程',
-            }),
-            'budget_amount': forms.NumberInput(attrs={
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+            'announcement_release_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'step': '0.01',
-            }),
-            'control_price': forms.NumberInput(attrs={
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+            'registration_deadline': forms.DateInput(attrs={
                 'class': 'form-control',
-                'step': '0.01',
-            }),
-            'winning_amount': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01',
-            }),
+                'type': 'date',
+            }, format='%Y-%m-%d'),
             'bid_opening_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+            'candidate_publicity_end_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
             }, format='%Y-%m-%d'),
@@ -217,10 +350,41 @@ class ProcurementForm(forms.ModelForm):
                 'class': 'form-control',
                 'type': 'date',
             }, format='%Y-%m-%d'),
+            'notice_issue_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }, format='%Y-%m-%d'),
             'archive_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
             }, format='%Y-%m-%d'),
+            'evaluation_committee': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': '评标委员会成员名单，多个成员用逗号分隔',
+                'rows': 2,
+            }),
+            'bid_guarantee': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '例如: 银行保函 500000.00',
+            }),
+            'bid_guarantee_return_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+            'performance_guarantee': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '例如: 银行保函 450000.00',
+            }),
+            'candidate_publicity_issue': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': '记录公示期内质疑的受理与处理情况',
+                'rows': 3,
+            }),
+            'non_bidding_explanation': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': '如从公开招标调整为单一来源或邀请招标需说明原因',
+                'rows': 3,
+            }),
         }
     
     def __init__(self, *args, **kwargs):
@@ -232,6 +396,15 @@ class ProcurementForm(forms.ModelForm):
 class PaymentForm(forms.ModelForm):
     """付款编辑表单"""
     
+    contract = forms.ModelChoiceField(
+        queryset=Contract.objects.all(),
+        empty_label='请选择合同',
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        })
+    )
+    
     class Meta:
         model = Payment
         fields = [
@@ -240,11 +413,13 @@ class PaymentForm(forms.ModelForm):
             'payment_date',
             'settlement_amount',
             'is_settled',
+            'settlement_archive_date',
         ]
         widgets = {
             'payment_code': forms.TextInput(attrs={
                 'class': 'form-control',
                 'readonly': 'readonly',
+                'placeholder': '自动生成，格式：合同序号-FK-序号',
             }),
             'payment_amount': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -259,15 +434,33 @@ class PaymentForm(forms.ModelForm):
             }, format='%Y-%m-%d'),
             'settlement_amount': forms.NumberInput(attrs={
                 'class': 'form-control',
-                'placeholder': '请输入结算金额（可选）',
+                'placeholder': '请输入结算金额（元，可选）',
                 'step': '0.01',
             }),
             'is_settled': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
             }),
+            'settlement_archive_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }, format='%Y-%m-%d'),
+        }
+        labels = {
+            'payment_code': '付款编号',
+            'payment_amount': '实付金额',
+            'payment_date': '付款日期',
+            'settlement_amount': '结算价',
+            'is_settled': '是否办理结算',
+            'settlement_archive_date': '结算资料归档时间',
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['payment_code'].disabled = True
+            # 设置初始值
+            if self.instance.contract:
+                self.fields['contract'].initial = self.instance.contract
+        
+        # 合同选项已在字段定义中设置
+        pass

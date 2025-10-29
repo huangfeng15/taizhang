@@ -164,8 +164,16 @@ class EditModal {
                     window.location.reload();
                 }, 500);
             } else {
-                // 显示错误信息
-                this.showError(data.message || '保存失败');
+                // 显示详细的错误信息
+                let errorMessage = data.message || '保存失败';
+                
+                // 如果有字段级别的错误，在表单中高亮显示
+                if (data.field_errors) {
+                    this.highlightFieldErrors(data.field_errors);
+                }
+                
+                // 显示错误提示（支持多行）
+                this.showError(errorMessage);
                 
                 // 重新启用提交按钮
                 submitBtn.disabled = false;
@@ -185,12 +193,41 @@ class EditModal {
         }
     }
 
+    highlightFieldErrors(fieldErrors) {
+        // 清除之前的错误高亮
+        document.querySelectorAll('.is-invalid').forEach(el => {
+            el.classList.remove('is-invalid');
+        });
+        document.querySelectorAll('.invalid-feedback').forEach(el => {
+            el.remove();
+        });
+
+        // 为每个有错误的字段添加高亮和错误提示
+        for (const [fieldName, errors] of Object.entries(fieldErrors)) {
+            const field = document.querySelector(`[name="${fieldName}"]`);
+            if (field) {
+                // 添加错误样式
+                field.classList.add('is-invalid');
+                
+                // 创建错误提示元素
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'invalid-feedback d-block';
+                errorDiv.innerHTML = errors.join('<br>');
+                
+                // 插入错误提示
+                field.parentNode.appendChild(errorDiv);
+            }
+        }
+    }
+
     showSuccess(message) {
         this.showToast(message, 'success');
     }
 
     showError(message) {
-        this.showToast(message, 'danger');
+        // 将换行符转换为HTML
+        const htmlMessage = message.replace(/\n/g, '<br>');
+        this.showToast(htmlMessage, 'danger');
     }
 
     showToast(message, type = 'info') {
@@ -207,9 +244,9 @@ class EditModal {
         // 创建Toast
         const toastId = 'toast-' + Date.now();
         const toastHTML = `
-            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true" style="max-width: 500px;">
                 <div class="d-flex">
-                    <div class="toast-body">
+                    <div class="toast-body" style="white-space: pre-wrap;">
                         ${message}
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
@@ -223,7 +260,7 @@ class EditModal {
         const toastElement = document.getElementById(toastId);
         const toast = new bootstrap.Toast(toastElement, {
             autohide: true,
-            delay: 3000
+            delay: type === 'danger' ? 5000 : 3000  // 错误提示显示更长时间
         });
         toast.show();
 
