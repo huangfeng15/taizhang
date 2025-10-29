@@ -268,7 +268,7 @@ class ProfessionalReportGenerator:
         
         settled_contracts = Contract.objects.filter(
             project=project,
-            file_positioning='主合同'
+            file_positioning=FilePositioning.MAIN_CONTRACT.value
         ).filter(
             Q(settlement__isnull=False) |
             Q(payments__is_settled=True)
@@ -276,7 +276,7 @@ class ProfessionalReportGenerator:
         
         total_main_contracts = Contract.objects.filter(
             project=project,
-            file_positioning='主合同'
+            file_positioning=FilePositioning.MAIN_CONTRACT.value
         ).count()
         
         settlement_rate = (settled_contracts / total_main_contracts * 100) if total_main_contracts > 0 else 0

@@ -9,6 +9,7 @@ from procurement.models import Procurement
 from contract.models import Contract
 from payment.models import Payment
 from settlement.models import Settlement
+from project.enums import FilePositioning, ContractSource
 
 
 def check_procurement_field_completeness(year=None, project_codes=None):
@@ -274,8 +275,9 @@ def check_contract_completeness():
     issues = []
     
     # 检查1: 补充协议未关联主合同
+    from project.enums import FilePositioning
     supplements_without_parent = Contract.objects.filter(
-        file_positioning='补充协议',
+        file_positioning=FilePositioning.SUPPLEMENT.value,
         parent_contract__isnull=True
     )
     if supplements_without_parent.exists():
@@ -296,7 +298,7 @@ def check_contract_completeness():
     
     # 检查2: 解除协议未关联主合同
     terminations_without_parent = Contract.objects.filter(
-        file_positioning='解除协议',
+        file_positioning=FilePositioning.TERMINATION.value,
         parent_contract__isnull=True
     )
     if terminations_without_parent.exists():
@@ -339,7 +341,7 @@ def check_contract_completeness():
     
     # 检查4: 主合同不应关联其他合同
     main_contracts_with_parent = Contract.objects.filter(
-        file_positioning='主合同',
+        file_positioning=FilePositioning.MAIN_CONTRACT.value,
         parent_contract__isnull=False
     )
     if main_contracts_with_parent.exists():
@@ -497,7 +499,7 @@ def check_payment_settlement_completeness():
     
     # 检查1: 付款超过合同金额
     overpaid_contracts = []
-    for contract in Contract.objects.filter(file_positioning='主合同'):
+    for contract in Contract.objects.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value):
         total_paid = contract.get_total_paid_amount()
         contract_with_supplements = contract.get_contract_with_supplements_amount()
         
@@ -558,7 +560,7 @@ def check_payment_settlement_completeness():
     
     # 检查3: 主合同没有付款记录
     main_contracts_without_payment = []
-    for contract in Contract.objects.filter(file_positioning='主合同'):
+    for contract in Contract.objects.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value):
         if contract.get_payment_count() == 0:
             main_contracts_without_payment.append({
                 'code': contract.contract_code,
@@ -576,7 +578,7 @@ def check_payment_settlement_completeness():
             'records': main_contracts_without_payment[:20]
         })
     
-    total_contracts = Contract.objects.filter(file_positioning='主合同').count()
+    total_contracts = Contract.objects.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value).count()
     total_payments = Payment.objects.count()
     total_settlements = Settlement.objects.count()
     

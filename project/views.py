@@ -44,6 +44,7 @@ from procurement.models import Procurement
 from payment.models import Payment
 from settlement.models import Settlement
 from supplier_eval.models import SupplierEvaluation
+from project.enums import FilePositioning, PROCUREMENT_METHODS_COMMON_LABELS
 
 from project.services.archive_monitor import ArchiveMonitorService
 from project.services.update_monitor import UpdateMonitorService
@@ -203,7 +204,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '【项目关联】项目编码字段用于关联已存在的项目，必须填写系统中已存在的项目编码',
                 '【时间要求】公告发布时间、报名截止时间、开标时间、候选人公示结束时间、结果公示发布时间等均使用 YYYY-MM-DD 格式',
                 '【金额格式】所有金额列仅填写数字（可带小数），单位为元，例如：1500000.00 或 1500000',
-                '【采购方式】常见选项：公开招标、邀请招标、公开竞争性谈判、单一来源采购、公开询价等，可结合采购类别填写',
+                '【采购方式】常见选项：公开招标、单一来源采购、公开询价、直接采购、公开竞价、战采结果应用等，可结合采购类别填写',
                 '【担保信息】投标担保与履约担保可填写形式与金额，例如：银行保函 500000.00',
                 '【质疑情况】候选人公示期质疑情况用于记录公示期处理情况，可留空',
                 '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
@@ -244,7 +245,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             'notes': [
                 '【必填字段】合同编号*、合同名称*、甲方*、乙方*、合同签订日期*（标记*号的为必填字段，不能为空）',
                 '【编码规则】合同编号与合同序号仅允许字母、数字、中文、连字符(-)、下划线(_)和点(.)，禁止使用 / 等特殊字符',
-                '【文件定位】仅支持三种类型：主合同、补充协议、解除协议（留空默认为"主合同"）',
+                '【文件定位】仅支持四种类型：主合同、补充协议、解除协议、框架协议（留空默认为"主合同"）',
                 '【关联规则】补充协议或解除协议必须填写"关联主合同编号"，关联已存在的主合同',
                 '【合同类型】第11列的合同类型用于描述合同性质，如服务类、货物类、工程类等',
                 '【合同来源】可选值：采购合同、直接签订（留空默认为"采购合同"）',
@@ -904,8 +905,9 @@ def contract_detail(request, contract_code):
     procurement = contract.procurement if contract.procurement else None
     
     # 获取结算信息（如果是主合同）
+    from project.enums import FilePositioning
     settlement = None
-    if contract.file_positioning == '主合同':
+    if contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
         try:
             settlement = getattr(contract, 'settlement', None)
         except:
@@ -913,7 +915,7 @@ def contract_detail(request, contract_code):
     
     # 获取补充协议（如果是主合同）
     supplements = []
-    if contract.file_positioning == '主合同':
+    if contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
         supplements = getattr(contract, 'supplements', Contract.objects.none()).all().order_by('signing_date')
     
     # 获取履约评价
@@ -1973,7 +1975,7 @@ def _generate_project_excel(project, user):
             
             # 结算工作表
             settlement_data = []
-            main_contracts = Contract.objects.filter(project=project, file_positioning='主合同')
+            main_contracts = Contract.objects.filter(project=project, file_positioning=FilePositioning.MAIN_CONTRACT.value)
             for contract in main_contracts:
                 try:
                     settlement = getattr(contract, 'settlement', None)
@@ -2352,12 +2354,12 @@ def statistics_view(request):
     
     # 使用annotate一次性计算所需数据
     main_contracts = Contract.objects.filter(
-        file_positioning='主合同'
+        file_positioning=FilePositioning.MAIN_CONTRACT.value
     ).select_related('project').prefetch_related('supplements', 'payments').annotate(
         total_paid=Coalesce(Sum('payments__payment_amount'), Value(0), output_field=DecimalField()),
         payment_count=Count('payments'),
         supplements_total=Coalesce(
-            Sum('supplements__contract_amount', filter=Q(supplements__file_positioning='补充协议')),
+            Sum('supplements__contract_amount', filter=Q(supplements__file_positioning=FilePositioning.SUPPLEMENT.value)),
             Value(0),
             output_field=DecimalField()
         )

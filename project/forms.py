@@ -195,7 +195,7 @@ class ProcurementForm(forms.ModelForm):
             }),
             'procurement_category': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '如: 工程类',
+                'placeholder': '如: 货物、服务、工程',
             }),
             'budget_amount': forms.NumberInput(attrs={
                 'class': 'form-control',

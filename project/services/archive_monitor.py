@@ -65,7 +65,7 @@ class ArchiveMonitorService:
     def _get_filtered_contracts(self):
         """按当前服务配置返回过滤后的合同查询集（主合同）。"""
         qs = Contract.objects.filter(
-            file_positioning='主合同',
+            file_positioning=FilePositioning.MAIN_CONTRACT.value,
             signing_date__isnull=False
         )
         if self.year:

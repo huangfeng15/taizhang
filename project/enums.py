@@ -63,7 +63,7 @@ class BidAwardingMethod(models.TextChoices):
     """定标方法枚举"""
     VOTING = '票决法', '票决法'
     LOWEST_PRICE = '最低价法', '最低价法'
-    COMPREHENSIVE_EVALUATION = '综合评价法', '综合评价法'
+    COMPREHENSIVE_EVALUATION = '综合评审', '综合评审'
 
 
 # 枚举辅助函数
@@ -187,4 +187,80 @@ PROCUREMENT_METHODS_ALL_LABELS = [
     ProcurementMethod.INVITED_COMPETITIVE_CONSULTATION.label,
     ProcurementMethod.DIRECT_PROCUREMENT.label,
     ProcurementMethod.STRATEGIC_PROCUREMENT.label,
+]
+
+# 合同来源配置常量
+CONTRACT_SOURCES_ALL = [
+    ContractSource.PROCUREMENT.value,
+    ContractSource.DIRECT.value,
+]
+
+CONTRACT_SOURCES_ALL_LABELS = [
+    ContractSource.PROCUREMENT.label,
+    ContractSource.DIRECT.label,
+]
+
+# 文件定位配置常量
+FILE_POSITIONING_ALL = [
+    FilePositioning.MAIN_CONTRACT.value,
+    FilePositioning.SUPPLEMENT.value,
+    FilePositioning.TERMINATION.value,
+    FilePositioning.FRAMEWORK.value,
+]
+
+FILE_POSITIONING_ALL_LABELS = [
+    FilePositioning.MAIN_CONTRACT.label,
+    FilePositioning.SUPPLEMENT.label,
+    FilePositioning.TERMINATION.label,
+    FilePositioning.FRAMEWORK.label,
+]
+
+# 采购类别配置常量
+PROCUREMENT_CATEGORIES_ALL = [
+    ProcurementCategory.GOODS.value,
+    ProcurementCategory.SERVICES.value,
+    ProcurementCategory.ENGINEERING.value,
+]
+
+PROCUREMENT_CATEGORIES_ALL_LABELS = [
+    ProcurementCategory.GOODS.label,
+    ProcurementCategory.SERVICES.label,
+    ProcurementCategory.ENGINEERING.label,
+]
+
+# 资格审查方式配置常量
+QUALIFICATION_REVIEW_METHODS_ALL = [
+    QualificationReviewMethod.PRE_QUALIFICATION.value,
+    QualificationReviewMethod.POST_QUALIFICATION.value,
+]
+
+QUALIFICATION_REVIEW_METHODS_ALL_LABELS = [
+    QualificationReviewMethod.PRE_QUALIFICATION.label,
+    QualificationReviewMethod.POST_QUALIFICATION.label,
+]
+
+# 评标方式配置常量
+BID_EVALUATION_METHODS_ALL = [
+    BidEvaluationMethod.COMPREHENSIVE_SCORING.value,
+    BidEvaluationMethod.COMPETITIVE_NEGOTIATION.value,
+    BidEvaluationMethod.LOWEST_PRICE.value,
+]
+
+BID_EVALUATION_METHODS_ALL_LABELS = [
+    BidEvaluationMethod.COMPREHENSIVE_SCORING.label,
+    BidEvaluationMethod.COMPETITIVE_NEGOTIATION.label,
+    BidEvaluationMethod.LOWEST_PRICE.label,
+]
+
+# 定标方法配置常量
+BID_AWARDING_METHODS_ALL = [
+    BidAwardingMethod.VOTING.value,
+    BidAwardingMethod.LOWEST_PRICE.value,
+    BidAwardingMethod.COMPREHENSIVE_EVALUATION.value,
+]
+
+BID_AWARDING_METHODS_ALL_LABELS = [
+    BidAwardingMethod.VOTING.label,
+    BidAwardingMethod.LOWEST_PRICE.label,
+    BidAwardingMethod.COMPREHENSIVE_EVALUATION.label,
 ]
