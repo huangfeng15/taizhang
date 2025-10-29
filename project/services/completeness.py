@@ -316,8 +316,9 @@ def check_contract_completeness():
         })
     
     # 检查3: 采购合同未关联采购项目
+    from project.enums import ContractSource
     procurement_contracts_without_procurement = Contract.objects.filter(
-        contract_source='采购合同',
+        contract_source=ContractSource.PROCUREMENT.value,
         procurement__isnull=True
     )
     if procurement_contracts_without_procurement.exists():
@@ -359,7 +360,7 @@ def check_contract_completeness():
     
     # 检查5: 直接签订合同不应关联采购项目
     direct_contracts_with_procurement = Contract.objects.filter(
-        contract_source='直接签订',
+        contract_source=ContractSource.DIRECT.value,
         procurement__isnull=False
     )
     if direct_contracts_with_procurement.exists():

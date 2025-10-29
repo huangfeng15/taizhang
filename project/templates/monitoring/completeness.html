@@ -694,7 +694,7 @@
         <!-- 排行榜分页 -->
         {% if ranking_page_obj.has_other_pages %}
         <div style="margin-top: 20px;">
-            {% include 'pagination_custom.html' with page_obj=ranking_page_obj page_param='ranking_page' querystring=ranking_pagination_query anchor_id='ranking-section' %}
+            {% include 'pagination_custom.html' with page_obj=ranking_page_obj page_param='ranking_page' querystring=ranking_pagination_query anchor_id='ranking-section' pagination_key='/monitoring/completeness/' %}
         </div>
         {% endif %}
     </div>
@@ -775,7 +775,7 @@
         <!-- 采购字段分页 -->
         {% if procurement_page_obj.has_other_pages %}
         <div style="margin-top: 20px;">
-            {% include 'pagination_custom.html' with page_obj=procurement_page_obj page_param='procurement_page' querystring=procurement_pagination_query anchor_id='procurement-section' %}
+            {% include 'pagination_custom.html' with page_obj=procurement_page_obj page_param='procurement_page' querystring=procurement_pagination_query anchor_id='procurement-section' pagination_key='/monitoring/completeness/' %}
         </div>
         {% endif %}
         </div>
@@ -842,7 +842,7 @@
         <!-- 合同字段分页 -->
         {% if contract_page_obj.has_other_pages %}
         <div style="margin-top: 20px;">
-            {% include 'pagination_custom.html' with page_obj=contract_page_obj page_param='contract_page' querystring=contract_pagination_query anchor_id='contract-section' %}
+            {% include 'pagination_custom.html' with page_obj=contract_page_obj page_param='contract_page' querystring=contract_pagination_query anchor_id='contract-section' pagination_key='/monitoring/completeness/' %}
         </div>
         {% endif %}
         </div>
@@ -887,5 +887,55 @@ function switchTab(event, tabId) {
     event.currentTarget.classList.add('active');
     document.getElementById(tabId).classList.add('active');
 }
+
+// 页面加载时根据锚点切换到对应标签页
+document.addEventListener('DOMContentLoaded', function() {
+    const hash = window.location.hash;
+    if (hash) {
+        // 根据锚点切换到对应的标签页
+        let targetTabId = null;
+        let targetTabButton = null;
+        
+        switch(hash) {
+            case '#procurement-section':
+                targetTabId = 'tab-procurement';
+                targetTabButton = document.querySelector('.tab-item[onclick*="tab-procurement"]');
+                break;
+            case '#contract-section':
+                targetTabId = 'tab-contract';
+                targetTabButton = document.querySelector('.tab-item[onclick*="tab-contract"]');
+                break;
+            case '#ranking-section':
+                targetTabId = 'tab-ranking';
+                targetTabButton = document.querySelector('.tab-item[onclick*="tab-ranking"]');
+                break;
+        }
+        
+        if (targetTabId && targetTabButton) {
+            // 移除所有活动状态
+            document.querySelectorAll('.tab-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            // 激活目标标签页
+            targetTabButton.classList.add('active');
+            document.getElementById(targetTabId).classList.add('active');
+            
+            // 滚动到对应区域
+            setTimeout(function() {
+                const targetElement = document.getElementById(hash.substring(1));
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'auto',
+                        block: 'start'
+                    });
+                }
+            }, 100);
+        }
+    }
+});
 </script>
 {% endblock %}

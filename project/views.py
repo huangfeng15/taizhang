@@ -203,7 +203,7 @@ IMPORT_TEMPLATE_DEFINITIONS = {
                 '【项目关联】项目编码字段用于关联已存在的项目，必须填写系统中已存在的项目编码',
                 '【时间要求】公告发布时间、报名截止时间、开标时间、候选人公示结束时间、结果公示发布时间等均使用 YYYY-MM-DD 格式',
                 '【金额格式】所有金额列仅填写数字（可带小数），单位为元，例如：1500000.00 或 1500000',
-                '【采购方式】常见选项：公开招标、邀请招标、竞争性谈判、单一来源、询价等，可结合采购类别填写',
+                '【采购方式】常见选项：公开招标、邀请招标、公开竞争性谈判、单一来源采购、公开询价等，可结合采购类别填写',
                 '【担保信息】投标担保与履约担保可填写形式与金额，例如：银行保函 500000.00',
                 '【质疑情况】候选人公示期质疑情况用于记录公示期处理情况，可留空',
                 '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
@@ -2327,8 +2327,9 @@ def statistics_view(request):
     cycle_by_method = procurement_stats.get('cycle_by_method', {})
     common_methods = procurement_stats.get('common_methods', [])
     
-    # 常用方式数据（公开招标、邀请招标、竞争性谈判、单一来源）
-    procurement_duration_common_labels = common_methods
+    # 常用方式数据 - 使用配置常量
+    from project.enums import PROCUREMENT_METHODS_COMMON_LABELS
+    procurement_duration_common_labels = PROCUREMENT_METHODS_COMMON_LABELS
     procurement_duration_common_under30 = [cycle_by_method.get(m, {}).get('under_30', 0) for m in common_methods]
     procurement_duration_common_30to60 = [cycle_by_method.get(m, {}).get('30_to_60', 0) for m in common_methods]
     procurement_duration_common_60to90 = [cycle_by_method.get(m, {}).get('60_to_90', 0) for m in common_methods]
@@ -2398,13 +2399,16 @@ def statistics_view(request):
         project_payments[project_key]['total_paid'] += float(total_paid)
         project_payments[project_key]['payment_count'] += int(payment_count)
     
-    # 计算支付率
+    # 计算支付率并转换为万元
     for key in project_payments:
         contract_amt = project_payments[key]['contract_amount']
         if contract_amt > 0:
             project_payments[key]['payment_ratio'] = (project_payments[key]['total_paid'] / contract_amt) * 100
         else:
             project_payments[key]['payment_ratio'] = 0.0
+        # 转换为万元用于显示
+        project_payments[key]['total_paid'] = project_payments[key]['total_paid'] / 10000
+        project_payments[key]['contract_amount'] = contract_amt / 10000
     
     # 按总付款额排序,取TOP 5
     payment_top_projects = sorted(
@@ -2417,7 +2421,7 @@ def statistics_view(request):
     settlement_variance_analysis = []
     for item in settlement_stats.get('variance_analysis', [])[:5]:
         settlement_variance_analysis.append({
-            'contract_name': item.get('settlement_code', 'N/A'),
+            'contract_name': item.get('contract_name', 'N/A'),  # 使用合同名称
             'contract_amount': item['contract_amount'],
             'settlement_amount': item['settlement_amount'],
             'variance': item['variance'],
@@ -3167,9 +3171,9 @@ def generate_professional_report(request):
             # 清理临时文件
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
-    
     except Exception as e:
         messages.error(request, f'生成报告失败: {str(e)}')
+        return redirect('generate_professional_report')
 
 
 # ==================== 前端编辑功能 ====================

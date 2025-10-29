@@ -7,6 +7,7 @@ from django.db.models import Sum, Count, Q, Avg, Max, Min
 from django.db.models.functions import TruncMonth, TruncYear
 from datetime import datetime, timedelta
 from decimal import Decimal
+from project.enums import FilePositioning, PROCUREMENT_METHODS_COMMON, PROCUREMENT_METHODS_ALL
 
 
 def get_procurement_statistics(year=None, project_codes=None):
@@ -109,10 +110,9 @@ def get_procurement_statistics(year=None, project_codes=None):
     
     # 采购周期分析 - 按采购方式分组
     cycle_by_method = {}
-    # 默认常用方式（6种）
-    common_methods = ['公开招标', '单一来源', '询价采购', '直接采购', '竞价采购', '战采应用']
-    # 全部方式（10种）- 与原型图保持一致
-    all_methods_list = ['公开招标', '邀请招标', '竞争性谈判', '竞争性磋商', '询价采购', '单一来源', '直接采购', '竞价采购', '比选', '战采应用']
+    # 使用配置常量
+    common_methods = PROCUREMENT_METHODS_COMMON
+    all_methods_list = PROCUREMENT_METHODS_ALL
     
     for proc in cycle_data:
         method = proc.procurement_method
@@ -238,12 +238,12 @@ def get_contract_statistics(year=None, project_codes=None):
             })
     
     # 主合同统计
-    main_contracts = queryset.filter(file_positioning='主合同')
+    main_contracts = queryset.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
     main_count = main_contracts.count()
     main_amount = main_contracts.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
     # 补充协议统计
-    supplements = queryset.filter(file_positioning='补充协议')
+    supplements = queryset.filter(file_positioning=FilePositioning.SUPPLEMENT.value)
     supplement_count = supplements.count()
     supplement_amount = supplements.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
@@ -356,7 +356,7 @@ def get_payment_statistics(year=None, project_codes=None):
     
     # 计算预计剩余支付金额
     # 获取所有主合同（应用年份和项目筛选）
-    main_contracts_query = Contract.objects.filter(file_positioning='主合同')
+    main_contracts_query = Contract.objects.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
     
     # 应用项目筛选
     if project_codes:
@@ -384,10 +384,10 @@ def get_payment_statistics(year=None, project_codes=None):
         except:
             base_amount = contract_total
         
-        # 获取已付金额（需要应用相同的筛选条件）
+        # 获取已付金额（不应用年份筛选，因为要计算该合同的总已付金额）
+        # 只应用项目筛选（如果有的话）
         paid_query = Payment.objects.filter(contract=contract)
-        if year is not None:
-            paid_query = paid_query.filter(payment_date__year=year)
+        # 注意：这里不应用年份筛选，因为我们要计算该合同的所有历史付款
         paid_amount = paid_query.aggregate(total=Sum('payment_amount'))['total'] or Decimal('0')
         
         # 计算剩余（包括负值，即超付情况）
@@ -456,7 +456,7 @@ def get_settlement_statistics(year=None, project_codes=None):
             continue
         
         # 确定主合同编号
-        if payment.contract.file_positioning == '主合同':
+        if payment.contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
             main_contract_code = payment.contract.contract_code
         elif payment.contract.parent_contract:
             main_contract_code = payment.contract.parent_contract.contract_code
@@ -496,7 +496,7 @@ def get_settlement_statistics(year=None, project_codes=None):
     
     # 计算结算率（已结算的主合同数 / 总主合同数）
     # 应用年份和项目筛选
-    main_contracts_query = Contract.objects.filter(file_positioning='主合同')
+    main_contracts_query = Contract.objects.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
     if year is not None:
         main_contracts_query = main_contracts_query.filter(signing_date__year=year)
     if project_codes:
@@ -531,7 +531,8 @@ def get_settlement_statistics(year=None, project_codes=None):
         variance_rate = float(variance / contract_amount * 100) if contract_amount > 0 else 0
         
         variance_analysis.append({
-            'settlement_code': contract_code,
+            'contract_code': contract_code,  # 合同编号
+            'contract_name': contract.contract_name,  # 合同名称
             'contract_amount': float(contract_amount) / 10000,  # 转换为万元
             'settlement_amount': float(settlement_amount) / 10000,  # 转换为万元
             'variance': float(variance) / 10000,  # 转换为万元

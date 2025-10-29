@@ -145,11 +145,6 @@ class ContractForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['contract_code'].disabled = True
-            # 确保日期字段使用正确格式
-            if hasattr(self.fields['signing_date'], 'widget'):
-                self.fields['signing_date'].widget.format = '%Y-%m-%d'
-            if hasattr(self.fields['archive_date'], 'widget'):
-                self.fields['archive_date'].widget.format = '%Y-%m-%d'
 
 
 class ProcurementForm(forms.ModelForm):
@@ -196,7 +191,7 @@ class ProcurementForm(forms.ModelForm):
             }),
             'procurement_method': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '如: 公开招标',
+                'placeholder': '如: 公开招标、单一来源采购、公开询价等',
             }),
             'procurement_category': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -232,10 +227,6 @@ class ProcurementForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['procurement_code'].disabled = True
-            # 确保日期字段使用正确格式
-            for field_name in ['bid_opening_date', 'result_publicity_release_date', 'archive_date']:
-                if field_name in self.fields and hasattr(self.fields[field_name], 'widget'):
-                    self.fields[field_name].widget.format = '%Y-%m-%d'
 
 
 class PaymentForm(forms.ModelForm):
@@ -280,6 +271,3 @@ class PaymentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['payment_code'].disabled = True
-            # 确保日期字段使用正确格式
-            if hasattr(self.fields['payment_date'], 'widget'):
-                self.fields['payment_date'].widget.format = '%Y-%m-%d'

@@ -1,7 +1,7 @@
 <div class="pagination"
      id="pagination-{{ anchor_id|default:'default' }}"
      data-preserve-pagination="true"
-     data-pagination-key="{{ request.path }}#{{ anchor_id|default:'default' }}">
+     data-pagination-key="{{ pagination_key|default:request.path }}#{{ anchor_id|default:'default' }}">
     {% if show_info|default:True %}
         <span class="pagination-info">
             显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
@@ -71,19 +71,48 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const keyBase = container.dataset.paginationKey || (window.location.pathname + window.location.search);
     const storageKey = 'paginationScroll:' + keyBase;
-    const savedPositionRaw = sessionStorage.getItem(storageKey);
-    if (savedPositionRaw !== null) {
-        const savedPosition = parseInt(savedPositionRaw, 10);
-        if (!Number.isNaN(savedPosition)) {
-            window.scrollTo({ top: savedPosition, behavior: 'auto' });
+    
+    // 只在页面加载时检查是否需要滚动到特定锚点
+    // 检查URL中是否有对应的锚点
+    const hash = window.location.hash;
+    const targetAnchorId = '{{ anchor_id|default:"default" }}';
+    
+    if (hash && hash === '#' + targetAnchorId) {
+        // 如果URL中有对应的锚点，滚动到该位置
+        const targetElement = document.getElementById(targetAnchorId);
+        if (targetElement) {
+            // 延迟执行，确保页面完全加载
+            setTimeout(function() {
+                targetElement.scrollIntoView({
+                    behavior: 'auto',
+                    block: 'start'
+                });
+            }, 100);
         }
-        sessionStorage.removeItem(storageKey);
+    } else {
+        // 检查是否有保存的滚动位置（只在没有锚点时使用）
+        const savedPositionRaw = sessionStorage.getItem(storageKey);
+        if (savedPositionRaw !== null) {
+            const savedPosition = parseInt(savedPositionRaw, 10);
+            if (!Number.isNaN(savedPosition)) {
+                window.scrollTo({ top: savedPosition, behavior: 'auto' });
+            }
+            sessionStorage.removeItem(storageKey);
+        }
     }
 
+    // 为所有分页链接添加点击事件，保存当前滚动位置并添加锚点
     container.querySelectorAll('.pagination-no-scroll').forEach(function(link) {
-        link.addEventListener('click', function() {
+        link.addEventListener('click', function(e) {
+            // 保存当前滚动位置
             const currentTop = window.pageYOffset || document.documentElement.scrollTop || 0;
             sessionStorage.setItem(storageKey, currentTop);
+            
+            // 修改链接URL，添加锚点
+            const href = this.getAttribute('href');
+            if (href && !href.includes('#')) {
+                this.setAttribute('href', href + '#' + targetAnchorId);
+            }
         });
     });
 });

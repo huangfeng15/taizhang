@@ -22,7 +22,7 @@ class ProcurementMethod(models.TextChoices):
     INVITED_COMPETITIVE_NEGOTIATION = '邀请竞争性谈判', '邀请竞争性谈判'
     INVITED_COMPETITIVE_CONSULTATION = '邀请竞争性磋商', '邀请竞争性磋商'
     DIRECT_PROCUREMENT = '直接采购', '直接采购'
-    STRATEGIC_PROCUREMENT = '战采应用', '战采应用'
+    STRATEGIC_PROCUREMENT = '战采结果应用', '战采结果应用'
 
 
 class ContractSource(models.TextChoices):
@@ -131,3 +131,60 @@ def get_enum_labels_text(enum_class, separator='、'):
         连接后的字符串，例如: "公开招标、邀请招标、竞争性谈判"
     """
     return separator.join(get_enum_labels(enum_class))
+
+
+# 采购方式配置常量
+PROCUREMENT_METHODS_COMMON = [
+    ProcurementMethod.PUBLIC_BIDDING.value,
+    ProcurementMethod.SINGLE_SOURCE.value,
+    ProcurementMethod.PUBLIC_INQUIRY.value,
+    ProcurementMethod.DIRECT_PROCUREMENT.value,
+    ProcurementMethod.PUBLIC_AUCTION.value,
+    ProcurementMethod.STRATEGIC_PROCUREMENT.value,
+]
+
+PROCUREMENT_METHODS_ALL = [
+    ProcurementMethod.PUBLIC_BIDDING.value,
+    ProcurementMethod.INVITED_BIDDING.value,
+    ProcurementMethod.PUBLIC_INQUIRY.value,
+    ProcurementMethod.INVITED_INQUIRY.value,
+    ProcurementMethod.PUBLIC_AUCTION.value,
+    ProcurementMethod.INVITED_AUCTION.value,
+    ProcurementMethod.PUBLIC_COMPARISON.value,
+    ProcurementMethod.INVITED_COMPARISON.value,
+    ProcurementMethod.SINGLE_SOURCE.value,
+    ProcurementMethod.PUBLIC_COMPETITIVE_NEGOTIATION.value,
+    ProcurementMethod.PUBLIC_COMPETITIVE_CONSULTATION.value,
+    ProcurementMethod.INVITED_COMPETITIVE_NEGOTIATION.value,
+    ProcurementMethod.INVITED_COMPETITIVE_CONSULTATION.value,
+    ProcurementMethod.DIRECT_PROCUREMENT.value,
+    ProcurementMethod.STRATEGIC_PROCUREMENT.value,
+]
+
+# 采购方式显示标签（用于前端显示）
+PROCUREMENT_METHODS_COMMON_LABELS = [
+    ProcurementMethod.PUBLIC_BIDDING.label,
+    ProcurementMethod.SINGLE_SOURCE.label,
+    ProcurementMethod.PUBLIC_INQUIRY.label,
+    ProcurementMethod.DIRECT_PROCUREMENT.label,
+    ProcurementMethod.PUBLIC_AUCTION.label,
+    ProcurementMethod.STRATEGIC_PROCUREMENT.label,
+]
+
+PROCUREMENT_METHODS_ALL_LABELS = [
+    ProcurementMethod.PUBLIC_BIDDING.label,
+    ProcurementMethod.INVITED_BIDDING.label,
+    ProcurementMethod.PUBLIC_INQUIRY.label,
+    ProcurementMethod.INVITED_INQUIRY.label,
+    ProcurementMethod.PUBLIC_AUCTION.label,
+    ProcurementMethod.INVITED_AUCTION.label,
+    ProcurementMethod.PUBLIC_COMPARISON.label,
+    ProcurementMethod.INVITED_COMPARISON.label,
+    ProcurementMethod.SINGLE_SOURCE.label,
+    ProcurementMethod.PUBLIC_COMPETITIVE_NEGOTIATION.label,
+    ProcurementMethod.PUBLIC_COMPETITIVE_CONSULTATION.label,
+    ProcurementMethod.INVITED_COMPETITIVE_NEGOTIATION.label,
+    ProcurementMethod.INVITED_COMPETITIVE_CONSULTATION.label,
+    ProcurementMethod.DIRECT_PROCUREMENT.label,
+    ProcurementMethod.STRATEGIC_PROCUREMENT.label,
+]

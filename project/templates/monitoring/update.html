@@ -565,7 +565,7 @@
     <header class="page-header">
         <div>
             <h1 class="page-title"><i class="fas fa-chart-pie"></i> 项目更新准时率</h1>
-            <p class="helper-note">当前统计：{{ display_year }} · 监控起始：{{ display_start }}</p>
+            <p class="helper-note">当前统计：{{ display_year }}</p>
         </div>
         <div class="monitoring-page__filters">
             {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path submit_icon='fas fa-search' submit_label='查询' %}

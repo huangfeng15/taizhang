@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>分页测试</title>
+    <style>
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .active { background-color: #f0f8ff; }
+        .tab-item { padding: 10px; margin: 5px; cursor: pointer; border: 1px solid #ddd; }
+        .tab-item.active { background-color: #1890ff; color: white; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+    </style>
+</head>
+<body>
+    <h1>分页组件测试</h1>
+    
+    <div class="tabs">
+        <div class="tab-item active" onclick="switchTab(event, 'tab-procurement')">采购字段齐全性</div>
+        <div class="tab-item" onclick="switchTab(event, 'tab-contract')">合同字段齐全性</div>
+    </div>
+    
+    <div id="tab-procurement" class="tab-pane active">
+        <div id="procurement-section" class="section">
+            <h3>采购字段齐全性检查</h3>
+            <p>这是采购字段齐全性检查的内容区域。</p>
+            
+            <!-- 模拟分页组件 -->
+            <div class="pagination" id="pagination-procurement-section" data-preserve-pagination="true" data-pagination-key="/monitoring/completeness/#procurement-section">
+                <span class="pagination-info">显示第 1 - 10 条，共 25 条</span>
+                <a href="?procurement_page=2#procurement-section" class="pagination-no-scroll">下一页</a>
+            </div>
+        </div>
+    </div>
+    
+    <div id="tab-contract" class="tab-pane">
+        <div id="contract-section" class="section">
+            <h3>合同字段齐全性检查</h3>
+            <p>这是合同字段齐全性检查的内容区域。</p>
+            
+            <!-- 模拟分页组件 -->
+            <div class="pagination" id="pagination-contract-section" data-preserve-pagination="true" data-pagination-key="/monitoring/completeness/#contract-section">
+                <span class="pagination-info">显示第 1 - 10 条，共 17 条</span>
+                <a href="?contract_page=2#contract-section" class="pagination-no-scroll">下一页</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 标签页切换功能
+        function switchTab(event, tabId) {
+            event.preventDefault();
+            
+            // 移除所有活动状态
+            document.querySelectorAll('.tab-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            // 添加新的活动状态
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // 页面加载时根据锚点切换到对应标签页
+        document.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash;
+            if (hash) {
+                // 根据锚点切换到对应的标签页
+                let targetTabId = null;
+                let targetTabButton = null;
+                
+                switch(hash) {
+                    case '#procurement-section':
+                        targetTabId = 'tab-procurement';
+                        targetTabButton = document.querySelector('.tab-item[onclick*="tab-procurement"]');
+                        break;
+                    case '#contract-section':
+                        targetTabId = 'tab-contract';
+                        targetTabButton = document.querySelector('.tab-item[onclick*="tab-contract"]');
+                        break;
+                }
+                
+                if (targetTabId && targetTabButton) {
+                    // 移除所有活动状态
+                    document.querySelectorAll('.tab-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    document.querySelectorAll('.tab-pane').forEach(pane => {
+                        pane.classList.remove('active');
+                    });
+                    
+                    // 激活目标标签页
+                    targetTabButton.classList.add('active');
+                    document.getElementById(targetTabId).classList.add('active');
+                    
+                    // 滚动到对应区域
+                    setTimeout(function() {
+                        const targetElement = document.getElementById(hash.substring(1));
+                        if (targetElement) {
+                            targetElement.scrollIntoView({ 
+                                behavior: 'auto',
+                                block: 'start'
+                            });
+                        }
+                    }, 100);
+                }
+            }
+        });
+
+        // 分页链接点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.pagination-no-scroll').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    // 修改链接URL，添加锚点（如果还没有的话）
+                    const href = this.getAttribute('href');
+                    if (href && !href.includes('#')) {
+                        const container = this.closest('.pagination');
+                        const anchorId = container.id.replace('pagination-', '');
+                        this.setAttribute('href', href + '#' + anchorId);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

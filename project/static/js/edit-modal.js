@@ -71,19 +71,34 @@ class EditModal {
     }
 
     bindEditButtons() {
-        // 使用事件委托处理动态添加的编辑按钮
+        // 使用事件委托处理动态添加的编辑/新增按钮
         document.addEventListener('click', (e) => {
+            // 处理编辑按钮
             const editBtn = e.target.closest('[data-edit-url]');
             if (editBtn) {
                 e.preventDefault();
                 const editUrl = editBtn.dataset.editUrl;
-                this.loadForm(editUrl);
+                const title = editBtn.dataset.title || '编辑信息';
+                this.loadForm(editUrl, title);
+                return;
+            }
+            
+            // 处理新增按钮
+            const createBtn = e.target.closest('[data-create-url]');
+            if (createBtn) {
+                e.preventDefault();
+                const createUrl = createBtn.dataset.createUrl;
+                const title = createBtn.dataset.title || '新增记录';
+                this.loadForm(createUrl, title);
             }
         });
     }
 
-    async loadForm(url) {
+    async loadForm(url, title = '编辑信息') {
         try {
+            // 更新模态框标题
+            document.getElementById('editModalLabel').textContent = title;
+            
             // 显示模态框
             this.modal.show();
 

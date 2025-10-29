@@ -4,6 +4,10 @@
 from django.db import models
 from project.validators import validate_code_field, validate_and_clean_code
 from project.helptext import get_help_text
+from project.enums import (
+    ProcurementMethod, ProcurementCategory, QualificationReviewMethod,
+    BidEvaluationMethod, BidAwardingMethod, get_enum_choices
+)
 
 
 class BaseModel(models.Model):
@@ -89,6 +93,7 @@ class Procurement(BaseModel):
         '采购类别',
         max_length=100,
         blank=True,
+        choices=get_enum_choices(ProcurementCategory),
         help_text='采购类别，例如：货物、工程、服务'
     )
 
@@ -103,6 +108,7 @@ class Procurement(BaseModel):
         '采购方式',
         max_length=50,
         blank=True,
+        choices=get_enum_choices(ProcurementMethod),
         help_text=get_help_text('procurement', 'procurement_method')
     )
 
@@ -110,6 +116,7 @@ class Procurement(BaseModel):
         '资格审查方式',
         max_length=100,
         blank=True,
+        choices=get_enum_choices(QualificationReviewMethod),
         help_text='例如: 资格预审、资格后审'
     )
 
@@ -117,6 +124,7 @@ class Procurement(BaseModel):
         '评标谈判方式',
         max_length=50,
         blank=True,
+        choices=get_enum_choices(BidEvaluationMethod),
         help_text='例如: 综合评分法、竞争性谈判'
     )
 
@@ -124,6 +132,7 @@ class Procurement(BaseModel):
         '定标方法',
         max_length=50,
         blank=True,
+        choices=get_enum_choices(BidAwardingMethod),
         help_text='例如: 票决法、最低价法'
     )
 
