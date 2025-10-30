@@ -964,22 +964,35 @@ function toggleProcurementMethods() {
 
 // 合同图表渲染(延迟加载)
 function renderContractCharts() {
-    // 合同类型分布饼图
+    // 合同类型分布饼图（包含所有类型）
     const typeCtx = document.getElementById('contractTypeChart');
     if (typeCtx) {
         new Chart(typeCtx, {
             type: 'pie',
             data: {
-                labels: ['主合同', '补充协议'],
+                labels: {{ contract_type_labels|safe }},
                 datasets: [{
-                    data: [{{ contract_stats.main_amount|default:"0" }}, {{ contract_stats.supplement_amount|default:"0" }}],
-                    backgroundColor: ['#722ed1', '#1890ff'],
+                    data: {{ contract_type_data|safe }},
+                    backgroundColor: ['#722ed1', '#1890ff', '#faad14', '#52c41a'],
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'right' } }
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return label + ': ' + value.toFixed(0) + '万 (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
             }
         });
     }

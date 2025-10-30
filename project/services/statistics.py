@@ -296,6 +296,16 @@ def get_contract_statistics(year=None, project_codes=None):
     supplement_count = supplements.count()
     supplement_amount = supplements.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
     
+    # 解除协议统计
+    terminations = queryset.filter(file_positioning=FilePositioning.TERMINATION.value)
+    termination_count = terminations.count()
+    termination_amount = terminations.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+    
+    # 框架协议统计
+    frameworks = queryset.filter(file_positioning=FilePositioning.FRAMEWORK.value)
+    framework_count = frameworks.count()
+    framework_amount = frameworks.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+    
     # 归档情况
     archived_count = queryset.filter(archive_date__isnull=False).count()
     archive_rate = round(archived_count / total_count * 100, 2) if total_count > 0 else 0
@@ -325,6 +335,10 @@ def get_contract_statistics(year=None, project_codes=None):
         'main_amount': float(main_amount) / 10000,  # 转换为万元
         'supplement_count': supplement_count,
         'supplement_amount': float(supplement_amount) / 10000,  # 转换为万元
+        'termination_count': termination_count,
+        'termination_amount': float(termination_amount) / 10000,  # 转换为万元
+        'framework_count': framework_count,
+        'framework_amount': float(framework_amount) / 10000,  # 转换为万元
         'type_distribution': type_distribution,
         'source_distribution': source_distribution,
         'archived_count': archived_count,

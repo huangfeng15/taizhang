@@ -2345,6 +2345,10 @@ def statistics_view(request):
     procurement_duration_all_60to90 = [cycle_by_method.get(m, {}).get('60_to_90', 0) for m in all_methods]
     procurement_duration_all_over90 = [cycle_by_method.get(m, {}).get('over_90', 0) for m in all_methods]
     
+    # 准备合同类型图表数据（包含所有类型：主合同、补充协议、解除协议、框架协议）
+    contract_type_labels = [item['type'] for item in contract_stats['type_distribution']]
+    contract_type_data = [item['amount'] for item in contract_stats['type_distribution']]
+    
     # 准备合同来源图表数据
     contract_source_labels = [item['source'] for item in contract_stats['source_distribution']]
     contract_source_data = [item['count'] for item in contract_stats['source_distribution']]
@@ -2468,6 +2472,10 @@ def statistics_view(request):
         'procurement_duration_all_30to60': json.dumps(procurement_duration_all_30to60),
         'procurement_duration_all_60to90': json.dumps(procurement_duration_all_60to90),
         'procurement_duration_all_over90': json.dumps(procurement_duration_all_over90),
+        
+        # 合同类型数据（按金额）
+        'contract_type_labels': json.dumps(contract_type_labels, ensure_ascii=False),
+        'contract_type_data': json.dumps(contract_type_data),
         
         'contract_source_labels': json.dumps(contract_source_labels, ensure_ascii=False),
         'contract_source_data': json.dumps(contract_source_data),
