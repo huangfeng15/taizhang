@@ -1015,5 +1015,101 @@ Chart(sourceCtx, {
         });
     }
 }
+
+// ==================== KPI卡片点击事件 - 显示详情模态框 ====================
+document.addEventListener('DOMContentLoaded', function() {
+    // 为KPI卡片添加点击样式提示
+    const kpiCards = document.querySelectorAll('.kpi-card');
+    kpiCards.forEach(card => {
+        card.style.cursor = 'pointer';
+        card.setAttribute('title', '点击查看详细数据');
+    });
+    
+    // 采购统计卡片点击事件
+    document.querySelector('.kpi-card.is-procurement').addEventListener('click', function() {
+        // 获取当前筛选条件(如果有的话)
+        const filters = getCurrentFilters();
+        StatisticsDetailModal.show('procurement', filters);
+    });
+    
+    // 合同统计卡片点击事件
+    document.querySelector('.kpi-card.is-contract').addEventListener('click', function() {
+        const filters = getCurrentFilters();
+        StatisticsDetailModal.show('contract', filters);
+    });
+    
+    // 付款统计卡片点击事件
+    document.querySelector('.kpi-card.is-payment').addEventListener('click', function() {
+        const filters = getCurrentFilters();
+        StatisticsDetailModal.show('payment', filters);
+    });
+    
+    // 结算统计卡片点击事件
+    document.querySelector('.kpi-card.is-settlement').addEventListener('click', function() {
+        const filters = getCurrentFilters();
+        StatisticsDetailModal.show('settlement', filters);
+    });
+});
+
+/**
+ * 获取当前页面的筛选条件
+ * 从全局筛选组件和URL参数中获取年份和项目筛选
+ * 优先使用后端传递的模板变量,确保与KPI卡片数据一致
+ */
+function getCurrentFilters() {
+    const filters = {};
+    
+    // 1. 优先从后端模板变量获取(与KPI卡片计算时使用的筛选条件完全一致)
+    const templateYear = '{{ year_filter_value|default:"" }}';
+    const templateProject = '{{ selected_project_value|default:"" }}';
+    
+    if (templateYear && templateYear !== 'None' && templateYear !== '') {
+        filters.year = templateYear;
+    }
+    
+    if (templateProject && templateProject !== 'None' && templateProject !== '') {
+        filters.project = templateProject;
+    }
+    
+    // 2. 如果模板变量为空,尝试从全局筛选组件获取(字段名是global_year和global_project)
+    if (!filters.year) {
+        const yearSelect = document.querySelector('select[name="global_year"]') ||
+                          document.querySelector('select[name="year"]');
+        if (yearSelect && yearSelect.value && yearSelect.value !== 'all') {
+            filters.year = yearSelect.value;
+        }
+    }
+    
+    if (!filters.project) {
+        const projectSelect = document.querySelector('select[name="global_project"]') ||
+                             document.querySelector('select[name="project"]');
+        if (projectSelect && projectSelect.value) {
+            filters.project = projectSelect.value;
+        }
+    }
+    
+    // 3. 最后尝试从URL参数获取
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!filters.year && urlParams.get('year')) {
+        filters.year = urlParams.get('year');
+    }
+    if (!filters.year && urlParams.get('global_year')) {
+        filters.year = urlParams.get('global_year');
+    }
+    
+    if (!filters.project && urlParams.get('project')) {
+        filters.project = urlParams.get('project');
+    }
+    if (!filters.project && urlParams.get('global_project')) {
+        filters.project = urlParams.get('global_project');
+    }
+    
+    console.log('当前筛选条件:', filters);  // 调试日志
+    return filters;
+}
 </script>
+
+<!-- 引入统计详情模态框组件 -->
+{% include 'monitoring/includes/statistics_detail_modal.html' %}
+
 {% endblock %}

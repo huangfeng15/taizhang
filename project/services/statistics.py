@@ -580,7 +580,7 @@ def get_settlement_statistics(year=None, project_codes=None):
         variance_rate = float(variance / contract_amount * 100) if contract_amount > 0 else 0
         
         variance_analysis.append({
-            'contract_code': contract_code,  # 合同编号
+            'contract_sequence': contract.contract_sequence or '',  # 使用合同序号
             'contract_name': contract.contract_name,  # 合同名称
             'contract_amount': float(contract_amount) / 10000,  # 转换为万元
             'settlement_amount': float(settlement_amount) / 10000,  # 转换为万元
@@ -684,3 +684,340 @@ def get_year_comparison(years, project_codes=None):
         })
     
     return comparison_data
+
+
+# ==================== 详情查询函数 ====================
+# 用于支持统计数据的详情查看和导出功能
+
+def get_procurement_details(year=None, project_codes=None):
+    """
+    获取采购统计的详细数据列表
+    
+    按采购项目名称去重,返回每个项目名称的代表性记录
+    (取预算金额、中标金额、控制价的最大值对应的记录)
+    
+    Args:
+        year: 统计年份,None表示全部年份
+        project_codes: 项目编码列表,None表示全部项目
+        
+    Returns:
+        list: 采购详情数据列表,每条记录包含完整的采购信息
+    """
+    from procurement.models import Procurement
+    
+    # 基础查询集 - 优化查询性能
+    queryset = Procurement.objects.select_related('project').only(
+        'procurement_code', 'project_name', 'procurement_method',
+        'budget_amount', 'winning_amount', 'control_price', 'archive_date',
+        'result_publicity_release_date', 'requirement_approval_date',
+        'notice_issue_date', 'planned_completion_date', 'procurement_unit',
+        'winning_bidder', 'procurement_category', 'candidate_publicity_end_date',
+        'project__project_code', 'project__project_name'
+    )
+    
+    # 年份筛选
+    if year is not None:
+        queryset = queryset.filter(result_publicity_release_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
+    
+    # 按项目名称分组,取每组的代表性记录
+    project_name_records = {}
+    
+    for proc in queryset:
+        project_name = proc.project_name
+        if not project_name:
+            continue
+        
+        budget = proc.budget_amount or Decimal('0')
+        winning = proc.winning_amount or Decimal('0')
+        control = proc.control_price or Decimal('0')
+        
+        # 如果是第一次遇到此项目名称,或当前记录的金额更大,则保存
+        if project_name not in project_name_records:
+            project_name_records[project_name] = proc
+        else:
+            current_proc = project_name_records[project_name]
+            current_budget = current_proc.budget_amount or Decimal('0')
+            current_winning = current_proc.winning_amount or Decimal('0')
+            current_control = current_proc.control_price or Decimal('0')
+            
+            # 比较金额,取最大值对应的记录
+            if (budget + winning + control) > (current_budget + current_winning + current_control):
+                project_name_records[project_name] = proc
+    
+    # 构建详情列表
+    details = []
+    for proc in project_name_records.values():
+        budget_amount = proc.budget_amount or Decimal('0')
+        winning_amount = proc.winning_amount or Decimal('0')
+        control_price = proc.control_price or Decimal('0')
+        savings_amount = budget_amount - winning_amount
+        savings_rate = float(savings_amount / budget_amount * 100) if budget_amount > 0 else 0
+        
+        details.append({
+            'procurement_code': proc.procurement_code,
+            'project_name': proc.project_name,
+            'project_code': proc.project.project_code if proc.project else '',
+            'project_full_name': proc.project.project_name if proc.project else '',
+            'procurement_unit': proc.procurement_unit or '',
+            'winning_bidder': proc.winning_bidder or '',
+            'procurement_method': proc.procurement_method or '',
+            'procurement_category': proc.procurement_category or '',
+            'budget_amount': float(budget_amount),  # 元
+            'winning_amount': float(winning_amount),  # 元
+            'control_price': float(control_price),  # 元
+            'savings_amount': float(savings_amount),  # 元
+            'savings_rate': round(savings_rate, 2),  # 百分比
+            'result_publicity_release_date': proc.result_publicity_release_date,
+            'candidate_publicity_end_date': proc.candidate_publicity_end_date,
+            'archive_date': proc.archive_date,
+        })
+    
+    # 按结果公示发布时间倒序排列
+    # 使用date对象的min值来避免datetime和date类型比较错误
+    from datetime import date as date_type
+    details.sort(key=lambda x: x['result_publicity_release_date'] or date_type.min, reverse=True)
+    
+    return details
+
+
+def get_contract_details(year=None, project_codes=None):
+    """
+    获取合同统计的详细数据列表
+    
+    返回所有合同记录及其付款统计信息
+    
+    Args:
+        year: 统计年份,None表示全部年份
+        project_codes: 项目编码列表,None表示全部项目
+        
+    Returns:
+        list: 合同详情数据列表,包含付款统计信息
+    """
+    from contract.models import Contract
+    from payment.models import Payment
+    from django.db.models import Sum, Count, DecimalField, Value
+    from django.db.models.functions import Coalesce
+    
+    # 基础查询集
+    queryset = Contract.objects.select_related('project', 'parent_contract').only(
+        'contract_code', 'contract_sequence', 'contract_name', 'file_positioning',
+        'contract_source', 'party_a', 'party_b', 'contract_amount', 'signing_date',
+        'archive_date', 'contract_officer',
+        'project__project_code', 'project__project_name',
+        'parent_contract__contract_code'
+    )
+    
+    # 年份筛选
+    if year is not None:
+        queryset = queryset.filter(signing_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
+    
+    # 使用annotate预计算付款统计
+    zero_decimal = Value(Decimal('0'), output_field=DecimalField(max_digits=18, decimal_places=2))
+    queryset = queryset.annotate(
+        total_paid=Coalesce(Sum('payments__payment_amount'), zero_decimal),
+        payment_count=Count('payments', distinct=True)
+    )
+    
+    # 构建详情列表
+    details = []
+    for contract in queryset:
+        contract_amount = contract.contract_amount or Decimal('0')
+        total_paid = getattr(contract, 'total_paid', Decimal('0')) or Decimal('0')
+        payment_ratio = float(total_paid / contract_amount * 100) if contract_amount > 0 else 0
+        payment_count = getattr(contract, 'payment_count', 0) or 0
+        
+        details.append({
+            'contract_code': contract.contract_code,
+            'contract_sequence': contract.contract_sequence or '',
+            'contract_name': contract.contract_name,
+            'file_positioning': contract.file_positioning,
+            'contract_source': contract.contract_source or '',
+            'party_a': contract.party_a or '',
+            'party_b': contract.party_b or '',
+            'contract_amount': float(contract_amount),  # 元
+            'signing_date': contract.signing_date,
+            'archive_date': contract.archive_date,
+            'contract_officer': contract.contract_officer or '',
+            'project_code': contract.project.project_code if contract.project else '',
+            'project_name': contract.project.project_name if contract.project else '',
+            'parent_contract_code': contract.parent_contract.contract_code if contract.parent_contract else '',
+            'total_paid': float(total_paid),  # 元
+            'payment_count': payment_count,
+            'payment_ratio': round(payment_ratio, 2),  # 百分比
+        })
+    
+    # 按签订日期倒序排列
+    from datetime import date as date_type
+    details.sort(key=lambda x: x['signing_date'] or date_type.min, reverse=True)
+    
+    return details
+
+
+def get_payment_details(year=None, project_codes=None):
+    """
+    获取付款统计的详细数据列表
+    
+    返回所有付款记录
+    
+    Args:
+        year: 统计年份,None表示全部年份
+        project_codes: 项目编码列表,None表示全部项目
+        
+    Returns:
+        list: 付款详情数据列表
+    """
+    from payment.models import Payment
+    
+    # 基础查询集
+    queryset = Payment.objects.select_related(
+        'contract', 
+        'contract__project'
+    ).only(
+        'payment_code', 'payment_amount', 'payment_date', 
+        'is_settled', 'settlement_amount',
+        'contract__contract_code', 'contract__contract_sequence', 
+        'contract__contract_name', 'contract__party_b',
+        'contract__project__project_code', 'contract__project__project_name'
+    )
+    
+    # 年份筛选
+    if year is not None:
+        queryset = queryset.filter(payment_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(contract__project__project_code__in=project_codes)
+    
+    # 构建详情列表
+    details = []
+    for payment in queryset:
+        payment_amount = payment.payment_amount or Decimal('0')
+        settlement_amount = payment.settlement_amount or Decimal('0')
+        
+        details.append({
+            'payment_code': payment.payment_code,
+            'payment_amount': float(payment_amount),  # 元
+            'payment_date': payment.payment_date,
+            'is_settled': payment.is_settled,
+            'settlement_amount': float(settlement_amount) if settlement_amount else 0,  # 元
+            'contract_code': payment.contract.contract_code if payment.contract else '',
+            'contract_sequence': payment.contract.contract_sequence if payment.contract else '',
+            'contract_name': payment.contract.contract_name if payment.contract else '',
+            'party_b': payment.contract.party_b if payment.contract else '',
+            'project_code': payment.contract.project.project_code if payment.contract and payment.contract.project else '',
+            'project_name': payment.contract.project.project_name if payment.contract and payment.contract.project else '',
+        })
+    
+    # 按付款日期倒序排列
+    from datetime import date as date_type
+    details.sort(key=lambda x: x['payment_date'] or date_type.min, reverse=True)
+    
+    return details
+
+
+def get_settlement_details(year=None, project_codes=None):
+    """
+    获取结算统计的详细数据列表
+    
+    按主合同去重,返回已结算的合同列表及差异分析
+    
+    Args:
+        year: 统计年份,None表示全部年份
+        project_codes: 项目编码列表,None表示全部项目
+        
+    Returns:
+        list: 结算详情数据列表,包含差异分析
+    """
+    from payment.models import Payment
+    from contract.models import Contract
+    from project.enums import FilePositioning
+    
+    # 从Payment表中查询已结算的记录
+    queryset = Payment.objects.filter(
+        is_settled=True,
+        settlement_amount__isnull=False
+    ).select_related(
+        'contract', 
+        'contract__project', 
+        'contract__parent_contract'
+    ).only(
+        'payment_code', 'settlement_amount', 'payment_date',
+        'contract__contract_code', 'contract__contract_name',
+        'contract__contract_amount', 'contract__file_positioning',
+        'contract__party_b', 'contract__signing_date',
+        'contract__project__project_code', 'contract__project__project_name',
+        'contract__parent_contract__contract_code'
+    )
+    
+    # 年份筛选
+    if year is not None:
+        queryset = queryset.filter(payment_date__year=year)
+    
+    # 项目筛选
+    if project_codes:
+        queryset = queryset.filter(contract__project__project_code__in=project_codes)
+    
+    # 按主合同分组,避免重复
+    settlement_by_contract = {}
+    
+    for payment in queryset:
+        if not payment.contract:
+            continue
+        
+        # 确定主合同
+        if payment.contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
+            main_contract = payment.contract
+            main_contract_code = payment.contract.contract_code
+        elif payment.contract.parent_contract:
+            main_contract = payment.contract.parent_contract
+            main_contract_code = payment.contract.parent_contract.contract_code
+        else:
+            continue
+        
+        # 每个主合同只记录一次
+        if main_contract_code not in settlement_by_contract:
+            settlement_by_contract[main_contract_code] = {
+                'contract': main_contract,
+                'settlement_amount': payment.settlement_amount or Decimal('0'),
+                'payment_date': payment.payment_date,
+            }
+    
+    # 构建详情列表
+    details = []
+    for contract_code, data in settlement_by_contract.items():
+        contract = data['contract']
+        settlement_amount = data['settlement_amount']
+        
+        # 获取合同总额(主合同+补充协议)
+        contract_amount = contract.get_contract_with_supplements_amount()
+        
+        # 计算差异
+        variance = settlement_amount - contract_amount
+        variance_rate = float(variance / contract_amount * 100) if contract_amount > 0 else 0
+        
+        details.append({
+            'contract_sequence': contract.contract_sequence or '',  # 使用合同序号
+            'contract_name': contract.contract_name,
+            'party_b': contract.party_b or '',
+            'signing_date': contract.signing_date,
+            'contract_amount': float(contract_amount),  # 元
+            'settlement_amount': float(settlement_amount),  # 元
+            'variance': float(variance),  # 元
+            'variance_rate': round(variance_rate, 2),  # 百分比
+            'payment_date': data['payment_date'],
+            'project_code': contract.project.project_code if contract.project else '',
+            'project_name': contract.project.project_name if contract.project else '',
+        })
+    
+    # 按差异金额绝对值倒序排列
+    details.sort(key=lambda x: abs(x['variance']), reverse=True)
+    
+    return details

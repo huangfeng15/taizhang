@@ -3178,6 +3178,159 @@ def generate_professional_report(request):
         return redirect('generate_professional_report')
 
 
+# ==================== 高级综合报告生成功能 ====================
+
+@require_http_methods(['GET', 'POST'])
+def generate_comprehensive_report(request):
+    """
+    生成综合详细报告（年度总结、部门总结等）
+    使用新的AdvancedReportGenerator和comprehensive_word_exporter
+    """
+    from project.services.advanced_report_generator import (
+        AnnualComprehensiveReportGenerator,
+        DepartmentReportGenerator,
+        AdvancedReportGenerator
+    )
+    from project.services.comprehensive_word_exporter import export_comprehensive_word_report
+    from datetime import datetime, date
+    import os
+    import tempfile
+    
+    if request.method == 'GET':
+        # 显示报表生成表单
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        
+        # 获取全局筛选参数
+        global_filters = _resolve_global_filters(request)
+        
+        # 获取所有项目用于多选
+        projects = Project.objects.all().order_by('project_name')
+        
+        context = {
+            'page_title': '综合报告生成',
+            'current_year': current_year,
+            'current_month': current_month,
+            'available_years': get_year_range(include_future=True),
+            'available_months': list(range(1, 13)),
+            'projects': projects,
+            'selected_projects': global_filters['project_list'],
+            'global_selected_year': global_filters['year_value'],
+            'global_selected_project': global_filters['project'],
+        }
+        return render(request, 'reports/comprehensive_form.html', context)
+    
+    # POST请求 - 生成并导出Word报告
+    try:
+        # 获取报告类型
+        report_type = request.POST.get('report_type', 'annual')  # annual/department/custom
+        
+        # 获取项目筛选参数（支持多选）
+        project_codes = request.POST.getlist('projects')
+        if not project_codes:
+            project_param = request.POST.get('project', '').strip()
+            project_codes = [project_param] if project_param else None
+        else:
+            project_codes = [p for p in project_codes if p]  # 过滤空值
+            if not project_codes:
+                project_codes = None
+        
+        year = int(request.POST.get('year', datetime.now().year))
+        
+        # 根据报表类型生成数据
+        if report_type == 'annual':
+            # 年度综合报告
+            generator = AnnualComprehensiveReportGenerator(year, project_codes=project_codes)
+        elif report_type == 'department':
+            # 部门总结报告
+            department_name = request.POST.get('department_name', '采购部门')
+            
+            # 根据选择确定时间范围
+            period_type = request.POST.get('period_type', 'year')  # month/quarter/year
+            
+            if period_type == 'month':
+                month = int(request.POST.get('month', datetime.now().month))
+                start_date = date(year, month, 1)
+                if month == 12:
+                    end_date = date(year, 12, 31)
+                else:
+                    from calendar import monthrange
+                    end_date = date(year, month, monthrange(year, month)[1])
+            elif period_type == 'quarter':
+                quarter = int(request.POST.get('quarter', 1))
+                start_month = (quarter - 1) * 3 + 1
+                start_date = date(year, start_month, 1)
+                end_month = start_month + 2
+                if end_month == 12:
+                    end_date = date(year, 12, 31)
+                else:
+                    from calendar import monthrange
+                    end_date = date(year, end_month, monthrange(year, end_month)[1])
+            else:  # year
+                start_date = date(year, 1, 1)
+                end_date = date(year, 12, 31)
+            
+            generator = DepartmentReportGenerator(start_date, end_date, department_name)
+        else:
+            # 自定义时间范围
+            start_date_str = request.POST.get('start_date')
+            end_date_str = request.POST.get('end_date')
+            
+            if not start_date_str or not end_date_str:
+                messages.error(request, '请提供开始和结束日期')
+                return redirect('generate_comprehensive_report')
+            
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            
+            generator = AdvancedReportGenerator(start_date, end_date, project_codes=project_codes)
+        
+        # 生成报表数据
+        report_data = generator.generate_comprehensive_report()
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.docx', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        try:
+            # 导出为Word文档
+            export_comprehensive_word_report(report_data, tmp_path)
+            
+            # 验证文件是否生成成功
+            if not os.path.exists(tmp_path) or os.path.getsize(tmp_path) == 0:
+                raise Exception('Word文档生成失败，文件为空或不存在')
+            
+            # 读取文件内容
+            with open(tmp_path, 'rb') as f:
+                word_content = f.read()
+            
+            # 生成文件名
+            meta = report_data.get('meta', {})
+            report_title = meta.get('report_title', '工作报告')
+            filename = f"{report_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            
+            # 返回Word文件
+            response = HttpResponse(
+                word_content,
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            # 使用URL编码确保中文文件名正确显示
+            from urllib.parse import quote
+            encoded_filename = quote(filename.encode('utf-8'))
+            response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
+            return response
+        finally:
+            # 清理临时文件
+            try:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+            except Exception:
+                pass  # 忽略清理错误
+    except Exception as e:
+        messages.error(request, f'生成报告失败: {str(e)}')
+        return redirect('generate_comprehensive_report')
+
+
 # ==================== 前端编辑功能 ====================
 
 @require_http_methods(['GET', 'POST'])
@@ -3416,3 +3569,321 @@ def payment_edit(request, payment_code):
         'title': '编辑付款信息',
         'submit_url': f'/payments/{payment_code}/edit/',
     })
+
+
+
+# ==================== 统计数据详情查看功能 ====================
+
+@require_http_methods(['GET'])
+def statistics_detail_api(request, module):
+    """
+    统计数据详情API - 返回JSON格式的分页数据
+    
+    Args:
+        module: 统计模块 (procurement/contract/payment/settlement)
+    
+    Query Parameters:
+        year: 年份筛选
+        project: 项目编码
+        page: 页码 (默认1)
+        page_size: 每页数量 (默认50)
+    
+    Returns:
+        JSON: {'success': True, 'data': [...], 'pagination': {...}, 'summary': {...}}
+    """
+    try:
+        # 解析筛选参数
+        global_filters = _resolve_global_filters(request)
+        year_filter = global_filters['year_filter']
+        project_codes = global_filters['project_list']
+        project_filter = project_codes if project_codes else None
+        
+        page = int(request.GET.get('page', 1))
+        page_size = min(int(request.GET.get('page_size', 50)), 100)  # 最大100条
+        
+        # 根据模块获取详情数据
+        if module == 'procurement':
+            from project.services.statistics import get_procurement_details, get_procurement_statistics
+            details = get_procurement_details(year_filter, project_filter)
+            stats = get_procurement_statistics(year_filter, project_filter)
+            summary = {
+                'total_count': stats['total_count'],
+                'total_budget': stats['total_budget'],
+                'total_winning': stats['total_winning'],
+                'savings_rate': stats['savings_rate'],
+            }
+        elif module == 'contract':
+            from project.services.statistics import get_contract_details, get_contract_statistics
+            details = get_contract_details(year_filter, project_filter)
+            stats = get_contract_statistics(year_filter, project_filter)
+            summary = {
+                'total_count': stats['total_count'],
+                'total_amount': stats['total_amount'],
+                'main_count': stats['main_count'],
+                'supplement_count': stats['supplement_count'],
+            }
+        elif module == 'payment':
+            from project.services.statistics import get_payment_details, get_payment_statistics
+            details = get_payment_details(year_filter, project_filter)
+            stats = get_payment_statistics(year_filter, project_filter)
+            summary = {
+                'total_count': stats['total_count'],
+                'total_amount': stats['total_amount'],
+                'payment_rate': stats['payment_rate'],
+                'estimated_remaining': stats['estimated_remaining'],
+            }
+        elif module == 'settlement':
+            from project.services.statistics import get_settlement_details, get_settlement_statistics
+            details = get_settlement_details(year_filter, project_filter)
+            stats = get_settlement_statistics(year_filter, project_filter)
+            summary = {
+                'total_count': stats['total_count'],
+                'total_amount': stats['total_amount'],
+                'settlement_rate': stats['settlement_rate'],
+                'pending_count': stats['pending_count'],
+            }
+        else:
+            return JsonResponse({'success': False, 'message': '不支持的统计模块'}, status=400)
+        
+        # 分页处理
+        paginator = Paginator(details, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # 构建响应数据
+        response_data = {
+            'success': True,
+            'module': module,
+            'data': list(page_obj),
+            'pagination': {
+                'current_page': page_obj.number,
+                'total_pages': paginator.num_pages,
+                'total_count': paginator.count,
+                'page_size': page_size,
+                'has_previous': page_obj.has_previous(),
+                'has_next': page_obj.has_next(),
+            },
+            'summary': summary,
+            'filters': {
+                'year': year_filter,
+                'project_codes': project_codes,
+            }
+        }
+        
+        return JsonResponse(response_data, json_dumps_params={'ensure_ascii': False})
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'获取数据失败: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(['GET'])
+def statistics_detail_page(request, module):
+    """
+    统计数据详情页面 - 完整的列表页面
+    
+    Args:
+        module: 统计模块 (procurement/contract/payment/settlement)
+    """
+    try:
+        # 解析筛选参数
+        global_filters = _resolve_global_filters(request)
+        year_filter = global_filters['year_filter']
+        project_codes = global_filters['project_list']
+        project_filter = project_codes if project_codes else None
+        
+        page = request.GET.get('page', 1)
+        page_size = _get_page_size(request, default=20, max_size=100)
+        
+        # 获取筛选配置
+        year_context = resolve_monitoring_year(request)
+        year_context['selected_year_value'] = global_filters['year_value']
+        year_context['year_filter'] = year_filter
+        filter_config = get_monitoring_filter_config(request, year_context=year_context)
+        
+        # 根据模块获取详情数据和统计汇总
+        if module == 'procurement':
+            from project.services.statistics import get_procurement_details, get_procurement_statistics
+            details = get_procurement_details(year_filter, project_filter)
+            stats = get_procurement_statistics(year_filter, project_filter)
+            page_title = '采购统计详情'
+            template_name = 'monitoring/statistics_procurement_details.html'
+        elif module == 'contract':
+            from project.services.statistics import get_contract_details, get_contract_statistics
+            details = get_contract_details(year_filter, project_filter)
+            stats = get_contract_statistics(year_filter, project_filter)
+            page_title = '合同统计详情'
+            template_name = 'monitoring/statistics_contract_details.html'
+        elif module == 'payment':
+            from project.services.statistics import get_payment_details, get_payment_statistics
+            details = get_payment_details(year_filter, project_filter)
+            stats = get_payment_statistics(year_filter, project_filter)
+            page_title = '付款统计详情'
+            template_name = 'monitoring/statistics_payment_details.html'
+        elif module == 'settlement':
+            from project.services.statistics import get_settlement_details, get_settlement_statistics
+            details = get_settlement_details(year_filter, project_filter)
+            stats = get_settlement_statistics(year_filter, project_filter)
+            page_title = '结算统计详情'
+            template_name = 'monitoring/statistics_settlement_details.html'
+        else:
+            messages.error(request, '不支持的统计模块')
+            return redirect('statistics_view')
+        
+        # 分页处理
+        paginator = Paginator(details, page_size)
+        page_obj = paginator.get_page(page)
+        
+        context = {
+            'page_title': page_title,
+            'module': module,
+            'details': page_obj,
+            'page_obj': page_obj,
+            'stats': stats,
+            **filter_config,
+            'pagination_query': _build_pagination_querystring(request, excluded_keys=['page']),
+        }
+        
+        return render(request, template_name, context)
+        
+    except Exception as e:
+        messages.error(request, f'加载详情页面失败: {str(e)}')
+        return redirect('statistics_view')
+
+
+@require_http_methods(['GET'])
+def statistics_detail_export(request, module):
+    """
+    统计数据详情导出 - 导出Excel文件
+    
+    Args:
+        module: 统计模块 (procurement/contract/payment/settlement)
+    """
+    try:
+        # 解析筛选参数
+        global_filters = _resolve_global_filters(request)
+        year_filter = global_filters['year_filter']
+        project_codes = global_filters['project_list']
+        project_filter = project_codes if project_codes else None
+        
+        # 根据模块获取详情数据
+        if module == 'procurement':
+            from project.services.statistics import get_procurement_details
+            details = get_procurement_details(year_filter, project_filter)
+            filename = f'采购统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            columns = [
+                ('采购编号', 'procurement_code'),
+                ('项目名称', 'project_name'),
+                ('项目编码', 'project_code'),
+                ('采购单位', 'procurement_unit'),
+                ('中标单位', 'winning_bidder'),
+                ('采购方式', 'procurement_method'),
+                ('采购类别', 'procurement_category'),
+                ('预算金额(元)', 'budget_amount'),
+                ('中标金额(元)', 'winning_amount'),
+                ('控制价(元)', 'control_price'),
+                ('节约金额(元)', 'savings_amount'),
+                ('节约率(%)', 'savings_rate'),
+                ('结果公示发布时间', 'result_publicity_release_date'),
+                ('归档日期', 'archive_date'),
+            ]
+        elif module == 'contract':
+            from project.services.statistics import get_contract_details
+            details = get_contract_details(year_filter, project_filter)
+            filename = f'合同统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            columns = [
+                ('合同编号', 'contract_code'),
+                ('合同序号', 'contract_sequence'),
+                ('合同名称', 'contract_name'),
+                ('文件定位', 'file_positioning'),
+                ('合同来源', 'contract_source'),
+                ('甲方', 'party_a'),
+                ('乙方', 'party_b'),
+                ('合同金额(元)', 'contract_amount'),
+                ('签订日期', 'signing_date'),
+                ('累计付款(元)', 'total_paid'),
+                ('付款笔数', 'payment_count'),
+                ('付款比例(%)', 'payment_ratio'),
+                ('归档日期', 'archive_date'),
+                ('项目编码', 'project_code'),
+                ('项目名称', 'project_name'),
+            ]
+        elif module == 'payment':
+            from project.services.statistics import get_payment_details
+            details = get_payment_details(year_filter, project_filter)
+            filename = f'付款统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            columns = [
+                ('付款编号', 'payment_code'),
+                ('付款金额(元)', 'payment_amount'),
+                ('付款日期', 'payment_date'),
+                ('是否结算', 'is_settled'),
+                ('结算价(元)', 'settlement_amount'),
+                ('关联合同编号', 'contract_code'),
+                ('关联合同序号', 'contract_sequence'),
+                ('合同名称', 'contract_name'),
+                ('乙方', 'party_b'),
+                ('项目编码', 'project_code'),
+                ('项目名称', 'project_name'),
+            ]
+        elif module == 'settlement':
+            from project.services.statistics import get_settlement_details
+            details = get_settlement_details(year_filter, project_filter)
+            filename = f'结算统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            columns = [
+                ('合同编号', 'contract_code'),
+                ('合同名称', 'contract_name'),
+                ('乙方', 'party_b'),
+                ('签订日期', 'signing_date'),
+                ('合同金额(元)', 'contract_amount'),
+                ('结算金额(元)', 'settlement_amount'),
+                ('差异金额(元)', 'variance'),
+                ('差异率(%)', 'variance_rate'),
+                ('结算日期', 'payment_date'),
+                ('项目编码', 'project_code'),
+                ('项目名称', 'project_name'),
+            ]
+        else:
+            messages.error(request, '不支持的统计模块')
+            return redirect('statistics_view')
+        
+        # 数据量检查
+        if len(details) > 10000:
+            messages.warning(request, f'数据量较大({len(details)}条),建议使用筛选条件缩小范围后再导出')
+            return redirect('statistics_view')
+        
+        # 使用pandas生成Excel
+        data_for_export = []
+        for item in details:
+            row = {}
+            for col_name, col_key in columns:
+                value = item.get(col_key, '')
+                # 处理日期格式
+                if isinstance(value, (date, datetime)):
+                    value = value.strftime('%Y-%m-%d')
+                # 处理布尔值
+                elif isinstance(value, bool):
+                    value = '是' if value else '否'
+                row[col_name] = value
+            data_for_export.append(row)
+        
+        df = pd.DataFrame(data_for_export)
+        
+        # 创建Excel文件
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='详情数据', index=False)
+        
+        output.seek(0)
+        
+        # 返回文件
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'导出失败: {str(e)}')
+        return redirect('statistics_view')

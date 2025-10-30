@@ -1,0 +1,516 @@
+
+<!-- 统计数据详情模态框 - 通用组件 -->
+<div class="modal fade" id="statisticsDetailModal" tabindex="-1" aria-labelledby="statisticsDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="statisticsDetailModalLabel">
+                    <i class="fas fa-list-alt"></i> 
+                    <span id="modalTitleText">数据详情</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 加载状态 -->
+                <div id="modalLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3 text-muted">正在加载数据...</p>
+                </div>
+
+                <!-- 数据内容区域 -->
+                <div id="modalContent" style="display: none;">
+                    <!-- 统计汇总信息 -->
+                    <div class="alert alert-info mb-3" id="modalSummary">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>记录总数:</strong> <span id="summaryTotalCount">-</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>总金额:</strong> <span id="summaryTotalAmount">-</span> 万元
+                            </div>
+                            <div class="col-md-3" id="summaryExtra1Container">
+                                <strong id="summaryExtra1Label">-:</strong> <span id="summaryExtra1Value">-</span>
+                            </div>
+                            <div class="col-md-3" id="summaryExtra2Container">
+                                <strong id="summaryExtra2Label">-:</strong> <span id="summaryExtra2Value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数据表格 -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered table-sm" id="detailTable">
+                            <thead class="table-light">
+                                <tr id="tableHeader">
+                                    <!-- 动态生成表头 -->
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- 动态生成表格内容 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页控件 -->
+                    <nav aria-label="分页导航" id="paginationNav">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <p class="text-muted mb-0">
+                                    共 <strong id="paginationTotal">0</strong> 条记录，
+                                    当前第 <strong id="paginationCurrent">1</strong> / <strong id="paginationPages">1</strong> 页
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="pagination pagination-sm justify-content-end mb-0" id="paginationList">
+                                    <!-- 动态生成分页按钮 -->
+                                </ul>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- 错误信息 -->
+                <div id="modalError" class="alert alert-danger" style="display: none;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="errorMessage">加载失败</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="btnExportExcel">
+                    <i class="fas fa-file-excel"></i> 导出Excel
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> 关闭
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 模态框样式优化 */
+#statisticsDetailModal .modal-xl {
+    max-width: 95%;
+}
+
+#statisticsDetailModal .table-responsive {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: auto; /* 添加横向滚动支持 */
+    position: relative;
+}
+
+/* 优化滚动条样式 - Webkit 浏览器 */
+#statisticsDetailModal .table-responsive::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+#statisticsDetailModal .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#statisticsDetailModal .table-responsive::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+#statisticsDetailModal .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+/* Firefox 滚动条样式 */
+#statisticsDetailModal .table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #667eea #f1f1f1;
+}
+
+#statisticsDetailModal .table {
+    width: auto; /* 表格宽度根据内容自适应 */
+    table-layout: auto; /* 列宽根据内容自动调整 */
+}
+
+#statisticsDetailModal .table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 10;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+    padding: 12px 8px; /* 减少内边距,使列更紧凑 */
+}
+
+#statisticsDetailModal .table td {
+    vertical-align: middle;
+    white-space: nowrap;
+    padding: 10px 8px; /* 减少内边距,使列更紧凑 */
+}
+
+/* 不同类型列的宽度优化 */
+#statisticsDetailModal .table th,
+#statisticsDetailModal .table td {
+    width: auto; /* 让每列根据内容自适应宽度 */
+}
+
+#statisticsDetailModal .pagination-sm {
+    margin-bottom: 0;
+}
+
+#statisticsDetailModal .alert-info {
+    background-color: #e7f3ff;
+    border-color: #b3d9ff;
+}
+
+/* 横向滚动提示阴影效果 */
+#statisticsDetailModal .table-responsive::before,
+#statisticsDetailModal .table-responsive::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 20px; /* 留出滚动条空间 */
+    width: 20px;
+    pointer-events: none;
+    z-index: 5;
+    transition: opacity 0.3s ease;
+}
+
+#statisticsDetailModal .table-responsive::before {
+    left: 0;
+    background: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0));
+}
+
+#statisticsDetailModal .table-responsive::after {
+    right: 0;
+    background: linear-gradient(to left, rgba(255,255,255,0.9), rgba(255,255,255,0));
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    #statisticsDetailModal .modal-xl {
+        max-width: 98%;
+        margin: 0.5rem;
+    }
+    
+    #statisticsDetailModal .table-responsive {
+        max-height: 400px;
+        -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+    }
+    
+    #statisticsDetailModal .table thead th,
+    #statisticsDetailModal .table td {
+        font-size: 12px;
+        padding: 8px 6px;
+        min-width: 60px;
+    }
+}
+</style>
+
+<script>
+// 统计详情模态框管理器
+const StatisticsDetailModal = {
+    currentModule: null,
+    currentPage: 1,
+    currentFilters: {},
+    
+    /**
+     * 显示统计详情模态框
+     * @param {string} module - 模块名称 (procurement/contract/payment/settlement)
+     * @param {object} filters - 筛选条件 {year, project}
+     */
+    show: function(module, filters = {}) {
+        this.currentModule = module;
+        this.currentPage = 1;
+        this.currentFilters = filters;
+        
+        // 设置标题
+        const titles = {
+            'procurement': '采购统计详情',
+            'contract': '合同统计详情',
+            'payment': '付款统计详情',
+            'settlement': '结算统计详情'
+        };
+        document.getElementById('modalTitleText').textContent = titles[module] || '数据详情';
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('statisticsDetailModal'));
+        modal.show();
+        
+        // 加载数据
+        this.loadData();
+    },
+    
+    /**
+     * 加载数据
+     */
+    loadData: function() {
+        // 显示加载状态
+        document.getElementById('modalLoading').style.display = 'block';
+        document.getElementById('modalContent').style.display = 'none';
+        document.getElementById('modalError').style.display = 'none';
+        
+        // 构建请求URL
+        const params = new URLSearchParams({
+            page: this.currentPage,
+            page_size: 50,
+            ...this.currentFilters
+        });
+        
+        const url = `/api/statistics/${this.currentModule}/details/?${params.toString()}`;
+        
+        // 发送AJAX请求
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    this.renderData(data);
+                } else {
+                    this.showError(data.message || '加载失败');
+                }
+            })
+            .catch(error => {
+                console.error('加载失败:', error);
+                this.showError(`加载失败: ${error.message}`);
+            });
+    },
+    
+    /**
+     * 渲染数据
+     */
+    renderData: function(data) {
+        // 隐藏加载状态，显示内容
+        document.getElementById('modalLoading').style.display = 'none';
+        document.getElementById('modalContent').style.display = 'block';
+        
+        // 渲染汇总信息
+        this.renderSummary(data.summary);
+        
+        // 渲染表格
+        this.renderTable(data.data);
+        
+        // 渲染分页
+        this.renderPagination(data.pagination);
+    },
+    
+    /**
+     * 渲染汇总信息
+     */
+    renderSummary: function(summary) {
+        document.getElementById('summaryTotalCount').textContent = summary.total_count || 0;
+        
+        // 根据模块类型显示不同的汇总信息
+        if (this.currentModule === 'procurement') {
+            document.getElementById('summaryTotalAmount').textContent = (summary.total_winning || 0).toFixed(2);
+            document.getElementById('summaryExtra1Label').textContent = '预算总额:';
+            document.getElementById('summaryExtra1Value').textContent = (summary.total_budget || 0).toFixed(2) + ' 万元';
+            document.getElementById('summaryExtra2Label').textContent = '节约率:';
+            document.getElementById('summaryExtra2Value').textContent = (summary.savings_rate || 0).toFixed(2) + '%';
+        } else if (this.currentModule === 'contract') {
+            document.getElementById('summaryTotalAmount').textContent = (summary.total_amount || 0).toFixed(2);
+            document.getElementById('summaryExtra1Label').textContent = '主合同:';
+            document.getElementById('summaryExtra1Value').textContent = (summary.main_count || 0) + ' 个';
+            document.getElementById('summaryExtra2Label').textContent = '补充协议:';
+            document.getElementById('summaryExtra2Value').textContent = (summary.supplement_count || 0) + ' 个';
+        } else if (this.currentModule === 'payment') {
+            document.getElementById('summaryTotalAmount').textContent = (summary.total_amount || 0).toFixed(2);
+            document.getElementById('summaryExtra1Label').textContent = '支付率:';
+            document.getElementById('summaryExtra1Value').textContent = (summary.payment_rate || 0).toFixed(2) + '%';
+            document.getElementById('summaryExtra2Label').textContent = '剩余:';
+            document.getElementById('summaryExtra2Value').textContent = (summary.estimated_remaining || 0).toFixed(2) + ' 万元';
+        } else if (this.currentModule === 'settlement') {
+            document.getElementById('summaryTotalAmount').textContent = (summary.total_amount || 0).toFixed(2);
+            document.getElementById('summaryExtra1Label').textContent = '结算率:';
+            document.getElementById('summaryExtra1Value').textContent = (summary.settlement_rate || 0).toFixed(2) + '%';
+            document.getElementById('summaryExtra2Label').textContent = '待结算:';
+            document.getElementById('summaryExtra2Value').textContent = (summary.pending_count || 0) + ' 个';
+        }
+    },
+    
+    /**
+     * 渲染表格
+     */
+    renderTable: function(dataList) {
+        const tableHeader = document.getElementById('tableHeader');
+        const tableBody = document.getElementById('tableBody');
+        
+        // 清空现有内容
+        tableHeader.innerHTML = '';
+        tableBody.innerHTML = '';
+        
+        if (!dataList || dataList.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">暂无数据</td></tr>';
+            return;
+        }
+        
+        // 根据模块类型定义列配置
+        const columns = this.getColumnConfig(this.currentModule);
+        
+        // 生成表头
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.textContent = col.label;
+            if (col.width) {
+                th.style.width = col.width;
+            }
+            tableHeader.appendChild(th);
+        });
+        
+        // 生成表格行
+        dataList.forEach(row => {
+            const tr = document.createElement('tr');
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                let value = row[col.key];
+                
+                // 格式化显示
+                if (col.format === 'amount') {
+                    value = value ? (value / 10000).toFixed(2) + ' 万' : '-';
+                } else if (col.format === 'amount_yuan') {
+                    value = value ? value.toFixed(2) : '-';
+                } else if (col.format === 'percent') {
+                    value = value ? value.toFixed(2) + '%' : '-';
+                } else if (col.format === 'date') {
+                    value = value || '-';
+                } else if (col.format === 'boolean') {
+                    value = value ? '是' : '否';
+                } else {
+                    value = value || '-';
+                }
+                
+                td.textContent = value;
+                if (col.align) {
+                    td.style.textAlign = col.align;
+                }
+                tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+        });
+    },
+    
+    /**
+     * 获取列配置
+     */
+    getColumnConfig: function(module) {
+        const configs = {
+            'procurement': [
+                { key: 'project_name', label: '项目名称', width: '200px' },
+                { key: 'procurement_code', label: '采购编号', width: '120px' },
+                { key: 'budget_amount', label: '预算金额', format: 'amount', align: 'right' },
+                { key: 'winning_amount', label: '中标金额', format: 'amount', align: 'right' },
+                { key: 'savings_amount', label: '节约金额', format: 'amount', align: 'right' },
+                { key: 'savings_rate', label: '节约率', format: 'percent', align: 'right' },
+                { key: 'procurement_method', label: '采购方式', width: '100px' },
+                { key: 'result_publicity_release_date', label: '公示日期', format: 'date', width: '100px' },
+            ],
+            'contract': [
+                { key: 'contract_sequence', label: '合同序号', width: '120px' },
+                { key: 'contract_name', label: '合同名称', width: '200px' },
+                { key: 'file_positioning', label: '文件定位', width: '100px' },
+                { key: 'party_b', label: '乙方', width: '150px' },
+                { key: 'contract_amount', label: '合同金额', format: 'amount', align: 'right' },
+                { key: 'total_paid', label: '累计付款', format: 'amount', align: 'right' },
+                { key: 'payment_ratio', label: '付款比例', format: 'percent', align: 'right' },
+                { key: 'signing_date', label: '签订日期', format: 'date', width: '100px' },
+            ],
+            'payment': [
+                { key: 'payment_code', label: '付款编号', width: '120px' },
+                { key: 'contract_name', label: '关联合同', width: '200px' },
+                { key: 'party_b', label: '乙方', width: '150px' },
+                { key: 'payment_amount', label: '付款金额', format: 'amount', align: 'right' },
+                { key: 'payment_date', label: '付款日期', format: 'date', width: '100px' },
+                { key: 'is_settled', label: '是否结算', format: 'boolean', width: '80px', align: 'center' },
+                { key: 'settlement_amount', label: '结算价', format: 'amount', align: 'right' },
+            ],
+            'settlement': [
+                { key: 'contract_sequence', label: '合同序号', width: '120px' },
+                { key: 'contract_name', label: '合同名称', width: '200px' },
+                { key: 'party_b', label: '乙方', width: '150px' },
+                { key: 'contract_amount', label: '合同金额', format: 'amount', align: 'right' },
+                { key: 'settlement_amount', label: '结算金额', format: 'amount', align: 'right' },
+                { key: 'variance', label: '差异金额', format: 'amount', align: 'right' },
+                { key: 'variance_rate', label: '差异率', format: 'percent', align: 'right' },
+                { key: 'payment_date', label: '结算日期', format: 'date', width: '100px' },
+            ]
+        };
+        
+        return configs[module] || [];
+    },
+    
+    /**
+     * 渲染分页
+     */
+    renderPagination: function(pagination) {
+        document.getElementById('paginationTotal').textContent = pagination.total_count;
+        document.getElementById('paginationCurrent').textContent = pagination.current_page;
+        document.getElementById('paginationPages').textContent = pagination.total_pages;
+        
+        const paginationList = document.getElementById('paginationList');
+        paginationList.innerHTML = '';
+        
+        // 上一页按钮
+        const prevLi = document.createElement('li');
+        prevLi.className = 'page-item' + (pagination.has_previous ? '' : ' disabled');
+        prevLi.innerHTML = `<a class="page-link" href="#" data-page="${pagination.current_page - 1}">上一页</a>`;
+        paginationList.appendChild(prevLi);
+        
+        // 页码按钮
+        const startPage = Math.max(1, pagination.current_page - 2);
+        const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (i === pagination.current_page ? ' active' : '');
+            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            paginationList.appendChild(li);
+        }
+        
+        // 下一页按钮
+        const nextLi = document.createElement('li');
+        nextLi.className = 'page-item' + (pagination.has_next ? '' : ' disabled');
+        nextLi.innerHTML = `<a class="page-link" href="#" data-page="${pagination.current_page + 1}">下一页</a>`;
+        paginationList.appendChild(nextLi);
+        
+        // 绑定分页点击事件
+        paginationList.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = parseInt(link.dataset.page);
+                if (page >= 1 && page <= pagination.total_pages && page !== pagination.current_page) {
+                    this.currentPage = page;
+                    this.loadData();
+                }
+            });
+        });
+    },
+    /**
+     * 显示错误信息
+     */
+    showError: function(message) {
+        document.getElementById('modalLoading').style.display = 'none';
+        document.getElementById('modalContent').style.display = 'none';
+        document.getElementById('modalError').style.display = 'block';
+        document.getElementById('errorMessage').textContent = message;
+    }
+};
+
+// 导出Excel按钮点击事件
+document.getElementById('btnExportExcel').addEventListener('click', function() {
+    if (!StatisticsDetailModal.currentModule) {
+        alert('请先加载数据');
+        return;
+    }
+    
+    const params = new URLSearchParams(StatisticsDetailModal.currentFilters);
+    const url = `/monitoring/statistics/${StatisticsDetailModal.currentModule}/export/?${params.toString()}`;
+    window.location.href = url;
+});
+
+</script>
+        

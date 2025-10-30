@@ -32,6 +32,12 @@ urlpatterns = [
     path('reports/preview/', views.report_preview, name='report_preview'),
     path('reports/export/', views.report_export, name='report_export'),
     path('reports/professional/', views.generate_professional_report, name='generate_professional_report'),
+    path('reports/comprehensive/', views.generate_comprehensive_report, name='generate_comprehensive_report'),
+    
+    # 统计数据详情查看API
+    path('api/statistics/<str:module>/details/', views.statistics_detail_api, name='statistics_detail_api'),
+    path('monitoring/statistics/<str:module>/details/', views.statistics_detail_page, name='statistics_detail_page'),
+    path('monitoring/statistics/<str:module>/export/', views.statistics_detail_export, name='statistics_detail_export'),
     
     # 批量操作API
     path('api/contracts/batch-delete/', views.batch_delete_contracts, name='batch_delete_contracts'),
