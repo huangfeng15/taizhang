@@ -76,13 +76,34 @@ class ProjectForm(forms.ModelForm):
 class ContractForm(forms.ModelForm):
     """合同编辑表单"""
     
-    procurement = forms.ModelChoiceField(
-        queryset=Procurement.objects.all(),
-        empty_label='请选择采购项目（可选）',
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.all(),
         required=False,
         widget=forms.Select(attrs={
-            'class': 'form-control',
-        })
+            'class': 'form-control smart-selector',
+            'data-url': '/api/projects/',
+            'data-search-fields': 'project_code,project_name',
+            'data-display-format': '{project_code} - {project_name}',
+            'data-placeholder': '搜索项目编码或名称...',
+            'data-target-field': 'procurement'
+        }),
+        label='关联项目',
+        help_text='选择所属项目，可搜索项目编码或名称'
+    )
+    
+    procurement = forms.ModelChoiceField(
+        queryset=Procurement.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control smart-selector',
+            'data-url': '/api/procurements/',
+            'data-search-fields': 'procurement_code,project_name',
+            'data-display-format': '{procurement_code} - {project_name}',
+            'data-placeholder': '先选择项目，再搜索采购...',
+            'data-dependent-field': 'project'
+        }),
+        label='关联采购',
+        help_text='选择关联采购，可搜索采购编号或项目名称'
     )
     
     parent_contract = forms.ModelChoiceField(
@@ -97,6 +118,8 @@ class ContractForm(forms.ModelForm):
     class Meta:
         model = Contract
         fields = [
+            'project',
+            'procurement',
             'contract_code',
             'contract_name',
             'file_positioning',
@@ -218,9 +241,25 @@ class ContractForm(forms.ModelForm):
 class ProcurementForm(forms.ModelForm):
     """采购编辑表单"""
     
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control smart-selector',
+            'data-url': '/api/projects/',
+            'data-search-fields': 'project_code,project_name',
+            'data-display-format': '{project_code} - {project_name}',
+            'data-placeholder': '搜索项目编码或名称...',
+            'data-allow-clear': 'true'
+        }),
+        label='关联项目',
+        help_text='选择所属项目，可搜索项目编码或名称'
+    )
+    
     class Meta:
         model = Procurement
         fields = [
+            'project',  # 新增项目关联字段
             'procurement_code',
             'project_name',
             'procurement_unit',
@@ -396,18 +435,41 @@ class ProcurementForm(forms.ModelForm):
 class PaymentForm(forms.ModelForm):
     """付款编辑表单"""
     
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control smart-selector',
+            'data-url': '/api/projects/',
+            'data-search-fields': 'project_code,project_name',
+            'data-display-format': '{project_code} - {project_name}',
+            'data-placeholder': '选择项目以筛选合同...',
+            'data-target-field': 'contract'
+        }),
+        label='筛选项目',
+        help_text='选择项目以筛选合同列表（可选）'
+    )
+    
     contract = forms.ModelChoiceField(
         queryset=Contract.objects.all(),
-        empty_label='请选择合同',
         required=True,
         widget=forms.Select(attrs={
-            'class': 'form-control',
-        })
+            'class': 'form-control smart-selector',
+            'data-url': '/api/contracts/',
+            'data-search-fields': 'contract_code,contract_name,contract_sequence',
+            'data-display-format': '{contract_sequence} - {contract_name}',
+            'data-placeholder': '搜索合同编号、序号或名称...',
+            'data-dependent-field': 'project'
+        }),
+        label='关联合同',
+        help_text='选择关联合同，可搜索合同编号、序号或名称'
     )
     
     class Meta:
         model = Payment
         fields = [
+            'project',
+            'contract',
             'payment_code',
             'payment_amount',
             'payment_date',

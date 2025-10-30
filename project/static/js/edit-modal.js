@@ -7,6 +7,7 @@ class EditModal {
     constructor() {
         this.modal = null;
         this.modalElement = null;
+        this.smartSelectors = {}; // 存储智能选择器实例
         this.init();
     }
 
@@ -117,6 +118,9 @@ class EditModal {
             const html = await response.text();
             document.getElementById('editModalBody').innerHTML = html;
 
+            // 初始化智能选择器
+            this.initializeSmartSelectors();
+
             // 绑定保存按钮点击事件（使用全局函数）
             window.submitEditForm = () => this.submitForm();
 
@@ -124,6 +128,208 @@ class EditModal {
             console.error('加载表单失败:', error);
             this.showError('加载表单失败，请稍后重试');
         }
+    }
+
+    initializeSmartSelectors() {
+        // 清理之前的选择器实例
+        this.cleanupSmartSelectors();
+
+        // 获取当前模块类型
+        const form = document.getElementById('editForm');
+        if (!form) return;
+
+        const moduleType = form.dataset.module; // 'procurement', 'contract', 'payment'
+        
+        // 初始化项目选择器（所有模块都有）
+        this.initProjectSelector();
+
+        // 根据模块类型初始化特定选择器
+        switch (moduleType) {
+            case 'procurement':
+                this.initProcurementSelectors();
+                break;
+            case 'contract':
+                this.initContractSelectors();
+                break;
+            case 'payment':
+                this.initPaymentSelectors();
+                break;
+        }
+    }
+
+    initProjectSelector() {
+        const projectContainer = document.querySelector('[data-smart-selector="project"]');
+        if (!projectContainer) return;
+
+        this.smartSelectors.project = new SmartSelector({
+            container: projectContainer,
+            apiUrl: '/api/projects/',
+            placeholder: '请选择项目',
+            searchPlaceholder: '搜索项目名称或编号...',
+            displayField: 'display_text',
+            valueField: 'id',
+            onChange: (value, text) => {
+                // 更新隐藏字段
+                const hiddenInput = document.getElementById('id_project');
+                if (hiddenInput) {
+                    hiddenInput.value = value || '';
+                }
+
+                // 触发级联筛选
+                this.onProjectChange(value);
+            }
+        });
+
+        // 设置初始值
+        const hiddenInput = document.getElementById('id_project');
+        if (hiddenInput && hiddenInput.value) {
+            const initialText = projectContainer.dataset.initialText || '';
+            this.smartSelectors.project.setValue(hiddenInput.value, initialText);
+        }
+    }
+
+    initProcurementSelectors() {
+        // 采购项目名称选择器（关联采购记录）
+        const procurementContainer = document.querySelector('[data-smart-selector="procurement"]');
+        if (procurementContainer) {
+            this.smartSelectors.procurement = new SmartSelector({
+                container: procurementContainer,
+                apiUrl: '/api/procurements/',
+                placeholder: '请选择采购项目',
+                searchPlaceholder: '搜索采购项目名称...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: {},
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_procurement');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            // 设置初始值
+            const hiddenInput = document.getElementById('id_procurement');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = procurementContainer.dataset.initialText || '';
+                this.smartSelectors.procurement.setValue(hiddenInput.value, initialText);
+            }
+        }
+    }
+
+    initContractSelectors() {
+        // 采购项目名称选择器（用于关联）
+        const procurementContainer = document.querySelector('[data-smart-selector="procurement"]');
+        if (procurementContainer) {
+            this.smartSelectors.procurement = new SmartSelector({
+                container: procurementContainer,
+                apiUrl: '/api/procurements/',
+                placeholder: '请选择采购项目',
+                searchPlaceholder: '搜索采购项目名称...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: {},
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_procurement');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            const hiddenInput = document.getElementById('id_procurement');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = procurementContainer.dataset.initialText || '';
+                this.smartSelectors.procurement.setValue(hiddenInput.value, initialText);
+            }
+        }
+        
+        // 关联主合同选择器（用于补充协议）
+        const parentContractContainer = document.querySelector('[data-smart-selector="parent_contract"]');
+        if (parentContractContainer) {
+            this.smartSelectors.parent_contract = new SmartSelector({
+                container: parentContractContainer,
+                apiUrl: '/api/contracts/',
+                placeholder: '请选择主合同',
+                searchPlaceholder: '搜索主合同编号或名称...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: { file_positioning: '主合同' }, // 只显示主合同
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_parent_contract');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            const hiddenInput = document.getElementById('id_parent_contract');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = parentContractContainer.dataset.initialText || '';
+                this.smartSelectors.parent_contract.setValue(hiddenInput.value, initialText);
+            }
+        }
+    }
+
+    initPaymentSelectors() {
+        // 合同选择器
+        const contractContainer = document.querySelector('[data-smart-selector="contract"]');
+        if (contractContainer) {
+            this.smartSelectors.contract = new SmartSelector({
+                container: contractContainer,
+                apiUrl: '/api/contracts/',
+                placeholder: '请选择合同',
+                searchPlaceholder: '搜索合同名称或编号...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: {},
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_contract');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            const hiddenInput = document.getElementById('id_contract');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = contractContainer.dataset.initialText || '';
+                this.smartSelectors.contract.setValue(hiddenInput.value, initialText);
+            }
+        }
+    }
+
+    onProjectChange(projectId) {
+        // 当项目变更时，更新所有依赖项目的选择器的级联筛选
+        const filters = projectId ? { project_id: projectId } : {};
+
+        // 更新采购选择器
+        if (this.smartSelectors.procurement) {
+            this.smartSelectors.procurement.updateCascadeFilters(filters);
+        }
+
+        // 更新合同选择器
+        if (this.smartSelectors.contract) {
+            this.smartSelectors.contract.updateCascadeFilters(filters);
+        }
+        
+        // 更新关联主合同选择器（只显示主合同且属于该项目）
+        if (this.smartSelectors.parent_contract) {
+            const parentFilters = projectId
+                ? { project_id: projectId, file_positioning: '主合同' }
+                : { file_positioning: '主合同' };
+            this.smartSelectors.parent_contract.updateCascadeFilters(parentFilters);
+        }
+    }
+
+    cleanupSmartSelectors() {
+        // 销毁所有选择器实例
+        Object.values(this.smartSelectors).forEach(selector => {
+            if (selector && typeof selector.destroy === 'function') {
+                selector.destroy();
+            }
+        });
+        this.smartSelectors = {};
     }
 
     async submitForm() {
@@ -268,6 +474,16 @@ class EditModal {
         toastElement.addEventListener('hidden.bs.toast', () => {
             toastElement.remove();
         });
+    }
+
+    destroy() {
+        // 清理智能选择器
+        this.cleanupSmartSelectors();
+        
+        // 清理模态框
+        if (this.modal) {
+            this.modal.dispose();
+        }
     }
 }
 

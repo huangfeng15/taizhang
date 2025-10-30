@@ -55,63 +55,6 @@
     </div>
 </div>
 
-<!-- 快捷操作区 -->
-<div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 30px;">
-    <div class="card-header" style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-        <h2 class="card-title" style="color: white;">
-            <i class="fas fa-rocket"></i>
-            快捷操作
-        </h2>
-    </div>
-    <div style="padding: 25px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-            <!-- 综合报告生成 -->
-            <a href="{% url 'generate_comprehensive_report' %}" style="text-decoration: none;">
-                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 25px; border-radius: 12px; transition: all 0.3s; border: 2px solid rgba(255,255,255,0.3);"
-                     onmouseover="this.style.background='rgba(255,255,255,0.25)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';"
-                     onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                    <div style="font-size: 42px; margin-bottom: 12px;">📊</div>
-                    <h3 style="margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;">综合报告生成器</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 14px; line-height: 1.6;">
-                        生成专业的年度/部门总结报告<br>
-                        Word格式，内容详实，格式规范
-                    </p>
-                    <div style="margin-top: 15px; padding: 8px 16px; background: rgba(255,255,255,0.25); border-radius: 20px; display: inline-block; font-size: 12px; font-weight: 600;">
-                        <i class="fas fa-sparkles"></i> 新功能
-                    </div>
-                </div>
-            </a>
-            
-            <!-- 监控驾驶舱 -->
-            <a href="{% url 'monitoring_cockpit' %}" style="text-decoration: none;">
-                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 25px; border-radius: 12px; transition: all 0.3s; border: 2px solid rgba(255,255,255,0.3);"
-                     onmouseover="this.style.background='rgba(255,255,255,0.25)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';"
-                     onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                    <div style="font-size: 42px; margin-bottom: 12px;">🎛️</div>
-                    <h3 style="margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;">监控驾驶舱</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 14px; line-height: 1.6;">
-                        实时监控业务数据<br>
-                        多维度分析，可视化展示
-                    </p>
-                </div>
-            </a>
-            
-            <!-- 统计分析 -->
-            <a href="{% url 'statistics_view' %}" style="text-decoration: none;">
-                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 25px; border-radius: 12px; transition: all 0.3s; border: 2px solid rgba(255,255,255,0.3);"
-                     onmouseover="this.style.background='rgba(255,255,255,0.25)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)';"
-                     onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                    <div style="font-size: 42px; margin-bottom: 12px;">📈</div>
-                    <h3 style="margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;">统计分析</h3>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 14px; line-height: 1.6;">
-                        查看详细的统计数据<br>
-                        支持数据导出和深度分析
-                    </p>
-                </div>
-            </a>
-        </div>
-    </div>
-</div>
 
 <!-- 项目列表 -->
 <div class="card">

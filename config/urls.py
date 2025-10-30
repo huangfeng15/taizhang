@@ -34,6 +34,11 @@ urlpatterns = [
     path('reports/professional/', views.generate_professional_report, name='generate_professional_report'),
     path('reports/comprehensive/', views.generate_comprehensive_report, name='generate_comprehensive_report'),
     
+    # 级联选择器数据API
+    path('api/projects/', views.api_projects_list, name='api_projects_list'),
+    path('api/procurements/', views.api_procurements_list, name='api_procurements_list'),
+    path('api/contracts/', views.api_contracts_list, name='api_contracts_list'),
+    
     # 统计数据详情查看API
     path('api/statistics/<str:module>/details/', views.statistics_detail_api, name='statistics_detail_api'),
     path('monitoring/statistics/<str:module>/details/', views.statistics_detail_page, name='statistics_detail_page'),
@@ -57,6 +62,12 @@ urlpatterns = [
     path('contracts/<str:contract_code>/edit/', views.contract_edit, name='contract_edit'),
     path('procurements/<str:procurement_code>/edit/', views.procurement_edit, name='procurement_edit'),
     path('payments/<str:payment_code>/edit/', views.payment_edit, name='payment_edit'),
+    
+    # 前端新增API
+    path('projects/create/', views.project_create, name='project_create'),
+    path('procurements/create/', views.procurement_create, name='procurement_create'),
+    path('contracts/create/', views.contract_create, name='contract_create'),
+    path('payments/create/', views.payment_create, name='payment_create'),
 ]
 
 # 自定义Admin站点标题

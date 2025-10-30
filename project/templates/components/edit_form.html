@@ -1,5 +1,5 @@
 {% load static %}
-<form id="editForm" method="post" action="{{ submit_url }}">
+<form id="editForm" method="post" action="{{ submit_url }}" data-module="{{ module_type }}">
     {% csrf_token %}
     {% if form.errors %}
     <div class="alert alert-danger" role="alert">
@@ -25,7 +25,32 @@
             <span class="text-danger">*</span>
             {% endif %}
         </label>
-        {{ field }}
+        
+        {% if field.name == 'project' %}
+            {# 项目字段使用智能选择器 #}
+            <div data-smart-selector="project"
+                 data-initial-text="{{ initial_display.project|default:'' }}"></div>
+            <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
+        {% elif field.name == 'procurement' %}
+            {# 采购项目字段使用智能选择器 #}
+            <div data-smart-selector="procurement"
+                 data-initial-text="{{ initial_display.procurement|default:'' }}"></div>
+            <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
+        {% elif field.name == 'contract' %}
+            {# 合同字段使用智能选择器 #}
+            <div data-smart-selector="contract"
+                 data-initial-text="{{ initial_display.contract|default:'' }}"></div>
+            <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
+        {% elif field.name == 'parent_contract' %}
+            {# 关联主合同字段使用智能选择器 #}
+            <div data-smart-selector="parent_contract"
+                 data-initial-text="{{ initial_display.parent_contract|default:'' }}"></div>
+            <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
+        {% else %}
+            {# 普通字段正常渲染 #}
+            {{ field }}
+        {% endif %}
+        
         {% if field.help_text %}
         <small class="form-text text-muted">{{ field.help_text }}</small>
         {% endif %}

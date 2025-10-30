@@ -3391,6 +3391,7 @@ def project_edit(request, project_code):
         'form': form,
         'title': '编辑项目信息',
         'submit_url': f'/projects/{project_code}/edit/',
+        'module_type': 'project',
     })
 
 
@@ -3448,10 +3449,22 @@ def contract_edit(request, contract_code):
     
     # GET请求
     form = ContractForm(instance=contract)
+    
+    # 准备初始显示文本
+    initial_display = {}
+    if contract.project:
+        initial_display['project'] = f"{contract.project.project_code} - {contract.project.project_name}"
+    if contract.procurement:
+        initial_display['procurement'] = f"{contract.procurement.procurement_code} - {contract.procurement.project_name}"
+    if contract.parent_contract:
+        initial_display['parent_contract'] = f"{contract.parent_contract.contract_sequence or contract.parent_contract.contract_code} - {contract.parent_contract.contract_name}"
+    
     return render(request, 'components/edit_form.html', {
         'form': form,
         'title': '编辑合同信息',
         'submit_url': f'/contracts/{contract_code}/edit/',
+        'module_type': 'contract',
+        'initial_display': initial_display,
     })
 
 
@@ -3506,10 +3519,18 @@ def procurement_edit(request, procurement_code):
             }, status=400)
     
     form = ProcurementForm(instance=procurement)
+    
+    # 准备初始显示文本
+    initial_display = {}
+    if procurement.project:
+        initial_display['project'] = f"{procurement.project.project_code} - {procurement.project.project_name}"
+    
     return render(request, 'components/edit_form.html', {
         'form': form,
         'title': '编辑采购信息',
         'submit_url': f'/procurements/{procurement_code}/edit/',
+        'module_type': 'procurement',
+        'initial_display': initial_display,
     })
 
 
@@ -3564,12 +3585,226 @@ def payment_edit(request, payment_code):
             }, status=400)
     
     form = PaymentForm(instance=payment)
+    
+    # 准备初始显示文本
+    initial_display = {}
+    if payment.contract:
+        initial_display['contract'] = f"{payment.contract.contract_sequence or payment.contract.contract_code} - {payment.contract.contract_name}"
+        if payment.contract.project:
+            initial_display['project'] = f"{payment.contract.project.project_code} - {payment.contract.project.project_name}"
+    
     return render(request, 'components/edit_form.html', {
         'form': form,
         'title': '编辑付款信息',
         'submit_url': f'/payments/{payment_code}/edit/',
+        'module_type': 'payment',
+        'initial_display': initial_display,
     })
 
+
+
+@require_http_methods(['GET', 'POST'])
+def procurement_create(request):
+    """
+    采购新增视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import ProcurementForm
+    
+    if request.method == 'POST':
+        form = ProcurementForm(request.POST)
+        if form.is_valid():
+            try:
+                procurement = form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '采购项目创建成功',
+                    'procurement_code': procurement.procurement_code
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求 - 返回表单HTML
+    form = ProcurementForm()
+    # 移除readonly属性，允许输入新的编号
+    form.fields['procurement_code'].widget.attrs.pop('readonly', None)
+    form.fields['procurement_code'].disabled = False
+    
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '新增采购项目',
+        'submit_url': '/procurements/create/',
+        'module_type': 'procurement',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def contract_create(request):
+    """
+    合同新增视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import ContractForm
+    
+    if request.method == 'POST':
+        form = ContractForm(request.POST)
+        if form.is_valid():
+            try:
+                contract = form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '合同创建成功',
+                    'contract_code': contract.contract_code
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求 - 返回表单HTML
+    form = ContractForm()
+    # 移除readonly属性
+    form.fields['contract_code'].widget.attrs.pop('readonly', None)
+    form.fields['contract_code'].disabled = False
+    
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '新增合同',
+        'submit_url': '/contracts/create/',
+        'module_type': 'contract',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def payment_create(request):
+    """
+    付款新增视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import PaymentForm
+    
+    if request.method == 'POST':
+        form = PaymentForm(request.POST)
+        if form.is_valid():
+            try:
+                payment = form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '付款记录创建成功',
+                    'payment_code': payment.payment_code
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求 - 返回表单HTML
+    form = PaymentForm()
+    # 付款编号可以为空（自动生成）
+    form.fields['payment_code'].required = False
+    form.fields['payment_code'].widget.attrs['placeholder'] = '留空则自动生成'
+    
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '新增付款记录',
+        'submit_url': '/payments/create/',
+        'module_type': 'payment',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def project_create(request):
+    """
+    项目新增视图 - AJAX接口
+    GET: 返回表单HTML
+    POST: 保存数据
+    """
+    from project.forms import ProjectForm
+    
+    if request.method == 'POST':
+        form = ProjectForm(request.POST)
+        if form.is_valid():
+            try:
+                project = form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': '项目创建成功',
+                    'project_code': project.project_code
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'保存失败: {str(e)}'
+                }, status=400)
+        else:
+            error_messages = []
+            for field, errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields else field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+            
+            return JsonResponse({
+                'success': False,
+                'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                'errors': form.errors
+            }, status=400)
+    
+    # GET请求 - 返回表单HTML
+    form = ProjectForm()
+    # 移除readonly属性
+    form.fields['project_code'].widget.attrs.pop('readonly', None)
+    form.fields['project_code'].disabled = False
+    
+    return render(request, 'components/edit_form.html', {
+        'form': form,
+        'title': '新增项目',
+        'submit_url': '/projects/create/',
+        'module_type': 'project',
+    })
 
 
 # ==================== 统计数据详情查看功能 ====================
@@ -3887,3 +4122,139 @@ def statistics_detail_export(request, module):
     except Exception as e:
         messages.error(request, f'导出失败: {str(e)}')
         return redirect('statistics_view')
+
+
+# ==================== 级联选择器API ====================
+
+def api_projects_list(request):
+    """项目列表API - 支持搜索和分页"""
+    search = request.GET.get('search', '')
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    
+    projects = Project.objects.all()
+    
+    if search:
+        projects = projects.filter(
+            Q(project_code__icontains=search) |
+            Q(project_name__icontains=search)
+        )
+    
+    paginator = Paginator(projects, page_size)
+    page_obj = paginator.get_page(page)
+    
+    data = [{
+        'id': project.project_code,
+        'project_code': project.project_code,
+        'project_name': project.project_name,
+        'display_text': f"{project.project_code} - {project.project_name}"
+    } for project in page_obj]
+    
+    return JsonResponse({
+        'success': True,
+        'data': data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        }
+    })
+
+
+def api_procurements_list(request):
+    """采购列表API - 支持项目筛选和搜索"""
+    search = request.GET.get('search', '')
+    project = request.GET.get('project', '')
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    
+    procurements = Procurement.objects.select_related('project')
+    
+    if project:
+        procurements = procurements.filter(project__project_code=project)
+    
+    if search:
+        procurements = procurements.filter(
+            Q(procurement_code__icontains=search) |
+            Q(project_name__icontains=search)
+        )
+    
+    paginator = Paginator(procurements, page_size)
+    page_obj = paginator.get_page(page)
+    
+    data = [{
+        'id': procurement.procurement_code,
+        'procurement_code': procurement.procurement_code,
+        'project_name': procurement.project_name,
+        'project_code': procurement.project.project_code if procurement.project else '',
+        'display_text': f"{procurement.procurement_code} - {procurement.project_name}"
+    } for procurement in page_obj]
+    
+    return JsonResponse({
+        'success': True,
+        'data': data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        }
+    })
+
+
+def api_contracts_list(request):
+    """合同列表API - 支持项目和采购筛选"""
+    search = request.GET.get('search', '')
+    project = request.GET.get('project_id', '') or request.GET.get('project', '')
+    procurement = request.GET.get('procurement', '')
+    file_positioning = request.GET.get('file_positioning', '')
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+    
+    contracts = Contract.objects.select_related('project', 'procurement')
+    
+    if project:
+        contracts = contracts.filter(project__project_code=project)
+    
+    if procurement:
+        contracts = contracts.filter(procurement__procurement_code=procurement)
+    
+    if file_positioning:
+        contracts = contracts.filter(file_positioning=file_positioning)
+    
+    if search:
+        contracts = contracts.filter(
+            Q(contract_code__icontains=search) |
+            Q(contract_name__icontains=search) |
+            Q(contract_sequence__icontains=search)
+        )
+    
+    paginator = Paginator(contracts, page_size)
+    page_obj = paginator.get_page(page)
+    
+    data = [{
+        'id': contract.contract_code,
+        'contract_code': contract.contract_code,
+        'contract_name': contract.contract_name,
+        'contract_sequence': contract.contract_sequence or '',
+        'file_positioning': contract.file_positioning,
+        'project_code': contract.project.project_code if contract.project else '',
+        'project_name': contract.project.project_name if contract.project else '',
+        'procurement_code': contract.procurement.procurement_code if contract.procurement else '',
+        'display_text': f"{contract.contract_sequence or contract.contract_code} - {contract.contract_name}"
+    } for contract in page_obj]
+    
+    return JsonResponse({
+        'success': True,
+        'data': data,
+        'pagination': {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        }
+    })
