@@ -116,10 +116,10 @@ def get_procurement_statistics(year=None, project_codes=None):
             'percentage': round(stats['count'] / total_count * 100, 2) if total_count > 0 else 0
         })
     
-    # 采购周期分析（从需求审批到中标通知）
+    # 采购周期分析（从需求审批到结果公示发布）
     cycle_data = queryset.filter(
         requirement_approval_date__isnull=False,
-        notice_issue_date__isnull=False
+        result_publicity_release_date__isnull=False
     )
     
     avg_cycle_days = 0
@@ -127,8 +127,8 @@ def get_procurement_statistics(year=None, project_codes=None):
         total_days = 0
         count = 0
         for proc in cycle_data:
-            if proc.notice_issue_date and proc.requirement_approval_date:
-                days = (proc.notice_issue_date - proc.requirement_approval_date).days
+            if proc.result_publicity_release_date and proc.requirement_approval_date:
+                days = (proc.result_publicity_release_date - proc.requirement_approval_date).days
                 if days > 0:
                     total_days += days
                     count += 1
@@ -157,6 +157,7 @@ def get_procurement_statistics(year=None, project_codes=None):
             })
     
     # 采购周期分析 - 按采购方式分组
+    # 新分段: 15天以内、25天以内、40天以内、60天以内、60天以上
     cycle_by_method = {}
     # 使用配置常量
     common_methods = PROCUREMENT_METHODS_COMMON
@@ -167,19 +168,27 @@ def get_procurement_statistics(year=None, project_codes=None):
         if not method:
             continue
         if method not in cycle_by_method:
-            cycle_by_method[method] = {'under_30': 0, '30_to_60': 0, '60_to_90': 0, 'over_90': 0}
+            cycle_by_method[method] = {
+                'within_15': 0,      # 15天以内
+                'within_25': 0,      # 25天以内
+                'within_40': 0,      # 40天以内
+                'within_60': 0,      # 60天以内
+                'over_60': 0         # 60天以上
+            }
         
-        if proc.notice_issue_date and proc.requirement_approval_date:
-            days = (proc.notice_issue_date - proc.requirement_approval_date).days
+        if proc.result_publicity_release_date and proc.requirement_approval_date:
+            days = (proc.result_publicity_release_date - proc.requirement_approval_date).days
             if days > 0:
-                if days < 30:
-                    cycle_by_method[method]['under_30'] += 1
-                elif days < 60:
-                    cycle_by_method[method]['30_to_60'] += 1
-                elif days < 90:
-                    cycle_by_method[method]['60_to_90'] += 1
+                if days <= 15:
+                    cycle_by_method[method]['within_15'] += 1
+                elif days <= 25:
+                    cycle_by_method[method]['within_25'] += 1
+                elif days <= 40:
+                    cycle_by_method[method]['within_40'] += 1
+                elif days <= 60:
+                    cycle_by_method[method]['within_60'] += 1
                 else:
-                    cycle_by_method[method]['over_90'] += 1
+                    cycle_by_method[method]['over_60'] += 1
     
     # 采购偏差分析 - Top 5
     top_deviations = []
@@ -217,6 +226,7 @@ def get_procurement_statistics(year=None, project_codes=None):
         'monthly_trend': monthly_data,
         'cycle_by_method': cycle_by_method,
         'common_methods': common_methods,
+        'all_methods_list': all_methods_list,
         'top_deviations': top_deviations,
     }
 

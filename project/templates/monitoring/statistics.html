@@ -847,32 +847,37 @@ function initProcurementCharts() {
     initProcurementDurationChart();
 }
 
-// 采购周期图表
-let durationChart = null;
-let showingAll = false;
+// 采购周期图表 - 确保是全局变量
+window.durationChart = null;
+window.showingAll = false;
 
 // 常用方式数据
 const commonMethodsData = {
     labels: {{ procurement_duration_common_labels|safe }},
     datasets: [
         {
-            label: '<30天',
-            data: {{ procurement_duration_common_under30|safe }},
+            label: '15天以内',
+            data: {{ procurement_duration_common_within15|safe }},
             backgroundColor: '#52c41a',
         },
         {
-            label: '30-60天',
-            data: {{ procurement_duration_common_30to60|safe }},
+            label: '25天以内',
+            data: {{ procurement_duration_common_within25|safe }},
+            backgroundColor: '#13c2c2',
+        },
+        {
+            label: '40天以内',
+            data: {{ procurement_duration_common_within40|safe }},
             backgroundColor: '#1890ff',
         },
         {
-            label: '60-90天',
-            data: {{ procurement_duration_common_60to90|safe }},
+            label: '60天以内',
+            data: {{ procurement_duration_common_within60|safe }},
             backgroundColor: '#faad14',
         },
         {
-            label: '>90天',
-            data: {{ procurement_duration_common_over90|safe }},
+            label: '60天以上',
+            data: {{ procurement_duration_common_over60|safe }},
             backgroundColor: '#ff4d4f',
         }
     ]
@@ -883,23 +888,28 @@ const allMethodsData = {
     labels: {{ procurement_duration_all_labels|safe }},
     datasets: [
         {
-            label: '<30天',
-            data: {{ procurement_duration_all_under30|safe }},
+            label: '15天以内',
+            data: {{ procurement_duration_all_within15|safe }},
             backgroundColor: '#52c41a',
         },
         {
-            label: '30-60天',
-            data: {{ procurement_duration_all_30to60|safe }},
+            label: '25天以内',
+            data: {{ procurement_duration_all_within25|safe }},
+            backgroundColor: '#13c2c2',
+        },
+        {
+            label: '40天以内',
+            data: {{ procurement_duration_all_within40|safe }},
             backgroundColor: '#1890ff',
         },
         {
-            label: '60-90天',
-            data: {{ procurement_duration_all_60to90|safe }},
+            label: '60天以内',
+            data: {{ procurement_duration_all_within60|safe }},
             backgroundColor: '#faad14',
         },
         {
-            label: '>90天',
-            data: {{ procurement_duration_all_over90|safe }},
+            label: '60天以上',
+            data: {{ procurement_duration_all_over60|safe }},
             backgroundColor: '#ff4d4f',
         }
     ]
@@ -909,7 +919,7 @@ function initProcurementDurationChart() {
     const ctx = document.getElementById('procurementDurationChart');
     if (!ctx) return;
 
-    durationChart = new Chart(ctx, {
+    window.durationChart = new Chart(ctx, {
         type: 'bar',
         data: commonMethodsData,
         options: {
@@ -941,25 +951,35 @@ function initProcurementDurationChart() {
 }
 
 function toggleProcurementMethods() {
-    if (!durationChart) return;
+    if (!window.durationChart) {
+        console.error('图表对象不存在');
+        return;
+    }
     
     const btn = document.getElementById('toggleMethodsBtn');
-    showingAll = !showingAll;
+    window.showingAll = !window.showingAll;
     
-    if (showingAll) {
+    console.log('切换状态:', window.showingAll ? '显示全部' : '显示常用');
+    
+    if (window.showingAll) {
         // 切换到全部方式
         btn.textContent = '显示常用方式';
-        durationChart.data.labels = allMethodsData.labels;
-        durationChart.data.datasets = allMethodsData.datasets;
+        window.durationChart.data = {
+            labels: allMethodsData.labels.slice(),
+            datasets: allMethodsData.datasets.map(ds => ({...ds, data: ds.data.slice()}))
+        };
     } else {
         // 切换到常用方式
         btn.textContent = '显示全部方式';
-        durationChart.data.labels = commonMethodsData.labels;
-        durationChart.data.datasets = commonMethodsData.datasets;
+        window.durationChart.data = {
+            labels: commonMethodsData.labels.slice(),
+            datasets: commonMethodsData.datasets.map(ds => ({...ds, data: ds.data.slice()}))
+        };
     }
     
     // 更新图表
-    durationChart.update();
+    window.durationChart.update();
+    console.log('图表已更新，当前标签数:', window.durationChart.data.labels.length);
 }
 
 // 合同图表渲染(延迟加载)

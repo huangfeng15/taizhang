@@ -121,6 +121,13 @@ filter_registry.register('contract', [
         'field': 'contract_source'
     },
     {
+        'key': 'contract_type',
+        'label': '合同类型',
+        'type': 'select',
+        'enum': ProcurementCategory,
+        'field': 'contract_type'
+    },
+    {
         'key': 'contract_amount',
         'label': '合同金额',
         'type': 'range',

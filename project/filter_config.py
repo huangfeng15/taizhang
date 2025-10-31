@@ -116,6 +116,13 @@ def get_contract_filter_config(request):
                     'type': 'select',
                     'options': _get_enum_options('contract', 'contract_source'),
                     'current_value': request.GET.getlist('contract_source')  # 多选值
+                },
+                {
+                    'name': 'contract_type',
+                    'label': '合同类型',
+                    'type': 'select',
+                    'options': _get_enum_options('contract', 'contract_type'),
+                    'current_value': request.GET.getlist('contract_type')  # 多选值
                 }
             ]
         },

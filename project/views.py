@@ -597,6 +597,7 @@ def contract_list(request):
     party_b_contact_filter = request.GET.get('party_b_contact', '')
     contract_officer_filter = request.GET.get('contract_officer', '')
     contract_source_filter = request.GET.get('contract_source', '')
+    contract_type_filter = request.GET.getlist('contract_type')  # 合同类型筛选（支持多选）
     has_settlement_filter = request.GET.get('has_settlement', '')
     payment_ratio_min = request.GET.get('payment_ratio_min', '')
     payment_ratio_max = request.GET.get('payment_ratio_max', '')
@@ -2422,21 +2423,23 @@ def statistics_view(request):
     cycle_by_method = procurement_stats.get('cycle_by_method', {})
     common_methods = procurement_stats.get('common_methods', [])
     
-    # 常用方式数据 - 使用配置常量
+    # 常用方式数据 - 使用配置常量和新的时间分段
     from project.enums import PROCUREMENT_METHODS_COMMON_LABELS
     procurement_duration_common_labels = PROCUREMENT_METHODS_COMMON_LABELS
-    procurement_duration_common_under30 = [cycle_by_method.get(m, {}).get('under_30', 0) for m in common_methods]
-    procurement_duration_common_30to60 = [cycle_by_method.get(m, {}).get('30_to_60', 0) for m in common_methods]
-    procurement_duration_common_60to90 = [cycle_by_method.get(m, {}).get('60_to_90', 0) for m in common_methods]
-    procurement_duration_common_over90 = [cycle_by_method.get(m, {}).get('over_90', 0) for m in common_methods]
+    procurement_duration_common_within15 = [cycle_by_method.get(m, {}).get('within_15', 0) for m in common_methods]
+    procurement_duration_common_within25 = [cycle_by_method.get(m, {}).get('within_25', 0) for m in common_methods]
+    procurement_duration_common_within40 = [cycle_by_method.get(m, {}).get('within_40', 0) for m in common_methods]
+    procurement_duration_common_within60 = [cycle_by_method.get(m, {}).get('within_60', 0) for m in common_methods]
+    procurement_duration_common_over60 = [cycle_by_method.get(m, {}).get('over_60', 0) for m in common_methods]
     
     # 全部方式数据（使用预定义的10种方式，与原型图保持一致）
     all_methods = procurement_stats.get('all_methods_list', [])
     procurement_duration_all_labels = all_methods
-    procurement_duration_all_under30 = [cycle_by_method.get(m, {}).get('under_30', 0) for m in all_methods]
-    procurement_duration_all_30to60 = [cycle_by_method.get(m, {}).get('30_to_60', 0) for m in all_methods]
-    procurement_duration_all_60to90 = [cycle_by_method.get(m, {}).get('60_to_90', 0) for m in all_methods]
-    procurement_duration_all_over90 = [cycle_by_method.get(m, {}).get('over_90', 0) for m in all_methods]
+    procurement_duration_all_within15 = [cycle_by_method.get(m, {}).get('within_15', 0) for m in all_methods]
+    procurement_duration_all_within25 = [cycle_by_method.get(m, {}).get('within_25', 0) for m in all_methods]
+    procurement_duration_all_within40 = [cycle_by_method.get(m, {}).get('within_40', 0) for m in all_methods]
+    procurement_duration_all_within60 = [cycle_by_method.get(m, {}).get('within_60', 0) for m in all_methods]
+    procurement_duration_all_over60 = [cycle_by_method.get(m, {}).get('over_60', 0) for m in all_methods]
     
     # 准备合同类型图表数据（包含所有类型：主合同、补充协议、解除协议、框架协议）
     contract_type_labels = [item['type'] for item in contract_stats['type_distribution']]
@@ -2552,19 +2555,21 @@ def statistics_view(request):
         'procurement_method_data': json.dumps(procurement_method_data),
         'procurement_monthly_data': json.dumps(procurement_monthly_data),
         
-        # 采购周期数据 - 常用方式
+        # 采购周期数据 - 常用方式（新分段：15/25/40/60天以内及60天以上）
         'procurement_duration_common_labels': json.dumps(procurement_duration_common_labels, ensure_ascii=False),
-        'procurement_duration_common_under30': json.dumps(procurement_duration_common_under30),
-        'procurement_duration_common_30to60': json.dumps(procurement_duration_common_30to60),
-        'procurement_duration_common_60to90': json.dumps(procurement_duration_common_60to90),
-        'procurement_duration_common_over90': json.dumps(procurement_duration_common_over90),
+        'procurement_duration_common_within15': json.dumps(procurement_duration_common_within15),
+        'procurement_duration_common_within25': json.dumps(procurement_duration_common_within25),
+        'procurement_duration_common_within40': json.dumps(procurement_duration_common_within40),
+        'procurement_duration_common_within60': json.dumps(procurement_duration_common_within60),
+        'procurement_duration_common_over60': json.dumps(procurement_duration_common_over60),
         
-        # 采购周期数据 - 全部方式
+        # 采购周期数据 - 全部方式（新分段：15/25/40/60天以内及60天以上）
         'procurement_duration_all_labels': json.dumps(procurement_duration_all_labels, ensure_ascii=False),
-        'procurement_duration_all_under30': json.dumps(procurement_duration_all_under30),
-        'procurement_duration_all_30to60': json.dumps(procurement_duration_all_30to60),
-        'procurement_duration_all_60to90': json.dumps(procurement_duration_all_60to90),
-        'procurement_duration_all_over90': json.dumps(procurement_duration_all_over90),
+        'procurement_duration_all_within15': json.dumps(procurement_duration_all_within15),
+        'procurement_duration_all_within25': json.dumps(procurement_duration_all_within25),
+        'procurement_duration_all_within40': json.dumps(procurement_duration_all_within40),
+        'procurement_duration_all_within60': json.dumps(procurement_duration_all_within60),
+        'procurement_duration_all_over60': json.dumps(procurement_duration_all_over60),
         
         # 合同类型数据（按金额）
         'contract_type_labels': json.dumps(contract_type_labels, ensure_ascii=False),
@@ -2572,6 +2577,10 @@ def statistics_view(request):
         
         'contract_source_labels': json.dumps(contract_source_labels, ensure_ascii=False),
         'contract_source_data': json.dumps(contract_source_data),
+        
+        # 添加年份和项目筛选值，用于前端获取筛选条件
+        'year_filter_value': year_context['selected_year_value'],
+        'selected_project_value': project_codes[0] if project_codes else '',
     }
     
     return render(request, 'monitoring/statistics.html', context)
