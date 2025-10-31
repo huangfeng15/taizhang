@@ -139,9 +139,9 @@ echo [*] 激活虚拟环境...
 call venv\Scripts\activate.bat
 
 echo [*] 启动Django服务器...
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:3500
 
-echo [*] 访问地址: http://localhost:8000/admin
+echo [*] 访问地址: http://localhost:3500/admin
 pause
 ```
 
@@ -153,7 +153,7 @@ echo "[*] 激活虚拟环境..."
 source venv/bin/activate
 
 echo "[*] 启动Django服务器..."
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:3500
 ```
 
 ---

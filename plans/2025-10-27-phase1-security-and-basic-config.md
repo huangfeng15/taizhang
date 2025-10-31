@@ -500,7 +500,7 @@ class ConstantsTestCase(TestCase):
   python scripts/check_data_statistics.py
   
   # 4. 访问页面测试
-  # - 访问 http://127.0.0.1:8000/
+  # - 访问 http://127.0.0.1:3500/
   # - 测试全局年份筛选器
   # - 测试监控页面
   ```

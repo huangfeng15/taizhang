@@ -193,7 +193,7 @@
 #### 第9天：部署准备
 - [ ] 编写数据库备份脚本（backup_db.py）
 - [ ] Windows任务计划程序配置
-- [ ] Windows防火墙规则配置（端口8000）
+- [ ] Windows防火墙规则配置（端口3500）
 - [ ] settings.py 生产环境配置
 - [ ] ALLOWED_HOSTS 配置
 

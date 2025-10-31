@@ -360,7 +360,7 @@ if __name__ == '__main__':
 
 **常用命令：**
 ```bash
-python manage.py runserver 0.0.0.0:8000      # 启动服务器
+python manage.py runserver 0.0.0.0:3500      # 启动服务器
 python manage.py makemigrations               # 创建迁移文件
 python manage.py migrate                      # 执行迁移
 python manage.py createsuperuser              # 创建超级用户
