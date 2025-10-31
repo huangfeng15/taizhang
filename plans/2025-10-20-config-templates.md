@@ -141,7 +141,7 @@ call venv\Scripts\activate.bat
 echo [*] 启动Django服务器...
 python manage.py runserver 0.0.0.0:3500
 
-echo [*] 访问地址: http://localhost:3500/admin
+echo [*] 访问地址: http://localhost:8000/admin
 pause
 ```
 
