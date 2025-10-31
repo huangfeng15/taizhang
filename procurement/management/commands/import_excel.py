@@ -1221,6 +1221,23 @@ class Command(BaseCommand):
         parent_contract_sequence = row.get('关联主合同编号', '').strip()
         parent_contract_found = False
         
+        # ===== 验证规则1: 关联主合同时，文件定位必填 =====
+        if parent_contract_sequence:
+            if not file_positioning or file_positioning == '':
+                raise ValueError(
+                    f'关联了主合同时，文件定位列为必填项。'
+                    f'合同编号: {contract_code}, '
+                    f'关联主合同编号: {parent_contract_sequence}'
+                )
+            
+            # 验证文件定位必须是补充协议或解除协议
+            if file_positioning not in [FilePositioning.SUPPLEMENT.value, FilePositioning.TERMINATION.value]:
+                raise ValueError(
+                    f'关联主合同时，文件定位只能是"补充协议"或"解除协议"。'
+                    f'合同编号: {contract_code}, '
+                    f'当前文件定位: {file_positioning}'
+                )
+        
         if parent_contract_sequence:
             # 优先按合同序号查找（支持字符串格式如 BHHY-NH-014）
             try:
@@ -1280,6 +1297,31 @@ class Command(BaseCommand):
             from project.enums import ContractSource
             contract_source = ContractSource.PROCUREMENT.value if procurement else ContractSource.DIRECT.value
         
+        # ===== 验证规则2: 合同类型自动填充逻辑 =====
+        contract_type = row.get('合同类型', '').strip()
+        
+        # 如果用户未填写合同类型，按优先级自动填充
+        if not contract_type:
+            # 优先级1: 从关联采购获取采购类别
+            if procurement and procurement.procurement_category:
+                contract_type = procurement.procurement_category
+                self.stdout.write(self.style.SUCCESS(
+                    f'合同类型已从关联采购自动填充: {contract_type} (合同编号: {contract_code})'
+                ))
+            # 优先级2: 从主合同继承合同类型
+            elif parent_contract and hasattr(parent_contract, 'contract_type') and parent_contract.contract_type:
+                contract_type = parent_contract.contract_type
+                self.stdout.write(self.style.SUCCESS(
+                    f'合同类型已从主合同继承: {contract_type} (合同编号: {contract_code})'
+                ))
+            # 优先级3: 都没有则必须手动填写
+            else:
+                raise ValueError(
+                    f'合同类型列为必填项。'
+                    f'合同编号: {contract_code}。'
+                    f'请直接填写合同类型(工程/货物/服务等)，或关联采购/主合同以自动填充。'
+                )
+        
         # 获取支付方式
         payment_method = row.get('支付方式', '').strip()
         
@@ -1290,6 +1332,7 @@ class Command(BaseCommand):
                     'project': project,
                     'contract_name': contract_name,
                     'file_positioning': file_positioning,
+                    'contract_type': contract_type,
                     'contract_source': contract_source,
                     'parent_contract': parent_contract,
                     'procurement': procurement,

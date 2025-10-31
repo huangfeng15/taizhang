@@ -1,12 +1,18 @@
 """
 合同管理模块 - 数据模型
 """
+from typing import TYPE_CHECKING
 from django.db import models
 from django.core.exceptions import ValidationError
 from procurement.models import BaseModel
 from project.validators import validate_code_field, validate_and_clean_code
-from project.enums import FilePositioning, ContractSource, get_enum_choices
+from project.enums import FilePositioning, ContractSource, ProcurementCategory, get_enum_choices
 from project.helptext import get_help_text
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from payment.models import Payment
+    from settlement.models import Settlement
 
 
 class Contract(BaseModel):
@@ -47,6 +53,15 @@ class Contract(BaseModel):
         choices=get_enum_choices(FilePositioning),
         default=FilePositioning.MAIN_CONTRACT.value,
         help_text=get_help_text('contract', 'file_positioning')
+    )
+    
+    # ===== 合同类型 =====
+    contract_type = models.CharField(
+        '合同类型',
+        max_length=100,
+        blank=True,
+        choices=get_enum_choices(ProcurementCategory),
+        help_text='合同类别(工程/货物/服务等)，可从关联采购或主合同自动继承'
     )
     
     # ===== 合同来源分类 =====
@@ -199,7 +214,7 @@ class Contract(BaseModel):
         help_text='合同资料归档的日期'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):
         verbose_name = '合同信息'
         verbose_name_plural = '合同信息'
         ordering = ['-created_at']
@@ -269,12 +284,13 @@ class Contract(BaseModel):
     def get_total_paid_amount(self):
         """获取累计付款金额"""
         from django.db.models import Sum
-        total = self.payments.aggregate(total=Sum('payment_amount'))['total'] or 0
+        # type: ignore 用于解决反向关系的类型检查问题
+        total = self.payments.aggregate(total=Sum('payment_amount'))['total'] or 0  # type: ignore[attr-defined]
         return total
     
     def get_payment_count(self):
         """获取付款笔数"""
-        return self.payments.count()
+        return self.payments.count()  # type: ignore[attr-defined]
     
     def get_payment_ratio(self):
         """
@@ -293,20 +309,20 @@ class Contract(BaseModel):
         # 如果是主合同，检查是否有结算
         if self.file_positioning == FilePositioning.MAIN_CONTRACT.value:
             try:
-                if hasattr(self, 'settlement') and self.settlement and self.settlement.final_amount:
+                if hasattr(self, 'settlement') and self.settlement and self.settlement.final_amount:  # type: ignore[attr-defined]
                     # 有结算价，使用结算价
-                    base_amount = self.settlement.final_amount
+                    base_amount = self.settlement.final_amount  # type: ignore[attr-defined]
                 else:
                     # 没有结算价，使用合同价 + 补充协议金额
                     base_amount = self.contract_amount or 0
-                    supplements_total = self.supplements.aggregate(
+                    supplements_total = self.supplements.aggregate(  # type: ignore[attr-defined]
                         total=Sum('contract_amount')
                     )['total'] or 0
                     base_amount += supplements_total
             except:
                 # 如果获取settlement失败，使用合同价 + 补充协议金额
                 base_amount = self.contract_amount or 0
-                supplements_total = self.supplements.aggregate(
+                supplements_total = self.supplements.aggregate(  # type: ignore[attr-defined]
                     total=Sum('contract_amount')
                 )['total'] or 0
                 base_amount += supplements_total
@@ -325,7 +341,7 @@ class Contract(BaseModel):
         
         if self.file_positioning == FilePositioning.MAIN_CONTRACT.value:
             total = self.contract_amount or 0
-            supplements_total = self.supplements.aggregate(
+            supplements_total = self.supplements.aggregate(  # type: ignore[attr-defined]
                 total=Sum('contract_amount')
             )['total'] or 0
             return total + supplements_total

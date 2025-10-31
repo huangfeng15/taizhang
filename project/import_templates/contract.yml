@@ -81,6 +81,13 @@ fields:
     choices_from_model: true
     help_text: "合同文件存储位置标识"
     
+  - name: "合同类型"
+    field: "contract_type"
+    required: false
+    data_type: "choice"
+    choices_from_model: true
+    help_text: "合同类别(工程/货物/服务等)，可从关联采购或主合同自动继承"
+    
   - name: "合同来源"
     field: "contract_source"
     required: false
