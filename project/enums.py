@@ -41,9 +41,11 @@ class FilePositioning(models.TextChoices):
 
 class ProcurementCategory(models.TextChoices):
     """采购类别枚举"""
+    ENGINEERING = '工程', '工程'
+    ENGINEERING_GOODS = '工程货物', '工程货物'
+    ENGINEERING_SERVICES = '工程服务', '工程服务'
     GOODS = '货物', '货物'
     SERVICES = '服务', '服务'
-    ENGINEERING = '工程', '工程'
 
 
 class QualificationReviewMethod(models.TextChoices):
@@ -63,6 +65,7 @@ class BidEvaluationMethod(models.TextChoices):
     COMPREHENSIVE_SCORING = '综合评分法', '综合评分法（含综合评估法、综合评审法）'
     COMPETITIVE_NEGOTIATION = '竞争性谈判', '竞争性谈判'
     PRICE_COMPETITION = '价格竞争法', '价格竞争法（含最低价法、经评审的合理低价法）'
+    QUALITATIVE_REVIEW = '定性评审法', '定性评审法'
 
 
 class BidAwardingMethod(models.TextChoices):
@@ -223,15 +226,19 @@ FILE_POSITIONING_ALL_LABELS = [
 
 # 采购类别配置常量
 PROCUREMENT_CATEGORIES_ALL = [
+    ProcurementCategory.ENGINEERING.value,
+    ProcurementCategory.ENGINEERING_GOODS.value,
+    ProcurementCategory.ENGINEERING_SERVICES.value,
     ProcurementCategory.GOODS.value,
     ProcurementCategory.SERVICES.value,
-    ProcurementCategory.ENGINEERING.value,
 ]
 
 PROCUREMENT_CATEGORIES_ALL_LABELS = [
+    ProcurementCategory.ENGINEERING.label,
+    ProcurementCategory.ENGINEERING_GOODS.label,
+    ProcurementCategory.ENGINEERING_SERVICES.label,
     ProcurementCategory.GOODS.label,
     ProcurementCategory.SERVICES.label,
-    ProcurementCategory.ENGINEERING.label,
 ]
 
 # 资格审查方式配置常量
@@ -252,12 +259,14 @@ BID_EVALUATION_METHODS_ALL = [
     BidEvaluationMethod.COMPREHENSIVE_SCORING.value,
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.value,
     BidEvaluationMethod.PRICE_COMPETITION.value,
+    BidEvaluationMethod.QUALITATIVE_REVIEW.value,
 ]
 
 BID_EVALUATION_METHODS_ALL_LABELS = [
     BidEvaluationMethod.COMPREHENSIVE_SCORING.label,
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.label,
     BidEvaluationMethod.PRICE_COMPETITION.label,
+    BidEvaluationMethod.QUALITATIVE_REVIEW.label,
 ]
 
 # 定标方法配置常量

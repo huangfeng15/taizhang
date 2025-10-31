@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{% static 'css/global-filter.css' %}">
     <link rel="stylesheet" href="{% static 'css/smart-selector.css' %}">
     <link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sticky-table-header.css' %}">
     {% block extra_head %}{% endblock %}
     <style>
         * {
@@ -1051,6 +1052,26 @@
 
             backToTop.addEventListener('mouseleave', function() {
                 this.style.transform = 'scale(1)';
+            });
+
+            // 表格滚动增强效果
+            const tableContainers = document.querySelectorAll('.table-container');
+            tableContainers.forEach(container => {
+                container.addEventListener('scroll', function() {
+                    // 检测垂直滚动
+                    if (this.scrollTop > 0) {
+                        this.classList.add('scrolled');
+                    } else {
+                        this.classList.remove('scrolled');
+                    }
+                    
+                    // 检测横向滚动
+                    if (this.scrollLeft > 0) {
+                        this.classList.add('scrolled-x');
+                    } else {
+                        this.classList.remove('scrolled-x');
+                    }
+                });
             });
         });
 

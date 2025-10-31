@@ -506,22 +506,78 @@
                     <div style="text-align: center; padding: 40px;">
                         <i class="fas fa-check-circle" style="font-size: 64px; color: var(--success-color); margin-bottom: 20px;"></i>
                         <h3 style="font-size: 20px; margin-bottom: 16px;">
-                            ${dryRun ? '验证成功！' : '导入完成！'}
+                            ${dryRun ? '验证成功！' : (data.message_type === 'warning' ? '导入提示' : '导入完成！')}
                         </h3>
-                        <div style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
-                            <p style="margin-bottom: 8px;"><strong>导入统计：</strong></p>
-                            <p>总行数: ${data.stats.total}</p>
-                            <p style="color: var(--success-color);">成功: ${data.stats.success}</p>
-                            ${data.stats.failed > 0 ? `<p style="color: var(--error-color);">失败: ${data.stats.failed}</p>` : ''}
-                            ${data.stats.created > 0 ? `<p>新增: ${data.stats.created}</p>` : ''}
-                            ${data.stats.updated > 0 ? `<p>更新: ${data.stats.updated}</p>` : ''}
-                            ${data.stats.skipped > 0 ? `<p>跳过: ${data.stats.skipped}</p>` : ''}
+                        
+                        <!-- 主要提示消息 -->
+                        <div style="background: ${data.message_type === 'warning' ? '#fffbe6' : '#f6ffed'};
+                                    border: 1px solid ${data.message_type === 'warning' ? '#ffe58f' : '#b7eb8f'};
+                                    border-radius: 6px; padding: 16px; margin: 20px 0;">
+                            <p style="color: ${data.message_type === 'warning' ? '#d46b08' : '#237804'}; font-size: 15px; font-weight: 500;">
+                                ${data.message}
+                            </p>
                         </div>
+                        
+                        <!-- 详细统计信息 -->
+                        <div style="background: #fafafa; border: 1px solid #d9d9d9; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left;">
+                            <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">📊 详细统计</p>
+                            
+                            ${data.stats.valid_rows > 0 ? `
+                            <p style="margin: 6px 0; font-size: 13px;">
+                                <strong>文件总计：</strong>
+                                共 ${data.stats.total_rows || data.stats.valid_rows} 行
+                                ${data.stats.empty_rows > 0 ? `（含 ${data.stats.empty_rows} 行空行）` : ''}
+                                ${data.stats.template_rows > 0 ? `（含 ${data.stats.template_rows} 行模板说明）` : ''}
+                            </p>
+                            <p style="margin: 6px 0; font-size: 13px;">
+                                <strong>有效数据：</strong>${data.stats.valid_rows} 行
+                            </p>
+                            ` : `
+                            <p style="margin: 6px 0; font-size: 13px;">
+                                <strong>处理行数：</strong>${data.stats.total || 0} 行
+                            </p>
+                            `}
+                            
+                            <hr style="margin: 12px 0; border: none; border-top: 1px solid #e8e8e8;">
+                            
+                            ${data.stats.actual_imported > 0 ? `
+                            <p style="margin: 6px 0; font-size: 13px; color: var(--success-color);">
+                                <strong>✓ 成功导入：</strong>${data.stats.actual_imported} 条
+                            </p>
+                            ` : ''}
+                            
+                            ${data.stats.created > 0 ? `
+                            <p style="margin: 6px 0 6px 20px; font-size: 13px;">
+                                • 新增记录：${data.stats.created} 条
+                            </p>
+                            ` : ''}
+                            
+                            ${data.stats.updated > 0 ? `
+                            <p style="margin: 6px 0 6px 20px; font-size: 13px;">
+                                • 更新记录：${data.stats.updated} 条
+                            </p>
+                            ` : ''}
+                            
+                            ${data.stats.skipped > 0 ? `
+                            <p style="margin: 6px 0; font-size: 13px; color: #faad14;">
+                                <strong>⊘ 跳过重复：</strong>${data.stats.skipped} 条（已存在数据库）
+                            </p>
+                            ` : ''}
+                            
+                            ${data.stats.error_rows > 0 ? `
+                            <p style="margin: 6px 0; font-size: 13px; color: var(--error-color);">
+                                <strong>✗ 导入失败：</strong>${data.stats.error_rows} 条
+                            </p>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- 错误详情 -->
                         ${data.errors && data.errors.length > 0 ? `
-                            <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left; max-height: 200px; overflow-y: auto;">
-                                <p style="margin-bottom: 8px; color: var(--error-color);"><strong>错误详情：</strong></p>
-                                ${data.errors.map(err => `<p style="font-size: 13px;">• ${err}</p>`).join('')}
-                            </div>
+                        <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: left; max-height: 200px; overflow-y: auto;">
+                            <p style="margin-bottom: 8px; color: var(--error-color); font-weight: 600;">❌ 错误详情：</p>
+                            ${data.errors.map(err => `<p style="font-size: 13px; margin: 4px 0;">• ${err}</p>`).join('')}
+                            ${data.has_more_errors ? '<p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">... 还有更多错误，请检查导入文件</p>' : ''}
+                        </div>
                         ` : ''}
                         ${!dryRun ? `
                             <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 16px;">

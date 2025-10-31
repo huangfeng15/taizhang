@@ -416,9 +416,9 @@
                                 <tr><td>采购编号</td><td>是</td><td>字符串</td><td>唯一标识,不能包含 <code>/ \ ? #</code> 等特殊字符。</td></tr>
                                 <tr><td>项目名称</td><td>是</td><td>字符串</td><td>必须与系统中已存在的项目名称完全匹配。</td></tr>
                                 <tr><td>采购方式</td><td>是</td><td>枚举</td><td><span class="highlight">必须</span>为下方列表中的15个标准值之一。</td></tr>
-                                <tr><td>采购类别</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"货物"、"服务"、"工程"之一。</td></tr>
+                                <tr><td>采购类别</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"货物"、"服务"、"工程"、"工程货物"、"工程服务"之一。</td></tr>
                                 <tr><td>资格审查方式</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"资格预审"、"资格后审"、"投标报名"之一。</td></tr>
-                                <tr><td>评标谈判方式</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"综合评分法"、"竞争性谈判"、"价格竞争法"之一。注意:系统会自动处理"综合评估法"、"最低价法"等别名。</td></tr>
+                                <tr><td>评标谈判方式</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"综合评分法"、"竞争性谈判"、"价格竞争法"、"定性评审法"之一。注意:系统会自动处理"综合评估法"、"最低价法"等别名。</td></tr>
                                 <tr><td>定标方法</td><td>否</td><td>枚举</td><td><span class="highlight">必须</span>为"竞争定标法"、"票决定标法"、"集体议事法"之一。</td></tr>
                                 <tr><td>所有日期字段</td><td>否</td><td>日期</td><td>格式必须为 <code>YYYY-MM-DD</code>。</td></tr>
                                 <tr><td>所有金额字段</td><td>否</td><td>数字</td><td>单位:元,最多2位小数。</td></tr>
@@ -436,15 +436,15 @@
                     </ul>
                     <h5 class="mt-4">采购类别 (<code>ProcurementCategory</code>)</h5>
                     <ul class="enum-list" style="column-count: 3;">
-                        <li>货物</li><li>服务</li><li>工程</li>
+                        <li>货物</li><li>服务</li><li>工程</li><li>工程货物</li><li>工程服务</li>
                     </ul>
                     <h5 class="mt-4">资格审查方式 (<code>QualificationReviewMethod</code>)</h5>
                     <ul class="enum-list" style="column-count: 3;">
                         <li>资格预审</li><li>资格后审</li><li>投标报名</li>
                     </ul>
                     <h5 class="mt-4">评标方式 (<code>BidEvaluationMethod</code>)</h5>
-                     <ul class="enum-list" style="column-count: 3;">
-                        <li>综合评分法</li><li>竞争性谈判</li><li>价格竞争法</li>
+                     <ul class="enum-list" style="column-count: 2;">
+                        <li>综合评分法</li><li>竞争性谈判</li><li>价格竞争法</li><li>定性评审法</li>
                     </ul>
                     <h5 class="mt-4">定标方法 (<code>BidAwardingMethod</code>)</h5>
                      <ul class="enum-list" style="column-count: 3;">

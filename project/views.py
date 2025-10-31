@@ -1581,7 +1581,7 @@ def batch_delete_procurements(request):
 @csrf_exempt
 @require_POST
 def import_data(request):
-    """通用数据导入接口"""
+    """通用数据导入接口 - 增强版统计信息"""
     try:
         # 获取上传的文件
         if 'file' not in request.FILES:
@@ -1650,67 +1650,159 @@ def import_data(request):
                 ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
                 return ansi_escape.sub('', text)
             
-            # 解析输出统计信息
+            # 解析输出统计信息 - 增强版
             stats = {
-                'total': 0,
-                'success': 0,
-                'failed': 0,
-                'created': 0,
-                'updated': 0,
-                'skipped': 0
+                'total_rows': 0,        # 文件总行数
+                'valid_rows': 0,        # 有效数据行
+                'empty_rows': 0,        # 空行数
+                'template_rows': 0,     # 模板说明行
+                'success_rows': 0,      # 成功处理的行数
+                'created': 0,           # 新增记录数
+                'updated': 0,           # 更新记录数
+                'skipped': 0,           # 跳过的记录数
+                'error_rows': 0,        # 错误行数
+                'actual_imported': 0,   # 实际导入数（新增+更新）
             }
             
             # 从输出中提取统计数据（清理ANSI转义序列后）
             cleaned_output = clean_ansi(output)
             for line in cleaned_output.split('\n'):
-                if '总行数:' in line:
+                # 文件分析信息
+                if '共' in line and '行' in line and '有效数据' in line:
+                    # 解析：共 X 行，有效数据 Y 行，空行 Z 行，模板说明 W 行
                     try:
-                        stats['total'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        parts = line.split('，')
+                        for part in parts:
+                            if '共' in part and '行' in part:
+                                num = re.search(r'共\s*(\d+)\s*行', part)
+                                if num:
+                                    stats['total_rows'] = int(num.group(1))
+                            elif '有效数据' in part:
+                                num = re.search(r'(\d+)\s*行', part)
+                                if num:
+                                    stats['valid_rows'] = int(num.group(1))
+                            elif '空行' in part:
+                                num = re.search(r'(\d+)\s*行', part)
+                                if num:
+                                    stats['empty_rows'] = int(num.group(1))
+                            elif '模板说明' in part:
+                                num = re.search(r'(\d+)\s*行', part)
+                                if num:
+                                    stats['template_rows'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
-                elif '成功:' in line:
+                
+                # 导入结果信息
+                elif '✓ 成功导入:' in line or '成功导入:' in line:
                     try:
-                        stats['success'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        num = re.search(r'(\d+)\s*条', line)
+                        if num:
+                            stats['actual_imported'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
-                elif '失败:' in line:
+                elif '- 新增记录:' in line or '新增记录:' in line:
                     try:
-                        stats['failed'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        num = re.search(r'(\d+)\s*条', line)
+                        if num:
+                            stats['created'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
-                elif '新增记录:' in line:
+                elif '- 更新记录:' in line or '更新记录:' in line:
                     try:
-                        stats['created'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        num = re.search(r'(\d+)\s*条', line)
+                        if num:
+                            stats['updated'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
-                elif '更新记录:' in line:
+                elif '⊘ 跳过记录:' in line or '跳过记录:' in line or '跳过重复:' in line:
                     try:
-                        stats['updated'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        num = re.search(r'(\d+)\s*条', line)
+                        if num:
+                            stats['skipped'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
-                elif '跳过记录:' in line:
+                elif '✗ 导入失败:' in line or '导入失败:' in line:
                     try:
-                        stats['skipped'] = int(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
+                        num = re.search(r'(\d+)\s*条', line)
+                        if num:
+                            stats['error_rows'] = int(num.group(1))
+                    except (ValueError, AttributeError):
                         pass
+            
+            # 确保 actual_imported 正确计算
+            if stats['actual_imported'] == 0:
+                stats['actual_imported'] = stats['created'] + stats['updated']
+            
+            # 确保 success_rows 正确计算
+            stats['success_rows'] = stats['actual_imported']
             
             # 提取错误信息
             errors = []
+            error_details = []
             in_error_section = False
-            for line in output.split('\n'):
-                if '错误详情:' in line:
+            current_category = None
+            
+            for line in cleaned_output.split('\n'):
+                if '【错误详情】' in line:
                     in_error_section = True
                     continue
-                if in_error_section and line.strip().startswith('-'):
-                    errors.append(line.strip()[2:])  # 移除 "- " 前缀
-                elif in_error_section and '===' in line:
+                elif '【导入建议】' in line or '====' in line:
+                    in_error_section = False
                     break
+                
+                if in_error_section:
+                    # 检测错误类别
+                    if '错误' in line and '条):' in line:
+                        current_category = line.strip()
+                    # 提取具体错误
+                    elif line.strip() and (line.strip()[0].isdigit() or '第' in line):
+                        error_details.append(line.strip())
+            
+            # 构建详细的返回消息
+            if stats['actual_imported'] == 0 and stats['skipped'] > 0:
+                message = f'未导入任何新数据：所有 {stats["skipped"]} 条记录均已存在数据库中'
+                message_type = 'warning'
+            elif stats['actual_imported'] > 0 and stats['error_rows'] == 0:
+                parts = []
+                if stats['created'] > 0:
+                    parts.append(f'新增 {stats["created"]} 条')
+                if stats['updated'] > 0:
+                    parts.append(f'更新 {stats["updated"]} 条')
+                if stats['skipped'] > 0:
+                    parts.append(f'跳过 {stats["skipped"]} 条已存在')
+                
+                message = f'导入成功！共导入 {stats["actual_imported"]} 条数据'
+                if parts:
+                    message += f'（{", ".join(parts)}）'
+                message_type = 'success'
+            elif stats['error_rows'] > 0:
+                parts = []
+                if stats['created'] > 0:
+                    parts.append(f'新增 {stats["created"]} 条')
+                if stats['updated'] > 0:
+                    parts.append(f'更新 {stats["updated"]} 条')
+                
+                message = f'部分导入成功：{", ".join(parts) if parts else "0条"}，失败 {stats["error_rows"]} 条'
+                message_type = 'partial'
+            else:
+                message = '导入完成，但未处理任何数据'
+                message_type = 'warning'
             
             return JsonResponse({
                 'success': True,
-                'message': f'导入完成！成功 {stats["success"]} 条，失败 {stats["failed"]} 条',
+                'message': message,
+                'message_type': message_type,
                 'stats': stats,
-                'errors': errors[:10],  # 只返回前10条错误
+                'errors': error_details[:10],  # 只返回前10条错误
+                'has_more_errors': len(error_details) > 10,
+                'summary': {
+                    'total_processed': stats['valid_rows'],
+                    'successful': stats['actual_imported'],
+                    'created': stats['created'],
+                    'updated': stats['updated'],
+                    'skipped': stats['skipped'],
+                    'failed': stats['error_rows'],
+                },
                 'output': output
             })
             
@@ -1722,7 +1814,8 @@ def import_data(request):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': f'导入失败: {str(e)}'
+            'message': f'导入失败: {str(e)}',
+            'message_type': 'error'
         })
 
 

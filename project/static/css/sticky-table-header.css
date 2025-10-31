@@ -1,0 +1,103 @@
+/* 固定表格标题栏样式 */
+.table-container {
+    position: relative;
+    max-height: calc(100vh - 300px); /* 根据页面布局调整 */
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.data-table {
+    position: relative;
+}
+
+.data-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f0f2f5 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+/* 当表格滚动时增强标题栏的视觉效果 */
+.table-container.scrolled .data-table thead th {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 确保第一列（如果有固定列需求）也可以固定 */
+.data-table thead th:first-child,
+.data-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 9;
+    background: inherit;
+}
+
+.data-table thead th:first-child {
+    z-index: 11;
+}
+
+/* 横向滚动时第一列的阴影效果 */
+.table-container.scrolled-x .data-table thead th:first-child,
+.table-container.scrolled-x .data-table tbody td:first-child {
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 平滑滚动 */
+.table-container {
+    scroll-behavior: smooth;
+}
+
+/* 自定义滚动条样式（可选） */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f0f2f5;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #bfbfbf;
+}
+
+/* 确保表格在滚动容器中正确显示 */
+.table-container .data-table {
+    margin-bottom: 0;
+}
+
+/* 修复可能的边框重叠问题 */
+.data-table thead th {
+    border-bottom: 2px solid #d9d9d9;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .table-container {
+        max-height: calc(100vh - 250px);
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .table-container {
+        max-height: calc(100vh - 280px);
+    }
+}
+
+@media (min-width: 1025px) {
+    .table-container {
+        max-height: calc(100vh - 320px);
+    }
+}
