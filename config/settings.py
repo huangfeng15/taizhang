@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'contract.apps.ContractConfig',
     'payment.apps.PaymentConfig',
     'settlement.apps.SettlementConfig',
+    'pdf_import.apps.PdfImportConfig',  # PDF智能导入
     'supplier_eval.apps.SupplierEvalConfig',
 ]
 
@@ -122,3 +123,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ADMIN_SITE_HEADER = '项目采购与成本管理系统'
 ADMIN_SITE_TITLE = '采购管理'
 ADMIN_INDEX_TITLE = '欢迎使用项目采购与成本管理系统'
+
+
+# PDF智能导入配置
+PDF_IMPORT_CONFIG = {
+    'UPLOAD_DIR': MEDIA_ROOT / 'pdf_uploads',
+    'MAX_FILE_SIZE': 10 * 1024 * 1024,  # 10MB
+    'ALLOWED_EXTENSIONS': ['.pdf'],
+    'CONFIG_DIR': BASE_DIR / 'pdf_import' / 'config',
+    'ENABLE_ASYNC': False,  # 是否启用异步处理（需要Celery）
+    'SESSION_EXPIRY_HOURS': 24,  # 会话默认过期时间（小时）
+    'DRAFT_EXPIRY_HOURS': 72,  # 草稿过期时间（小时）
+}

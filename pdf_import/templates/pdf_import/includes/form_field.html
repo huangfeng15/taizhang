@@ -1,0 +1,42 @@
+{% comment %}
+可重用的表单字段模板
+显示字段标签、输入框、帮助文本和错误信息
+{% endcomment %}
+
+<div class="form-field {% if field.errors %}has-error{% endif %}">
+    <label for="{{ field.id_for_label }}">
+        {{ field.label }}
+        {% if field.field.required %}
+        <span class="required-mark">*</span>
+        {% endif %}
+        
+        {# 显示字段状态标记 #}
+        {% if field.value %}
+        <span class="field-status extracted">
+            <i class="bi bi-check-circle-fill"></i> 已提取
+        </span>
+        {% else %}
+        <span class="field-status empty">
+            <i class="bi bi-pencil"></i> 待填写
+        </span>
+        {% endif %}
+    </label>
+    
+    {{ field }}
+    
+    {# 帮助文本 #}
+    {% if field.help_text %}
+    <div class="help-text">
+        <i class="bi bi-info-circle"></i> {{ field.help_text }}
+    </div>
+    {% endif %}
+    
+    {# 错误信息 #}
+    {% if field.errors %}
+    <div class="error-message">
+        {% for error in field.errors %}
+        <div><i class="bi bi-exclamation-circle-fill"></i> {{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

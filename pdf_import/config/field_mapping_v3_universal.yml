@@ -61,7 +61,7 @@ fields:
         pattern: "单位名称[：:\\s]*([^\\n]+?)(?=单位地址|\\n)"
         fallback_pattern: "采购[人单位][：:\\s]*([^\\n]{5,100})"
   
-  # 采购类别 - 支持多种表述方式
+  # 采购类别 - 从项目类型提取并映射
   procurement_category:
     label: "采购类别"
     required: false
@@ -73,16 +73,17 @@ fields:
       - "货物"
       - "服务"
     aliases:
-      "地产营销": "服务"
       "服务类": "服务"
-      "营销": "服务"
-      "市场": "服务"
+      "货物类": "货物"
+      "工程类": "工程"
+      "地产营销类": "服务"
+      "地产营销": "服务"
     source:
       pdf_type: "procurement_notice"
       extraction:
         method: "regex"
-        pattern: "标段/?包分类[：:\\s]*[A-Z]-[^/\\n]*/\\s*([^\\n]+)"
-        fallback_pattern: "采购类别[：:\\s]*([^\\n]+)|(工程|货物|服务|地产营销)"
+        pattern: "项目类型[：:\\s]*([^\\n]+)"
+        fallback_pattern: "标段/?包分类[：:\\s]*[A-Z]-[^/\\n]*/\\s*([^\\n]+)"
   
   # 采购平台 - 关键词识别
   procurement_platform:

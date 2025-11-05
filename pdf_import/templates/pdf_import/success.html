@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}导入成功 - PDF智能导入{% endblock %}
+
+{% block extra_css %}
+<style>
+    .success-container {
+        max-width: 800px;
+        margin: 60px auto;
+        text-align: center;
+    }
+    
+    .success-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 40px;
+    }
+    
+    .success-icon {
+        font-size: 80px;
+        color: #28a745;
+        margin-bottom: 20px;
+    }
+    
+    .success-title {
+        color: #28a745;
+        font-size: 32px;
+        margin-bottom: 15px;
+    }
+    
+    .info-box {
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 20px;
+        margin: 30px 0;
+        text-align: left;
+    }
+    
+    .action-buttons {
+        margin-top: 30px;
+    }
+    
+    .action-buttons .btn {
+        margin: 10px 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <div class="success-card">
+        <div class="success-icon">
+            ✅
+        </div>
+        
+        <h2 class="success-title">导入成功！</h2>
+        <p class="text-muted">PDF数据已成功导入系统</p>
+        
+        {% if procurement %}
+        <div class="info-box">
+            <h5 class="mb-3">📋 采购记录信息</h5>
+            <table class="table table-sm">
+                <tr>
+                    <th style="width: 150px;">招采编号：</th>
+                    <td><strong>{{ procurement.procurement_code }}</strong></td>
+                </tr>
+                <tr>
+                    <th>项目名称：</th>
+                    <td>{{ procurement.project_name }}</td>
+                </tr>
+                {% if procurement.budget_amount %}
+                <tr>
+                    <th>预算金额：</th>
+                    <td>{{ procurement.budget_amount }} 元</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <th>创建时间：</th>
+                    <td>{{ session.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% if session.pdf_files %}
+        <div class="info-box">
+            <h6 class="mb-2">📄 关联的PDF文件（{{ session.pdf_files|length }}个）</h6>
+            <ul class="list-unstyled mb-0 small text-start">
+                {% for file in session.pdf_files %}
+                <li class="mb-1">
+                    <i class="bi bi-file-pdf text-danger"></i>
+                    {{ file.name }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <div class="action-buttons">
+            {% if procurement %}
+            <a href="{% url 'procurement_detail' procurement.procurement_code %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-eye"></i> 查看采购详情
+            </a>
+            {% endif %}
+            <a href="{% url 'pdf_import:upload' %}" class="btn btn-success btn-lg">
+                <i class="bi bi-plus-circle"></i> 继续导入
+            </a>
+            <a href="{% url 'procurement_list' %}" class="btn btn-outline-secondary btn-lg">
+                <i class="bi bi-list"></i> 返回列表
+            </a>
+        </div>
+        
+        <div class="mt-4">
+            <small class="text-muted">
+                会话ID: {{ session.session_id }}
+            </small>
+        </div>
+    </div>
+</div>
+
+<script>
+// 3秒后自动跳转到列表页（可选）
+// setTimeout(function() {
+//     window.location.href = "{% url 'procurement_list' %}";
+// }, 3000);
+</script>
+{% endblock %}

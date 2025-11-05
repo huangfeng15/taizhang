@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}PDF智能导入{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-container {
+        max-width: 900px;
+        margin: 40px auto;
+    }
+    
+    .upload-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .upload-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .upload-header h2 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+    
+    .upload-method {
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: all 0.3s;
+    }
+    
+    .upload-method:hover {
+        border-color: #007bff;
+        background: #e7f3ff;
+    }
+    
+    .file-preview {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+    
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .file-item:last-child {
+        border-bottom: none;
+    }
+    
+    .file-icon {
+        color: #dc3545;
+        font-size: 24px;
+        margin-right: 15px;
+    }
+    
+    .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 4px;
+    }
+    
+    .supported-types {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .type-badge {
+        display: inline-block;
+        background: #007bff;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 4px;
+        margin: 5px;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-card">
+        <div class="upload-header">
+            <h2>📄 PDF智能导入</h2>
+            <p class="text-muted">支持自动识别采购文件类型，提取22个关键字段</p>
+        </div>
+
+        {% if messages %}
+        <div class="mb-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            <!-- 方式1: 选择文件夹 -->
+            <div class="upload-method">
+                <h5>🗂️ 方式1：选择文件夹（推荐）</h5>
+                <p class="text-muted small mb-3">系统会自动扫描文件夹中的所有PDF文件</p>
+                <input type="file" 
+                       class="form-control" 
+                       id="folder_input" 
+                       name="pdf_files"
+                       webkitdirectory 
+                       directory 
+                       multiple 
+                       accept=".pdf">
+            </div>
+
+            <div class="text-center my-3">
+                <strong class="text-muted">或</strong>
+            </div>
+
+            <!-- 方式2: 多选文件 -->
+            <div class="upload-method">
+                <h5>📄 方式2：多选PDF文件</h5>
+                <p class="text-muted small mb-3">按住Ctrl/Cmd键可选择多个文件（最多10个）</p>
+                <input type="file" 
+                       class="form-control" 
+                       id="file_input" 
+                       name="pdf_files"
+                       multiple 
+                       accept=".pdf">
+            </div>
+
+            <!-- 文件预览 -->
+            <div id="file_preview" class="file-preview" style="display:none;">
+                <h6>已选择文件：</h6>
+                <div id="file_list"></div>
+            </div>
+
+            <!-- 提交按钮 -->
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                    <i class="bi bi-upload"></i> 上传并识别
+                </button>
+                <a href="{% url 'procurement_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回列表
+                </a>
+            </div>
+        </form>
+
+        <!-- 使用说明 -->
+        <div class="info-box">
+            <h6><i class="bi bi-info-circle"></i> 使用说明</h6>
+            <ul class="mb-0 small">
+                <li>系统会自动识别PDF类型（采购请示、采购公告、候选人公示、结果公示）</li>
+                <li>自动提取22个关键字段，准确率≥85%</li>
+                <li>支持文件夹批量上传，自动筛选PDF文件</li>
+                <li>单个文件大小限制：10MB</li>
+            </ul>
+        </div>
+
+        <!-- 支持的PDF类型 -->
+        <div class="supported-types">
+            <h6>📋 支持识别的PDF类型：</h6>
+            <div>
+                <span class="type-badge">2-21 采购控制价审批</span>
+                <span class="type-badge">2-23 采购请示</span>
+                <span class="type-badge">2-24/25 采购公告</span>
+                <span class="type-badge">2-45 候选人公示</span>
+                <span class="type-badge">2-47 结果公示</span>
+            </div>
+            <p class="text-muted small mt-2 mb-0">
+                * 识别基于文件名和PDF内容，置信度≥90%
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+// 文件选择处理
+function handleFileSelect(input) {
+    const files = Array.from(input.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    
+    if (files.length === 0) {
+        document.getElementById('file_preview').style.display = 'none';
+        return;
+    }
+    
+    // 显示文件列表
+    const fileList = document.getElementById('file_list');
+    fileList.innerHTML = '';
+    
+    files.forEach(file => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.innerHTML = `
+            <span class="file-icon">📄</span>
+            <div class="flex-grow-1">
+                <strong>${file.name}</strong>
+                <div class="text-muted small">${(file.size / 1024).toFixed(1)} KB</div>
+            </div>
+        `;
+        fileList.appendChild(fileItem);
+    });
+    
+    document.getElementById('file_preview').style.display = 'block';
+}
+
+// 文件夹选择
+document.getElementById('folder_input').addEventListener('change', function(e) {
+    handleFileSelect(this);
+    // 清空文件选择
+    document.getElementById('file_input').value = '';
+});
+
+// 文件选择
+document.getElementById('file_input').addEventListener('change', function(e) {
+    handleFileSelect(this);
+    // 清空文件夹选择
+    document.getElementById('folder_input').value = '';
+});
+
+// 表单提交验证
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const folderFiles = document.getElementById('folder_input').files;
+    const regularFiles = document.getElementById('file_input').files;
+    
+    if (folderFiles.length === 0 && regularFiles.length === 0) {
+        e.preventDefault();
+        alert('请选择PDF文件或文件夹');
+        return false;
+    }
+    
+    // 显示加载状态
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>上传中...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

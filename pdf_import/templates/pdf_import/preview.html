@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}数据审核 - PDF智能导入{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-container {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 0 15px;
+    }
+    
+    .preview-header {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .pdf-files-list {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+    
+    .pdf-file-item {
+        display: inline-block;
+        background: white;
+        padding: 8px 15px;
+        border-radius: 4px;
+        margin: 5px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .data-form-container {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .form-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    
+    .form-section-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #3498db;
+    }
+    
+    .form-field {
+        margin-bottom: 20px;
+    }
+    
+    .form-field label {
+        font-weight: 600;
+        color: #34495e;
+        margin-bottom: 5px;
+        display: block;
+    }
+    
+    .form-field .required-mark {
+        color: #e74c3c;
+        margin-left: 3px;
+    }
+    
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+        width: 100%;
+    }
+    
+    .form-field .help-text {
+        font-size: 0.875rem;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+    
+    .form-field .error-message {
+        color: #e74c3c;
+        font-size: 0.875rem;
+        margin-top: 5px;
+        padding: 5px 10px;
+        background-color: #fee;
+        border-left: 3px solid #e74c3c;
+        border-radius: 3px;
+    }
+    
+    .form-field.has-error input,
+    .form-field.has-error select,
+    .form-field.has-error textarea {
+        border-color: #e74c3c;
+        background-color: #fff5f5;
+    }
+    
+    .form-field .extracted-badge {
+        display: inline-block;
+        margin-left: 10px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        border-radius: 3px;
+    }
+    
+    .validation-summary {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .validation-summary h5 {
+        color: #856404;
+        margin-bottom: 15px;
+    }
+    
+    .validation-summary ul {
+        margin-bottom: 0;
+    }
+    
+    .validation-summary li {
+        color: #856404;
+        margin-bottom: 8px;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        bottom: 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        margin-top: 30px;
+        text-align: center;
+        z-index: 100;
+    }
+    
+    .field-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+    
+    .field-status.extracted {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .field-status.empty {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <div class="preview-header">
+        <h2>📋 数据审核</h2>
+        <p class="text-muted mb-0">请检查并完善以下自动提取的信息</p>
+        
+        {% if pdf_files %}
+        <div class="pdf-files-list">
+            <strong>📁 已识别PDF文件 ({{ pdf_files|length }}个)：</strong>
+            {% for file in pdf_files %}
+            <div class="pdf-file-item">
+                <i class="bi bi-file-pdf text-danger"></i>
+                {{ file.name }}
+                {% if file.detected_type %}
+                <span class="badge bg-info ms-2">{{ file.detected_type }}</span>
+                {% if file.confidence %}
+                <span class="badge bg-success ms-1">{{ file.confidence }}%</span>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    <div class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if form.errors %}
+    <div class="validation-summary">
+        <h5><i class="bi bi-exclamation-triangle-fill"></i> 发现 {{ form.errors|length }} 个验证错误</h5>
+        <p class="mb-3">请修正以下问题后重新提交：</p>
+        
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <ul class="mb-0">
+            {% for field in form %}
+                {% if field.errors %}
+                <li>
+                    <strong>{{ field.label }}</strong>: 
+                    {% for error in field.errors %}
+                    {{ error }}{% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="data-form-container">
+        <form method="post" id="previewForm" novalidate>
+            {% csrf_token %}
+            
+            <!-- 基本信息 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-info-circle"></i> 基本信息
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_code %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.project %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.project_name %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_unit %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_platform %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 采购方式 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-gear"></i> 采购方式
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_category %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_method %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.qualification_review_method %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.bid_evaluation_method %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.bid_awarding_method %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 金额信息 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-currency-dollar"></i> 金额信息
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.budget_amount %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.control_price %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.winning_amount %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 人员信息 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-people"></i> 人员信息
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.procurement_officer %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.demand_department %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.demand_contact %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.winning_bidder %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.winning_contact %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 时间信息 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-calendar"></i> 时间信息
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.planned_completion_date %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.requirement_approval_date %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.announcement_release_date %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.registration_deadline %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.bid_opening_date %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.candidate_publicity_end_date %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.result_publicity_release_date %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.notice_issue_date %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.archive_date %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 其他信息 -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="bi bi-file-text"></i> 其他信息
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.evaluation_committee %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.bid_guarantee %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.bid_guarantee_return_date %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.performance_guarantee %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.candidate_publicity_issue %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        {% include 'pdf_import/includes/form_field.html' with field=form.non_bidding_explanation %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button type="submit" class="btn btn-success btn-lg me-2">
+                    <i class="bi bi-check-circle"></i> 确认导入
+                </button>
+                <a href="{% url 'pdf_import:upload' %}" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-x-circle"></i> 取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 表单验证提示
+document.getElementById('previewForm').addEventListener('submit', function(e) {
+    const form = this;
+    const requiredFields = form.querySelectorAll('[required]');
+    let hasError = false;
+    
+    requiredFields.forEach(field => {
+        if (!field.value.trim()) {
+            hasError = true;
+            field.classList.add('is-invalid');
+        } else {
+            field.classList.remove('is-invalid');
+        }
+    });
+    
+    if (hasError) {
+        e.preventDefault();
+        alert('请填写所有必填字段！');
+        // 滚动到第一个错误字段
+        const firstError = form.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstError.focus();
+        }
+    }
+});
+</script>
+{% endblock %}

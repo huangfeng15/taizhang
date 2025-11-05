@@ -136,7 +136,10 @@ class FieldExtractor:
             return self._extract_date_field(full_text, extraction_config)
         
         elif method == 'regex':
-            return self._extract_by_regex(full_text, extraction_config)
+            value = self._extract_by_regex(full_text, extraction_config)
+            if value:
+                value = self._post_process(value, field_config)
+            return value
         
         elif method == 'multiline':
             return self._extract_multiline(full_text, extraction_config)
@@ -406,7 +409,7 @@ class FieldExtractor:
             for field_name, value in extracted.items():
                 if value is not None:
                     merged_data[field_name] = value
-                    print(f"  ✓ {field_name}: {value}")
+                    print(f"  [OK] {field_name}: {value}")
         
         # 特殊处理：control_price的fallback逻辑
         # 如果procurement_notice中没有提取到control_price，尝试从control_price_approval提取

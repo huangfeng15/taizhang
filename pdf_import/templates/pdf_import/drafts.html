@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}草稿列表 - PDF智能导入{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">📝 我的导入草稿</h4>
+                    <a href="{% url 'pdf_import:upload' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> 新建导入
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if drafts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>会话ID</th>
+                                    <th>PDF文件数</th>
+                                    <th>已提取字段</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>过期时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for draft in drafts %}
+                                <tr>
+                                    <td><code>{{ draft.session_id|slice:":8" }}...</code></td>
+                                    <td>{{ draft.get_pdf_count }} 个</td>
+                                    <td>{{ draft.get_extracted_field_count }} 个</td>
+                                    <td>
+                                        {% if draft.status == 'pending_review' %}
+                                        <span class="badge bg-warning">待确认</span>
+                                        {% elif draft.status == 'confirmed' %}
+                                        <span class="badge bg-info">已确认</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ draft.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if draft.is_expired %}
+                                        <span class="text-danger">已过期</span>
+                                        {% else %}
+                                        {{ draft.expires_at|date:"Y-m-d H:i" }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'pdf_import:resume_draft' draft.session_id %}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="bi bi-pencil"></i> 继续编辑
+                                        </a>
+                                        <a href="{% url 'pdf_import:delete_draft' draft.session_id %}" 
+                                           class="btn btn-sm btn-danger"
+                                           onclick="return confirm('确定要删除此草稿吗？')">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox" style="font-size: 48px; color: #ccc;"></i>
+                        <p class="text-muted mt-3">暂无草稿</p>
+                        <a href="{% url 'pdf_import:upload' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> 开始导入
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

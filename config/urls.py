@@ -1,12 +1,20 @@
 """
 URL configuration for procurement_system project.
 """
+from django.urls import path, include
 from django.contrib import admin
-from django.urls import path
+from django.contrib.auth import views as auth_views
 from project import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # 认证路由
+    path('accounts/login/', auth_views.LoginView.as_view(
+        template_name='admin/login.html',
+        redirect_authenticated_user=True
+    ), name='login'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     
     # 前端页面路由
     path('', views.dashboard, name='dashboard'),
@@ -52,6 +60,9 @@ urlpatterns = [
     
     # 数据导入API
     path('api/import/template/', views.download_import_template, name='download_import_template'),
+    
+    # PDF智能导入路由
+    path('pdf-import/', include('pdf_import.urls')),
     path('api/import/', views.import_data, name='import_data'),
     
     # 数据导出API
