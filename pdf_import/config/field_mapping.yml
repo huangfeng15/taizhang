@@ -63,13 +63,21 @@ fields:
     aliases:
       "地产营销": "服务"
       "服务类": "服务"
+      "工程类": "工程"
+      "货物类": "货物"
+      "工程货物类": "工程货物"
+      "工程服务类": "工程服务"
     source:
       pdf_type: "procurement_notice"
       extraction:
         method: "regex"
-        pattern: "标段/包分类\\s*[A-Z]-[^/\\n]*/\\s*([^\\n]+)"
+        # 项目类型和值之间有换行符，需要用\s*匹配空白字符
+        pattern: "项目类型\\s*([^\\s]{2,10}?)\\s*采购方式"
     validation:
       - type: "enum_value"
+    post_process:
+      - type: "remove_suffix"
+        suffix: "类"
   
   procurement_platform:
     label: "采购平台"
@@ -204,7 +212,9 @@ fields:
       pdf_type: "result_publicity"
       extraction:
         method: "regex"
-        pattern: "￥([\\d,]+\\.?\\d*)\\s*[^\\n]*元整"
+        # 优化：允许跨行匹配，更灵活地匹配金额格式
+        pattern: "￥([\\d,]+\\.?\\d*)"
+        fallback_pattern: "成交价\\(元\\)\\s*￥?([\\d,]+\\.?\\d*)"
   
   # ========== 4. 人员信息 ==========
   procurement_officer:

@@ -167,52 +167,162 @@
         <div class="info-box">
             <h6><i class="bi bi-info-circle"></i> 使用说明</h6>
             <ul class="mb-0 small">
-                <li>系统会自动识别PDF类型（采购请示、采购公告、候选人公示、结果公示）</li>
-                <li>自动提取22个关键字段，准确率≥85%</li>
-                <li>支持文件夹批量上传，自动筛选PDF文件</li>
+                <li><strong>智能过滤：</strong>系统仅处理文件名包含特定编号的PDF（2-21、2-23、2-24、2-25、2-44、2-45、2-47）</li>
+                <li><strong>自动识别：</strong>自动识别PDF类型（采购请示、采购公告、候选人公示、结果公示）</li>
+                <li><strong>数据提取：</strong>自动提取22个关键字段，准确率≥85%</li>
+                <li><strong>批量处理：</strong>支持文件夹批量上传，自动筛选并过滤不符合条件的文件</li>
                 <li>单个文件大小限制：10MB</li>
             </ul>
         </div>
 
         <!-- 支持的PDF类型 -->
         <div class="supported-types">
-            <h6>📋 支持识别的PDF类型：</h6>
+            <h6>📋 支持处理的PDF类型（必须包含以下编号）：</h6>
             <div>
                 <span class="type-badge">2-21 采购控制价审批</span>
                 <span class="type-badge">2-23 采购请示</span>
-                <span class="type-badge">2-24/25 采购公告</span>
+                <span class="type-badge">2-24 采购公告</span>
+                <span class="type-badge">2-25 采购结果审批</span>
+                <span class="type-badge">2-44 采购结果审批</span>
                 <span class="type-badge">2-45 候选人公示</span>
                 <span class="type-badge">2-47 结果公示</span>
             </div>
             <p class="text-muted small mt-2 mb-0">
-                * 识别基于文件名和PDF内容，置信度≥90%
+                <i class="bi bi-exclamation-circle"></i> <strong>重要提示：</strong>文件名必须包含上述编号之一，否则将被自动过滤。例如：<code>2-21.采购控制价OA审批.pdf</code>
             </p>
         </div>
     </div>
 </div>
 
 <script>
+// 允许的PDF文件编号（已过滤2-25，因为它与2-24重复）
+const ALLOWED_NUMBERS = ['2-21', '2-23', '2-24', '2-44', '2-45', '2-47'];
+
+// 编号对应的文档类型
+const NUMBER_DESCRIPTIONS = {
+    '2-21': '采购控制价OA审批',
+    '2-23': '采购请示OA审批',
+    '2-24': '采购公告-特区建工采购平台',
+    '2-44': '采购结果OA审批',
+    '2-45': '中标候选人公示-特区建工采购平台',
+    '2-47': '采购结果公示-特区建工采购平台',
+};
+
+// 检查文件名是否包含允许的编号
+function shouldProcessFile(filename) {
+    // 提取文件名中的编号模式
+    const pattern = /(\d+[-_.]?\d+)/g;
+    const matches = filename.match(pattern);
+    
+    if (!matches) {
+        return { allowed: false, number: null, reason: '文件名中未找到编号模式' };
+    }
+    
+    // 标准化编号格式并检查是否在允许列表中
+    for (const match of matches) {
+        const normalized = match.replace(/[_.]/g, '-');
+        if (ALLOWED_NUMBERS.includes(normalized)) {
+            return {
+                allowed: true,
+                number: normalized,
+                docType: NUMBER_DESCRIPTIONS[normalized],
+                reason: `匹配编号 ${normalized}`
+            };
+        }
+    }
+    
+    const foundNumbers = matches.map(m => m.replace(/[_.]/g, '-')).join(', ');
+    return {
+        allowed: false,
+        number: null,
+        reason: `文件编号 ${foundNumbers} 不在处理范围内`
+    };
+}
+
 // 文件选择处理
 function handleFileSelect(input) {
-    const files = Array.from(input.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    const allFiles = Array.from(input.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
     
-    if (files.length === 0) {
+    if (allFiles.length === 0) {
         document.getElementById('file_preview').style.display = 'none';
         return;
     }
     
-    // 显示文件列表
+    // 过滤文件：只保留符合条件的文件
+    const allowedFiles = [];
+    const filteredFiles = [];
+    
+    allFiles.forEach(file => {
+        const checkResult = shouldProcessFile(file.name);
+        if (checkResult.allowed) {
+            allowedFiles.push({ file, ...checkResult });
+        } else {
+            filteredFiles.push({ file, ...checkResult });
+        }
+    });
+    
+    // 关键修复：创建新的DataTransfer对象，只包含允许的文件
+    const dataTransfer = new DataTransfer();
+    allowedFiles.forEach(item => {
+        dataTransfer.items.add(item.file);
+    });
+    
+    // 替换input的files属性，这样提交时只会上传过滤后的文件
+    input.files = dataTransfer.files;
+    
+    // 显示文件列表（仅显示允许的文件）
     const fileList = document.getElementById('file_list');
     fileList.innerHTML = '';
     
-    files.forEach(file => {
+    if (allowedFiles.length === 0) {
+        // 没有符合条件的文件
+        const noFilesMsg = document.createElement('div');
+        noFilesMsg.className = 'alert alert-warning mb-0';
+        noFilesMsg.innerHTML = `
+            <strong>⚠️ 未找到符合条件的PDF文件！</strong><br>
+            <small>
+                总共选择了 ${allFiles.length} 个PDF文件，但没有一个文件名包含允许的编号。<br>
+                系统仅处理包含以下编号的PDF文件：${ALLOWED_NUMBERS.join('、')}<br>
+                <br>
+                <strong>被过滤的文件：</strong><br>
+                ${filteredFiles.map(f => `• ${f.file.name} (${f.reason})`).join('<br>')}
+            </small>
+        `;
+        fileList.appendChild(noFilesMsg);
+        document.getElementById('file_preview').style.display = 'block';
+        return;
+    }
+    
+    // 显示过滤摘要（如果有文件被过滤）
+    if (filteredFiles.length > 0) {
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'alert alert-info mb-3';
+        summaryDiv.innerHTML = `
+            <strong>📊 文件过滤摘要：</strong><br>
+            <small>
+                • 总文件数：${allFiles.length}<br>
+                • ✅ 符合条件：${allowedFiles.length}<br>
+                • ❌ 已过滤：${filteredFiles.length}<br>
+                <br>
+                <em>以下仅显示符合条件的文件，被过滤的文件不会进行处理。</em>
+            </small>
+        `;
+        fileList.appendChild(summaryDiv);
+    }
+    
+    // 显示符合条件的文件
+    allowedFiles.forEach(({ file, number, docType }) => {
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
         fileItem.innerHTML = `
-            <span class="file-icon">📄</span>
+            <span class="file-icon">✅</span>
             <div class="flex-grow-1">
                 <strong>${file.name}</strong>
-                <div class="text-muted small">${(file.size / 1024).toFixed(1)} KB</div>
+                <div class="text-muted small">
+                    ${(file.size / 1024).toFixed(1)} KB
+                    <span class="badge bg-primary ms-2">${number}</span>
+                    <span class="badge bg-secondary ms-1">${docType}</span>
+                </div>
             </div>
         `;
         fileList.appendChild(fileItem);

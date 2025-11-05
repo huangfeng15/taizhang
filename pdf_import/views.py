@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .models import PDFImportSession
 from procurement.models import Procurement
+from .utils.pdf_filter import PDFFileFilter
 
 
 @login_required
@@ -40,7 +41,8 @@ def upload_pdf(request):
         upload_dir = Path(settings.MEDIA_ROOT) / 'pdf_uploads' / session_id
         upload_dir.mkdir(parents=True, exist_ok=True)
         
-        pdf_files_info = []
+        # 第一阶段：保存所有PDF文件
+        all_pdf_files = []
         for pdf_file in uploaded_files:
             # 只处理PDF文件
             if not pdf_file.name.lower().endswith('.pdf'):
@@ -51,18 +53,66 @@ def upload_pdf(request):
                 for chunk in pdf_file.chunks():
                     destination.write(chunk)
             
-            pdf_files_info.append({
+            all_pdf_files.append({
                 'name': pdf_file.name,
                 'path': str(file_path),
                 'size': pdf_file.size
             })
         
-        if not pdf_files_info:
+        if not all_pdf_files:
             messages.error(request, '未找到有效的PDF文件')
             session.delete()
             return render(request, 'pdf_import/upload.html')
         
-        session.pdf_files = pdf_files_info
+        # 第二阶段：智能过滤 - 仅保留包含特定编号的PDF文件
+        allowed_files, filtered_files = PDFFileFilter.filter_pdf_files(all_pdf_files)
+        
+        # 显示过滤结果
+        total_count = len(all_pdf_files)
+        allowed_count = len(allowed_files)
+        filtered_count = len(filtered_files)
+        
+        # 生成过滤摘要
+        filter_summary = PDFFileFilter.get_filter_summary(
+            total_count,
+            allowed_count,
+            filtered_count
+        )
+        
+        # 如果没有符合条件的文件
+        if not allowed_files:
+            messages.warning(
+                request,
+                f'❌ 未找到符合条件的PDF文件！\n\n'
+                f'{filter_summary}\n\n'
+                f'💡 系统仅处理包含以下编号的PDF文件：\n'
+                f'{PDFFileFilter.get_allowed_numbers_display()}'
+            )
+            session.delete()
+            # 删除已上传的文件
+            import shutil
+            if upload_dir.exists():
+                shutil.rmtree(upload_dir)
+            return render(request, 'pdf_import/upload.html')
+        
+        # 如果有文件被过滤，显示信息提示
+        if filtered_count > 0:
+            filtered_names = [f['name'] for f in filtered_files[:5]]  # 最多显示5个
+            more_text = f' 等 {filtered_count} 个文件' if filtered_count > 5 else ''
+            messages.info(
+                request,
+                f'ℹ️ 已自动过滤 {filtered_count} 个不符合条件的文件：\n'
+                f'{", ".join(filtered_names)}{more_text}\n\n'
+                f'✅ 将处理 {allowed_count} 个符合条件的文件'
+            )
+        else:
+            messages.success(
+                request,
+                f'✅ 所有 {allowed_count} 个文件均符合处理条件！'
+            )
+        
+        # 保存允许处理的文件列表到会话
+        session.pdf_files = allowed_files
         session.save()
         
         # 重定向到提取页面
