@@ -1,0 +1,93 @@
+# PDF类型识别模式配置
+# 用于自动识别不同类型的PDF文件
+
+version: "1.0"
+description: "PDF文件类型识别配置"
+
+# PDF类型定义
+pdf_types:
+  # 采购请示OA审批
+  procurement_request:
+    filename_patterns:
+      - ".*2-23.*"
+      - ".*采购请示.*"
+      - ".*OA审批.*采购.*"
+    content_markers:
+      - "采购请示"
+      - "申请人"
+      - "采购预算金额"
+      - "定标方法"
+    priority: 2
+  
+  # 采购控制价OA审批（新增）
+  control_price_approval:
+    filename_patterns:
+      - ".*2-21.*"
+      - ".*采购控制价.*"
+      - ".*控制价.*OA.*"
+    content_markers:
+      - "采购控制价"
+      - "采购上限价"
+      - "采购预算金额"
+    priority: 2
+  
+  # 采购公告
+  procurement_notice:
+    filename_patterns:
+      - ".*2-24.*"
+      - ".*2-25.*"
+      - ".*采购公告.*"
+      - ".*特区建工.*"
+      - ".*阳光采购.*"
+    content_markers:
+      - "询价公告"
+      - "招标公告"
+      - "项目编号"
+      - "开标时间"
+      - "报名截止时间"
+    priority: 1
+  
+  # 中标候选人公示
+  candidate_publicity:
+    filename_patterns:
+      - ".*2-45.*"
+      - ".*候选人公示.*"
+      - ".*中标候选人.*"
+    content_markers:
+      - "成交候选人"
+      - "第一候选人"
+      - "公示结束时间"
+    priority: 3
+  
+  # 采购结果公示
+  result_publicity:
+    filename_patterns:
+      - ".*2-47.*"
+      - ".*结果公示.*"
+      - ".*成交结果.*"
+    content_markers:
+      - "成交结果公示"
+      - "成交人"
+      - "已中标"
+    priority: 3
+  
+  # 采购结果OA审批
+  result_approval:
+    filename_patterns:
+      - ".*2-44.*"
+      - ".*采购结果.*OA.*"
+      - ".*结果审批.*"
+    content_markers:
+      - "采购结果"
+      - "OA审批"
+      - "流程管理"
+    priority: 4
+
+# 识别策略
+detection_strategy:
+  # 文件名权重
+  filename_weight: 0.6
+  # 内容权重
+  content_weight: 0.4
+  # 最低置信度阈值
+  min_confidence: 0.5

@@ -37,7 +37,7 @@ P4 (低):   候选人公示（2-45） - 候选人信息，可能变化
 | bid_evaluation_method | 评标谈判方式 | CharField | ❌ | 2-24 | 自动 |
 | bid_awarding_method | 定标方法 | CharField | ❌ | 2-23 | 自动 |
 | budget_amount | 采购预算金额(元) | DecimalField | ❌ | 2-23 | 自动 |
-| control_price | 采购控制价(元) | DecimalField | ❌ | 2-24 | 自动 |
+| control_price | 采购控制价(元) | DecimalField | ❌ | 2-24/2-21(fallback) | 自动 |
 | winning_amount | 中标金额(元) | DecimalField | ❌ | 2-47 | 自动 |
 | procurement_officer | 采购经办人 | CharField | ❌ | 2-23 | 自动 |
 | demand_department | 需求部门 | CharField | ❌ | 2-23 | 自动 |
@@ -53,7 +53,7 @@ P4 (低):   候选人公示（2-45） - 候选人信息，可能变化
 | result_publicity_release_date | 结果公示发布时间 | DateField | ❌ | 2-47 | 自动 |
 | notice_issue_date | 中标通知书发放日期 | DateField | ❌ | - | 手动 |
 | archive_date | 资料归档日期 | DateField | ❌ | - | 手动 |
-| evaluation_committee | 评标委员会成员 | TextField | ❌ | 2-23 | 自动 |
+| evaluation_committee | 评标委员会成员 | TextField | ❌ | - | 手动 |
 | bid_guarantee | 投标担保形式及金额 | CharField | ❌ | - | 手动 |
 | bid_guarantee_return_date | 投标担保退回日期 | DateField | ❌ | - | 手动 |
 | performance_guarantee | 履约担保形式及金额 | CharField | ❌ | - | 手动 |
@@ -64,9 +64,9 @@ P4 (低):   候选人公示（2-45） - 候选人信息，可能变化
 
 - **总字段数**: 32个
 - **可自动提取**: 22个 (69%)
-- **需手动填写**: 10个 (31%)
+- **需手动填写**: 11个 (34%)
 - **必填字段**: 2个 (procurement_code-手动, project_name-自动)
-- **数据源分布**: 2-23(8个) | 2-24(10个) | 2-45(1个) | 2-47(3个)
+- **数据源分布**: 2-23(7个) | 2-24(9个) | 2-21(1个fallback) | 2-45(1个) | 2-47(3个) | 手动(11个)
 
 ## 三、字段提取映射（单一数据源）
 
@@ -216,8 +216,8 @@ fields:
       "竞争性谈判": "公开竞争性谈判"
       "竞争性磋商": "公开竞争性磋商"
     source:
-      pdf_type: "procurement_notice"  # 唯一来源：采购公告
-      file_pattern: "2-24"
+      pdf_type: "procurement_request"  # 唯一来源：采购请示
+      file_pattern: "2-23"
       extraction:
         method: "regex"
         pattern: "采购方式[：:](\S+)"
@@ -333,12 +333,22 @@ fields:
     data_type: "decimal"
     decimal_places: 2
     source:
-      pdf_type: "procurement_notice"  # 唯一来源：采购公告（优先）
+      pdf_type: "procurement_notice"  # 主要来源：采购公告（优先）
       file_pattern: "2-24"
       extraction:
         method: "regex"
         pattern: "采购控制价\\(元\\)[：:]￥([\\d,\\.]+)"
-      note: "采购公告的控制价是对外公布的正式价格，比请示更权威"
+      note: "采购公告的控制价是对外公布的正式价格，最权威"
+    fallback_source:  # 备用来源：控制价审批
+      pdf_type: "control_price_approval"
+      file_pattern: "2-21"
+      extraction:
+        method: "regex"
+        pattern: "采购上限价\\s*([\\d,]+\\.?\\d*)"
+      note: "如果采购公告中没有控制价，则从2-21采购控制价OA审批中提取"
+    strategy:
+      priority: "采购公告优先，如无则自动fallback到控制价审批"
+      fallback_enabled: true
     post_process:
       - parse_amount
     validation:
@@ -561,13 +571,8 @@ fields:
     required: false
     data_type: "text"
     source:
-      pdf_type: "procurement_request"
-      file_pattern: "2-23"
-      extraction:
-        method: "regex"
-        pattern: "申请评审小组成员为[：:](.*?)(?=\\n\\s+同时|。)"
-    post_process:
-      - clean_committee_members
+      manual: true
+      reason: "PDF中信息不完整或格式不统一，建议手动填写"
   
   bid_guarantee:
     label: "投标担保形式及金额（元）"
@@ -614,13 +619,14 @@ fields:
       manual: true
       reason: "特殊情况需人工说明"
 
-# 手动填写字段清单（10个）
+# 手动填写字段清单（11个）
 manual_fields:
   - procurement_code  # ⭐ 必填，用户自定义编号
   - project  # 关联项目需在系统中选择
   - winning_contact
   - notice_issue_date
   - archive_date
+  - evaluation_committee  # PDF中信息不完整
   - bid_guarantee
   - bid_guarantee_return_date
   - performance_guarantee
@@ -632,20 +638,20 @@ manual_fields:
 
 ### 字段自动化统计
 ```
-总字段: 32个
-├── 自动提取: 21个 (66%) ✅
-│   ├── 从2-23提取: 11个（采购请示）⭐
-│   ├── 从2-24提取: 7个（采购公告）
-│   ├── 从2-44提取: 1个（采购结果OA审批）
+总字段: 33个
+├── 自动提取: 22个 (67%) ✅
+│   ├── 从2-23提取: 7个（采购请示）⭐
+│   ├── 从2-24提取: 9个（采购公告）
+│   ├── 从2-21提取: 1个（控制价审批-fallback）🔄
 │   ├── 从2-45提取: 1个（候选人公示）
-│   └── 从2-47提取: 2个（结果公示）
+│   └── 从2-47提取: 3个（结果公示）
 └── 手动填写: 11个 (34%) ⚠️
     ├── procurement_code ⭐ 必填
     ├── project（关联项目）
-    ├── requirement_approval_date（暂时手动）
     ├── winning_contact
     ├── notice_issue_date
     ├── archive_date
+    ├── evaluation_committee（PDF信息不完整）
     ├── bid_guarantee
     ├── bid_guarantee_return_date
     ├── performance_guarantee
@@ -655,18 +661,32 @@ manual_fields:
 
 ### 配置修改示例
 
-**场景1：修改字段来源**
-假设后续"采购控制价"需要改从采购请示提取：
+**场景1：控制价Fallback机制（已实现）⭐**
+
+控制价字段支持智能fallback策略：
 
 ```yaml
-# 只需修改field_mapping.yml
+# field_mapping.yml中的配置
 control_price:
   source:
-    pdf_type: "procurement_request"  # 改为采购请示
-    file_pattern: "2-23"
+    pdf_type: "procurement_notice"  # 优先从2-24采购公告提取
     extraction:
-      pattern: "采购控制价\\s*[（(]元[）)][：:]\s*采购上限价\\s*([\\d,\\.]+)"
+      pattern: "采购控制价\\(元\\)[：:]￥([\\d,]+\\.?\\d*)"
+  fallback_source:  # 如果2-24中没有，自动fallback
+    pdf_type: "control_price_approval"  # 从2-21控制价审批提取
+    extraction:
+      pattern: "采购上限价\\s*([\\d,]+\\.?\\d*)"
 ```
+
+**提取逻辑**：
+1. 优先从2-24采购公告提取控制价
+2. 如果2-24中未提取到，自动尝试从2-21控制价审批提取
+3. 确保控制价字段有更高的提取成功率
+
+**实际场景**：
+- 场景A：有2-24采购公告 → 从2-24提取 ✅
+- 场景B：无2-24，有2-21 → 自动从2-21提取 ✅
+- 场景C：两者都有 → 优先使用2-24的值 ✅
 
 **场景2：新增PDF类型**
 如果新增"2-46.评标报告.pdf"：
@@ -1441,6 +1461,7 @@ python manage.py migrate pdf_import
                 <div class="card-body">
                     <p><strong>系统会自动识别以下PDF类型：</strong></p>
                     <ul>
+                        <li>📄 2-21：采购控制价OA审批（fallback来源）</li>
                         <li>📄 2-23：采购请示OA审批</li>
                         <li>📄 2-24/2-25：采购公告</li>
                         <li>📄 2-45：中标候选人公示</li>
@@ -1534,6 +1555,11 @@ class PDFDetector:
     
     # 文件名模式
     FILENAME_PATTERNS = {
+        'control_price_approval': [
+            r'2-21',
+            r'采购控制价',
+            r'控制价.*OA',
+        ],
         'procurement_request': [
             r'2-23',
             r'采购请示',
@@ -1560,11 +1586,16 @@ class PDFDetector:
     
     # 内容标记
     CONTENT_MARKERS = {
+        'control_price_approval': [
+            '采购控制价',
+            '采购上限价',
+            '采购预算金额',
+        ],
         'procurement_request': [
             '采购请示',
             '申请人',
             '采购预算金额',
-            '采购控制价',
+            '定标方法',
         ],
         'procurement_notice': [
             '询价公告',
@@ -1685,6 +1716,7 @@ class PDFDetector:
             }
         """
         results = {
+            'control_price_approval': [],
             'procurement_request': [],
             'procurement_notice': [],
             'candidate_publicity': [],
