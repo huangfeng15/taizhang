@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'project.middleware.LoginRequiredMiddleware',  # 全局登录验证中间件
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -111,6 +112,24 @@ TIME_ZONE = 'Asia/Shanghai'
 USE_I18N = True
 USE_TZ = True
 
+# ============================================================================
+# 会话（Session）配置
+# ============================================================================
+# 会话有效期：12小时（单位：秒）
+SESSION_COOKIE_AGE = 12 * 60 * 60  # 12小时 = 43200秒
+
+# 关闭浏览器后会话是否失效（False表示会话保持到SESSION_COOKIE_AGE到期）
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# 每次请求都更新会话的过期时间（保持活跃状态）
+SESSION_SAVE_EVERY_REQUEST = True
+
+# 会话Cookie的名称
+SESSION_COOKIE_NAME = 'procurement_sessionid'
+
+# 会话引擎（默认使用数据库存储）
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 # Static files (CSS, JavaScript, Images)
 # 使用相对路径，自动适配HTTP/HTTPS
 STATIC_URL = '/static/'
@@ -127,6 +146,18 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB - 总请求大小限制
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================================================
+# 登录认证配置
+# ============================================================================
+# 登录URL
+LOGIN_URL = '/accounts/login/'
+
+# 登录成功后的重定向URL
+LOGIN_REDIRECT_URL = '/'
+
+# 登出后的重定向URL
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Admin site customization
 ADMIN_SITE_HEADER = '项目采购与成本管理系统'
