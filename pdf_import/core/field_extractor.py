@@ -335,14 +335,41 @@ class FieldExtractor:
         后处理提取的值
         
         1. 清理空白
-        2. 枚举映射（如果是choice类型）
-        3. 其他自定义处理
+        2. 自定义后处理（移除后缀等）
+        3. 枚举映射（如果是choice类型）
         """
         if not value:
             return None
         
         # 清理空白
         value = self.text_parser.clean_whitespace(value)
+        
+        # 应用自定义后处理规则
+        post_process_rules = field_config.get('post_process', [])
+        for rule in post_process_rules:
+            rule_type = rule.get('type')
+            
+            if rule_type == 'remove_suffix':
+                # 移除指定后缀
+                suffix = rule.get('suffix', '')
+                if suffix and value.endswith(suffix):
+                    value = value[:-len(suffix)]
+                    print(f"  → 移除后缀'{suffix}': {value}")
+            
+            elif rule_type == 'remove_prefix':
+                # 移除指定前缀
+                prefix = rule.get('prefix', '')
+                if prefix and value.startswith(prefix):
+                    value = value[len(prefix):]
+                    print(f"  → 移除前缀'{prefix}': {value}")
+            
+            elif rule_type == 'replace':
+                # 替换文本
+                old = rule.get('old', '')
+                new = rule.get('new', '')
+                if old:
+                    value = value.replace(old, new)
+                    print(f"  → 替换'{old}'为'{new}': {value}")
         
         # 如果是枚举类型，进行枚举映射
         if field_config.get('data_type') == 'choice':
@@ -381,46 +408,131 @@ class FieldExtractor:
     
     def extract_all_from_pdfs(self, pdf_files: Dict[str, str]) -> Dict[str, Any]:
         """
-        从多个PDF文件提取所有字段（合并结果）
+        从多个PDF文件提取所有字段（智能合并结果）
+        
+        改进点：
+        1. 按优先级顺序处理PDF文件
+        2. 字段级别的合并策略（避免覆盖）
+        3. 过滤"采购需求书审批完成日期"字段
+        4. 独立处理每个文件，避免数据混淆
         
         Args:
             pdf_files: {pdf_type: pdf_path, ...}
             例如: {
                 'procurement_request': 'path/to/2-23.pdf',
                 'procurement_notice': 'path/to/2-24.pdf',
-                'control_price_approval': 'path/to/2-21.pdf',  # fallback
-                ...
+                'control_price_approval': 'path/to/2-21.pdf',
+                'procurement_result_oa': 'path/to/2-44.pdf',
+                'candidate_publicity': 'path/to/2-45.pdf',
+                'result_publicity': 'path/to/2-47.pdf',
             }
             
         Returns:
             合并后的字段字典
         """
-        merged_data = {}
+        # 定义PDF类型的处理优先级（从高到低）
+        # 优先级高的PDF类型的字段值会被优先采用
+        PRIORITY_ORDER = [
+            'procurement_request',      # 2-23 采购请示（最权威）
+            'procurement_notice',        # 2-24 采购公告
+            'procurement_result_oa',     # 2-44 采购结果OA
+            'result_publicity',          # 2-47 结果公示
+            'candidate_publicity',       # 2-45 候选人公示
+            'control_price_approval',    # 2-21 控制价审批（fallback）
+        ]
         
-        for pdf_type, pdf_path in pdf_files.items():
-            if not Path(pdf_path).exists():
-                print(f"警告: PDF文件不存在: {pdf_path}")
+        # 过滤掉不需要提取的字段
+        EXCLUDED_FIELDS = [
+            'requirement_approval_date',  # 采购需求书审批完成日期（OA）
+        ]
+        
+        # 存储每个文件的提取结果（独立存储，避免混淆）
+        extraction_results = {}
+        
+        # 按优先级顺序处理PDF文件
+        for pdf_type in PRIORITY_ORDER:
+            if pdf_type not in pdf_files:
                 continue
             
-            print(f"\n处理 {pdf_type}: {Path(pdf_path).name}")
-            extracted = self.extract(pdf_path, pdf_type)
+            pdf_path = pdf_files[pdf_type]
             
-            # 合并数据（单一数据源策略，不会有冲突）
+            if not Path(pdf_path).exists():
+                print(f"⚠️ 警告: PDF文件不存在: {pdf_path}")
+                continue
+            
+            print(f"\n📄 处理 {pdf_type}: {Path(pdf_path).name}")
+            
+            # 重要：清空缓存，确保每个文件独立处理
+            self._pdf_cache.clear()
+            if self.cell_detector:
+                self.cell_detector = None
+            
+            # 提取字段
+            try:
+                extracted = self.extract(pdf_path, pdf_type)
+                
+                # 过滤掉不需要的字段
+                filtered_extracted = {
+                    field_name: value
+                    for field_name, value in extracted.items()
+                    if field_name not in EXCLUDED_FIELDS
+                }
+                
+                # 存储提取结果
+                extraction_results[pdf_type] = filtered_extracted
+                
+                # 打印提取到的字段
+                for field_name, value in filtered_extracted.items():
+                    if value is not None:
+                        print(f"  ✓ {field_name}: {value}")
+                
+            except Exception as e:
+                print(f"  ❌ 提取失败: {e}")
+                extraction_results[pdf_type] = {}
+        
+        # 智能合并数据（字段级优先级策略）
+        merged_data = {}
+        field_sources = {}  # 记录每个字段的来源
+        
+        for pdf_type in PRIORITY_ORDER:
+            if pdf_type not in extraction_results:
+                continue
+            
+            extracted = extraction_results[pdf_type]
+            
             for field_name, value in extracted.items():
-                if value is not None:
+                # 只有当字段还没有值，或当前值为None时才更新
+                if value is not None and (field_name not in merged_data or merged_data.get(field_name) is None):
                     merged_data[field_name] = value
-                    print(f"  [OK] {field_name}: {value}")
+                    field_sources[field_name] = pdf_type
+                    print(f"  → {field_name} 采用自 {pdf_type}")
         
         # 特殊处理：control_price的fallback逻辑
         # 如果procurement_notice中没有提取到control_price，尝试从control_price_approval提取
         if 'control_price' not in merged_data or not merged_data.get('control_price'):
             if 'control_price_approval' in pdf_files:
                 control_price_path = pdf_files['control_price_approval']
-                if Path(control_price_path).exists():
-                    print(f"\n采购公告中未找到控制价，尝试从控制价审批(2-21)提取...")
-                    fallback_extracted = self.extract(control_price_path, 'control_price_approval')
-                    if fallback_extracted.get('control_price'):
-                        merged_data['control_price'] = fallback_extracted['control_price']
-                        print(f"  ✓ control_price (from 2-21): {merged_data['control_price']}")
+                if Path(control_price_path).exists() and 'control_price_approval' not in extraction_results:
+                    print(f"\n🔄 采购公告中未找到控制价，尝试从控制价审批(2-21)提取...")
+                    
+                    # 清空缓存，独立处理
+                    self._pdf_cache.clear()
+                    if self.cell_detector:
+                        self.cell_detector = None
+                    
+                    try:
+                        fallback_extracted = self.extract(control_price_path, 'control_price_approval')
+                        if fallback_extracted.get('control_price'):
+                            merged_data['control_price'] = fallback_extracted['control_price']
+                            field_sources['control_price'] = 'control_price_approval (fallback)'
+                            print(f"  ✓ control_price (from 2-21): {merged_data['control_price']}")
+                    except Exception as e:
+                        print(f"  ❌ Fallback提取失败: {e}")
+        
+        # 打印最终合并摘要
+        print(f"\n📊 合并摘要:")
+        print(f"  • 处理文件数: {len(extraction_results)}")
+        print(f"  • 提取字段数: {len(merged_data)}")
+        print(f"  • 有效字段数: {len([v for v in merged_data.values() if v])}")
         
         return merged_data

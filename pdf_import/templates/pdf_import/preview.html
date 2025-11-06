@@ -177,13 +177,20 @@
         
         {% if pdf_files %}
         <div class="pdf-files-list">
-            <strong>📁 已识别PDF文件 ({{ pdf_files|length }}个)：</strong>
+            <strong>✅ 符合条件的PDF文件 ({{ pdf_files|length }}个)：</strong>
+            <small class="text-muted d-block mb-2">以下文件已通过智能过滤，将进行识别和提取</small>
             {% for file in pdf_files %}
             <div class="pdf-file-item">
                 <i class="bi bi-file-pdf text-danger"></i>
                 {{ file.name }}
+                {% if file.matched_number %}
+                <span class="badge bg-primary ms-2">{{ file.matched_number }}</span>
+                {% endif %}
+                {% if file.doc_type %}
+                <span class="badge bg-secondary ms-1">{{ file.doc_type }}</span>
+                {% endif %}
                 {% if file.detected_type %}
-                <span class="badge bg-info ms-2">{{ file.detected_type }}</span>
+                <span class="badge bg-info ms-1">{{ file.detected_type }}</span>
                 {% if file.confidence %}
                 <span class="badge bg-success ms-1">{{ file.confidence }}%</span>
                 {% endif %}
