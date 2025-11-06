@@ -31,6 +31,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # 第三方应用
+    'django_extensions',  # 支持HTTPS开发服务器
+    
     # 业务应用
     'project.apps.ProjectConfig',
     'procurement.apps.ProcurementConfig',
@@ -49,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'project.middleware.login_required.LoginRequiredMiddleware',  # 全局登录验证
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -74,6 +78,19 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# 登录设置
+LOGIN_URL = '/accounts/login/'  # 登录页面URL
+LOGIN_REDIRECT_URL = '/'  # 登录成功后跳转到首页
+LOGOUT_REDIRECT_URL = '/accounts/login/'  # 退出登录后跳转到登录页
+
+# Session 安全设置
+SESSION_COOKIE_AGE = 43200  # Session有效期：12小时（43200秒 = 12小时）
+SESSION_SAVE_EVERY_REQUEST = True  # 每次请求都更新session过期时间
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 关闭浏览器不立即清除session（由时间控制）
+SESSION_COOKIE_SECURE = True  # 仅通过HTTPS传输Cookie（启用HTTPS后必须设置）
+SESSION_COOKIE_HTTPONLY = True  # 防止JavaScript访问Cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # 防止CSRF攻击
 
 # Database
 DATABASES = {
