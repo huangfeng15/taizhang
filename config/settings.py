@@ -31,8 +31,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    # 第三方应用
-    'django_extensions',  # 支持HTTPS开发服务器
+    # HTTPS支持（开发测试用）
+    'django_extensions',
     
     # 业务应用
     'project.apps.ProjectConfig',
@@ -52,7 +52,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'project.middleware.login_required.LoginRequiredMiddleware',  # 全局登录验证
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -78,19 +77,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
-# 登录设置
-LOGIN_URL = '/accounts/login/'  # 登录页面URL
-LOGIN_REDIRECT_URL = '/'  # 登录成功后跳转到首页
-LOGOUT_REDIRECT_URL = '/accounts/login/'  # 退出登录后跳转到登录页
-
-# Session 安全设置
-SESSION_COOKIE_AGE = 43200  # Session有效期：12小时（43200秒 = 12小时）
-SESSION_SAVE_EVERY_REQUEST = True  # 每次请求都更新session过期时间
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 关闭浏览器不立即清除session（由时间控制）
-SESSION_COOKIE_SECURE = True  # 仅通过HTTPS传输Cookie（启用HTTPS后必须设置）
-SESSION_COOKIE_HTTPONLY = True  # 防止JavaScript访问Cookie
-SESSION_COOKIE_SAMESITE = 'Lax'  # 防止CSRF攻击
 
 # Database
 DATABASES = {
@@ -126,7 +112,8 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+# 使用相对路径，自动适配HTTP/HTTPS
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files
@@ -157,3 +144,27 @@ PDF_IMPORT_CONFIG = {
     'SESSION_EXPIRY_HOURS': 24,  # 会话默认过期时间（小时）
     'DRAFT_EXPIRY_HOURS': 72,  # 草稿过期时间（小时）
 }
+
+# ============================================================================
+# HTTPS安全配置（开发测试环境）
+# ============================================================================
+# 注意：以下配置适用于使用自签名证书的开发环境
+# 生产环境需要使用正规CA签发的证书，并启用更严格的安全设置
+
+# HTTPS重定向（开发环境关闭，生产环境开启）
+SECURE_SSL_REDIRECT = False  # 生产环境设为 True
+
+# 代理HTTPS头处理（如果使用Nginx等反向代理）
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookie安全设置（HTTPS环境下启用）
+SESSION_COOKIE_SECURE = False  # HTTPS环境设为 True
+CSRF_COOKIE_SECURE = False     # HTTPS环境设为 True
+
+# HSTS设置（生产环境启用）
+# SECURE_HSTS_SECONDS = 31536000  # 1年
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+
+# 确保静态文件路径使用相对路径，自动适配协议
+# Django会根据请求协议自动生成正确的URL
