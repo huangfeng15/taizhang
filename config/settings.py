@@ -185,14 +185,38 @@ PDF_IMPORT_CONFIG = {
 # HTTPS重定向（开发环境关闭，生产环境开启）
 SECURE_SSL_REDIRECT = False  # 生产环境设为 True
 
-# 代理HTTPS头处理（如果使用Nginx等反向代理）
+# 代理HTTPS头处理（如果使用Nginx等反向代理或HTTPS请求）
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Cookie安全设置（HTTPS环境下启用）
-SESSION_COOKIE_SECURE = False  # HTTPS环境设为 True
-CSRF_COOKIE_SECURE = False     # HTTPS环境设为 True
+# 当使用自签名证书的HTTPS开发服务器时，需要配置这些设置
+# 这样Django能正确处理HTTPS请求，避免CSRF验证失败
+SECURE_SSL_HOST = '10.168.3.240:3500'  # 开发服务器地址
 
-# HSTS设置（生产环境启用）
+# Cookie安全设置（开发环境使用自签名证书时可设为False，但要信任代理头）
+SESSION_COOKIE_SECURE = False  # 在开发环境中设为False以支持自签名证书
+CSRF_COOKIE_SECURE = False     # 在开发环境中设为False以支持自签名证书
+
+# 信任代理设置（重要：允许Django信任代理头，正确处理HTTPS请求）
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+# CSRF信任域名设置（允许指定域名通过CSRF验证）
+# 信任本地开发环境的IP地址
+CSRF_TRUSTED_ORIGINS = [
+    'http://10.168.3.240:3500',
+    'https://10.168.3.240:3500',
+    'http://localhost:3500',
+    'https://localhost:3500',
+    'http://127.0.0.1:3500',
+    'https://127.0.0.1:3500',
+]
+
+# 为支持HTTPS请求处理添加额外配置
+# 允许在开发环境中处理HTTPS请求
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# HSTS设置（生产环境启用，开发环境注释掉以避免自签名证书问题）
 # SECURE_HSTS_SECONDS = 31536000  # 1年
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # SECURE_HSTS_PRELOAD = True
