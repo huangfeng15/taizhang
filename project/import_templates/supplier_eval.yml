@@ -1,89 +1,234 @@
-# 供应商评价导入模板配置
+# 供应商履约评价导入模板配置
 metadata:
-  name: "供应商评价导入模板"
-  description: "用于批量导入供应商评价信息"
-  version: "1.0"
+  name: "供应商履约评价导入模板"
+  description: "用于批量导入供应商履约评价信息(13列CSV格式)"
+  version: "2.0"
   module: "supplier_eval"
   model: "SupplierEvaluation"
   
 # 文件生成配置
 file:
-  name_template: "供应商评价导入模板_{year}.xlsx"
-  sheet_name: "供应商评价"
-  start_row: 3
+  name_template: "供应商履约评价导入模板_{year}.csv"
+  encoding: "utf-8-sig"
   
-# 说明行配置
-instructions:
-  row: 1
-  content: |
-    导入说明：
-    1. 请勿修改表头行的列名和顺序
-    2. 必填字段不能为空
-    3. 日期格式：YYYY-MM-DD
-    4. 评分范围：0-100
+# 说明信息
+instructions: |
+  供应商履约评价CSV导入说明:
+  
+  1. CSV格式要求(13列):
+     序号, 合同序号, 履约综合评价得分, 末次评价得分,
+     2019年度评价得分, 2020年度评价得分, 2021年度评价得分,
+     2022年度评价得分, 2023年度评价得分, 2024年度评价得分, 2025年度评价得分,
+     第一次不定期评价得分, 第二次不定期评价得分, 备注
+  
+  2. 必填字段:
+     - 序号: 评价记录的序号
+     - 合同序号: 必须是系统中已存在的合同编号
+  
+  3. 评分规则:
+     - 所有评分字段范围: 0-100
+     - 履约综合评价得分: 可直接填写,或留空由系统自动计算
+     - 自动计算公式: 末次评价×60% + 过程评价平均×40%
+     - 过程评价包括: 所有年度评价 + 所有不定期评价
+  
+  4. 数据校验:
+     - 合同序号必须在系统中存在
+     - 评分必须在0-100之间
+     - 空值表示该项未评价
+  
+  5. 导入命令:
+     python manage.py import_supplier_eval <csv文件路径>
+     
+     可选参数:
+     --encoding utf-8-sig   指定编码(默认utf-8-sig)
+     --skip-header          跳过第一行表头
+     --dry-run              模拟运行,不实际导入
+     --update               更新已存在的记录
 
-# 字段配置
+# 字段配置(按CSV列顺序)
 fields:
-  - name: "评价编号"
-    field: "evaluation_code"
+  - column: 0
+    name: "序号"
+    field: "sequence"
     required: true
     data_type: "string"
-    max_length: 50
-    help_text: "评价记录唯一编号"
+    help_text: "评价记录序号,用于生成评价编号"
     
-  - name: "供应商名称"
-    field: "supplier_name"
+  - column: 1
+    name: "合同序号"
+    field: "contract__contract_code"
     required: true
     data_type: "string"
-    max_length: 200
-    help_text: "被评价的供应商名称"
+    help_text: "系统中已存在的合同编号"
+    validation:
+      - rule: "foreign_key_exists"
+        model: "Contract"
+        field: "contract_code"
     
-  - name: "项目名称"
-    field: "project__project_name"
-    required: true
-    data_type: "string"
-    max_length: 200
-    help_text: "关联的项目名称"
-    
-  - name: "评价日期"
-    field: "evaluation_date"
-    required: false
-    data_type: "date"
-    format: "%Y-%m-%d"
-    help_text: "评价日期"
-    
-  - name: "综合评分"
-    field: "total_score"
+  - column: 2
+    name: "履约综合评价得分"
+    field: "comprehensive_score"
     required: false
     data_type: "decimal"
     decimal_places: 2
-    help_text: "综合评分（0-100分）"
+    help_text: "可直接填写或留空由系统计算(末次60%+过程40%)"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
     
-  - name: "评价说明"
-    field: "evaluation_note"
+  - column: 3
+    name: "末次评价得分"
+    field: "last_evaluation_score"
     required: false
-    data_type: "string"
-    max_length: 1000
-    help_text: "评价详细说明"
-
-# 验证规则
-validation:
-  - field: "total_score"
-    rule: "range"
-    params:
-      min: 0
-      max: 100
-    message: "综合评分必须在0-100之间"
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "权重60%,用于计算综合评分"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
     
-  - field: "evaluation_date"
-    rule: "date_range"
-    params:
-      min_year: 2000
-      max_year: "current+1"
-    message: "日期必须在合理范围内"
+  - column: 4
+    name: "2019年度评价得分"
+    field: "score_2019"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 5
+    name: "2020年度评价得分"
+    field: "score_2020"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 6
+    name: "2021年度评价得分"
+    field: "score_2021"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 7
+    name: "2022年度评价得分"
+    field: "score_2022"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 8
+    name: "2023年度评价得分"
+    field: "score_2023"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 9
+    name: "2024年度评价得分"
+    field: "score_2024"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 10
+    name: "2025年度评价得分"
+    field: "score_2025"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 11
+    name: "第一次不定期评价得分"
+    field: "irregular_evaluation_1"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 12
+    name: "第二次不定期评价得分"
+    field: "irregular_evaluation_2"
+    required: false
+    data_type: "decimal"
+    decimal_places: 2
+    help_text: "过程评价之一"
+    validation:
+      - rule: "range"
+        min: 0
+        max: 100
+    
+  - column: 13
+    name: "备注"
+    field: "remarks"
+    required: false
+    data_type: "text"
+    help_text: "其他说明信息"
 
-# 数据导入配置
+# CSV模板示例数据
+sample_data:
+  - ["1", "HT2024001", "85.5", "88.0", "82", "85", "87", "86", "89", "90", "91", "84", "86", "表现良好"]
+  - ["2", "HT2024002", "", "75.0", "70", "72", "74", "76", "78", "80", "", "73", "", "需要改进"]
+  - ["3", "HT2024003", "92.3", "95.0", "90", "91", "92", "93", "", "", "", "89", "91", "优秀供应商"]
+
+# 导入配置
 import:
-  conflict_strategy: "update"
+  conflict_strategy: "skip"  # skip或update
   batch_size: 100
   key_fields: ["evaluation_code"]
+  auto_calculate: true  # 自动计算comprehensive_score
+
+# 扩展性说明
+extensibility:
+  annual_scores: |
+    未来可扩展年度字段:
+    - 在模型中添加 score_2026, score_2027 等字段
+    - 在CSV模板中增加对应列
+    - 更新本配置文件的fields部分
+    - 更新导入命令的process_row方法
+  
+  irregular_evaluations: |
+    未来可扩展不定期评价:
+    - 在模型中添加 irregular_evaluation_3, irregular_evaluation_4 等字段
+    - 在CSV模板中增加对应列
+    - 更新本配置文件的fields部分
+    - 更新导入命令的process_row方法

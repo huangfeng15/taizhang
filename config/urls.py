@@ -67,6 +67,9 @@ urlpatterns = [
     path('pdf-import/', include('pdf_import.urls')),
     path('api/import/', views.import_data, name='import_data'),
     
+    # 供应商管理路由
+    path('supplier/', include('supplier_eval.urls')),
+    
     # 数据导出API
     path('api/export/project-data/', views.export_project_data, name='export_project_data'),
     

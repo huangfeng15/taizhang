@@ -1,0 +1,1 @@
+# Management package for supplier_eval app

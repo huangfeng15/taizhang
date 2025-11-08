@@ -90,6 +90,16 @@ DATABASES = {
     }
 }
 
+# 为SQLite启用外键约束
+from django.db.backends.signals import connection_created
+def enable_sqlite_foreign_keys(sender, connection, **kwargs):
+    """启用SQLite外键约束"""
+    if connection.vendor == 'sqlite':
+        cursor = connection.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON;')
+
+connection_created.connect(enable_sqlite_foreign_keys)
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {

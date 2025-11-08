@@ -154,6 +154,12 @@ class EditModal {
             case 'payment':
                 this.initPaymentSelectors();
                 break;
+            case 'supplier_interview':
+                this.initSupplierInterviewSelectors();
+                break;
+            case 'supplier_evaluation':
+                this.initSupplierEvaluationSelectors();
+                break;
         }
     }
 
@@ -280,6 +286,62 @@ class EditModal {
                 apiUrl: '/api/contracts/',
                 placeholder: '请选择合同',
                 searchPlaceholder: '搜索合同名称或编号...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: {},
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_contract');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            const hiddenInput = document.getElementById('id_contract');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = contractContainer.dataset.initialText || '';
+                this.smartSelectors.contract.setValue(hiddenInput.value, initialText);
+            }
+        }
+    }
+
+    initSupplierInterviewSelectors() {
+        // 合同选择器（供应商约谈记录）
+        const contractContainer = document.querySelector('[data-smart-selector="contract"]');
+        if (contractContainer) {
+            this.smartSelectors.contract = new SmartSelector({
+                container: contractContainer,
+                apiUrl: '/api/contracts/',
+                placeholder: '请选择合同（可选）',
+                searchPlaceholder: '搜索合同编号、序号或名称...',
+                displayField: 'display_text',
+                valueField: 'id',
+                cascadeFilters: {},
+                onChange: (value, text) => {
+                    const hiddenInput = document.getElementById('id_contract');
+                    if (hiddenInput) {
+                        hiddenInput.value = value || '';
+                    }
+                }
+            });
+
+            const hiddenInput = document.getElementById('id_contract');
+            if (hiddenInput && hiddenInput.value) {
+                const initialText = contractContainer.dataset.initialText || '';
+                this.smartSelectors.contract.setValue(hiddenInput.value, initialText);
+            }
+        }
+    }
+
+    initSupplierEvaluationSelectors() {
+        // 合同选择器（供应商履约评价）
+        const contractContainer = document.querySelector('[data-smart-selector="contract"]');
+        if (contractContainer) {
+            this.smartSelectors.contract = new SmartSelector({
+                container: contractContainer,
+                apiUrl: '/api/contracts/',
+                placeholder: '请选择合同',
+                searchPlaceholder: '搜索合同编号、序号或名称...',
                 displayField: 'display_text',
                 valueField: 'id',
                 cascadeFilters: {},

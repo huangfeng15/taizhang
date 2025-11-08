@@ -1,0 +1,417 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}供应商履约评价 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .score-excellent {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+    .score-good {
+        background: #e6f7ff;
+        color: #1890ff;
+    }
+    .score-qualified {
+        background: #fffbe6;
+        color: #faad14;
+    }
+    .score-unqualified {
+        background: #fff1f0;
+        color: #ff4d4f;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">供应商履约评价</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>供应商管理</span>
+        <span>/</span>
+        <span>履约评价</span>
+    </div>
+</div>
+
+<!-- 统计概览卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-clipboard-list"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">评价总数</div>
+            <div class="stat-value">{{ stats.total|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-star"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">优秀 (≥90分)</div>
+            <div class="stat-value">{{ stats.excellent|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #1890ff, #40a9ff);">
+            <i class="fas fa-thumbs-up"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">良好 (≥80分)</div>
+            <div class="stat-value">{{ stats.good|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">不合格 (<70分)</div>
+            <div class="stat-value">{{ stats.unqualified|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="card">
+    <div class="card-body" style="padding: 20px;">
+        <form method="get" action="">
+            <div class="filter-bar">
+                <div class="search-box">
+                    <input type="text" 
+                           name="q" 
+                           placeholder="搜索供应商名称、合同序号..." 
+                           value="{{ request.GET.q|default:'' }}">
+                    <button type="submit">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                
+                <select name="score_range" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部评分</option>
+                    <option value="excellent" {% if request.GET.score_range == 'excellent' %}selected{% endif %}>优秀 (≥90分)</option>
+                    <option value="good" {% if request.GET.score_range == 'good' %}selected{% endif %}>良好 (≥80分)</option>
+                    <option value="qualified" {% if request.GET.score_range == 'qualified' %}selected{% endif %}>合格 (≥70分)</option>
+                    <option value="unqualified" {% if request.GET.score_range == 'unqualified' %}selected{% endif %}>不合格 (<70分)</option>
+                </select>
+                
+                {% if request.GET.q or request.GET.score_range %}
+                <a href="{% url 'supplier_eval:supplier_evaluation_list' %}" class="filter-reset">
+                    <i class="fas fa-undo"></i>
+                    重置筛选
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 履约评价列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-list-alt"></i>
+            履约评价列表
+        </h2>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn btn-primary"
+                    data-create-url="{% url 'supplier_eval:supplier_evaluation_create' %}"
+                    data-title="新增履约评价">
+                <i class="fas fa-plus"></i>
+                新增履约评价
+            </button>
+            <button onclick="showImportDialog()" class="btn btn-secondary">
+                <i class="fas fa-file-import"></i>
+                导入评价数据
+            </button>
+        </div>
+    </div>
+    
+    {% if evaluations %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-column="row_number">序号</th>
+                    <th data-column="supplier_name">供应商名称</th>
+                    <th data-column="contract">关联合同</th>
+                    <th data-column="comprehensive_score">综合评分</th>
+                    <th data-column="last_evaluation_score">末次评价</th>
+                    <th data-column="score_2025">2025年度</th>
+                    <th data-column="score_2024">2024年度</th>
+                    <th data-column="score_2023">2023年度</th>
+                    <th data-column="operations">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for evaluation in evaluations %}
+                <tr>
+                    <td data-column="row_number">{{ forloop.counter }}</td>
+                    <td data-column="supplier_name" style="font-weight: 600;">
+                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ evaluation.supplier_name|urlencode }}" 
+                           style="color: var(--text-primary); text-decoration: none;">
+                            {{ evaluation.supplier_name }}
+                        </a>
+                    </td>
+                    <td data-column="contract">
+                        {% if evaluation.contract %}
+                            <a href="{% url 'contract_detail' evaluation.contract.contract_code %}" 
+                               style="color: var(--primary-color); text-decoration: none;">
+                                {{ evaluation.contract.contract_name|truncatechars:30 }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="comprehensive_score">
+                        {% if evaluation.comprehensive_score %}
+                            {% if evaluation.comprehensive_score >= 90 %}
+                                <span class="score-badge score-excellent">
+                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% elif evaluation.comprehensive_score >= 80 %}
+                                <span class="score-badge score-good">
+                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% elif evaluation.comprehensive_score >= 70 %}
+                                <span class="score-badge score-qualified">
+                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% else %}
+                                <span class="score-badge score-unqualified">
+                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-secondary);">未评分</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="last_evaluation_score">
+                        {% if evaluation.last_evaluation_score %}
+                            <span style="font-weight: 600; color: var(--primary-color);">
+                                {{ evaluation.last_evaluation_score|floatformat:1 }}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="score_2025">
+                        {{ evaluation.score_2025|floatformat:1|default:"-" }}
+                    </td>
+                    <td data-column="score_2024">
+                        {{ evaluation.score_2024|floatformat:1|default:"-" }}
+                    </td>
+                    <td data-column="score_2023">
+                        {{ evaluation.score_2023|floatformat:1|default:"-" }}
+                    </td>
+                    <td data-column="operations">
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;"
+                                data-edit-url="{% url 'supplier_eval:supplier_evaluation_edit' evaluation.evaluation_code %}">
+                            <i class="fas fa-edit"></i>
+                            编辑
+                        </button>
+                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ evaluation.supplier_name|urlencode }}"
+                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-building"></i>
+                            承接项目
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-clipboard-list"></i>
+        <p>暂无履约评价数据</p>
+        {% if request.GET.q or request.GET.score_range %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+            未找到符合条件的评价记录
+        </p>
+        <a href="{% url 'supplier_eval:supplier_evaluation_list' %}" class="btn btn-secondary" style="margin-top: 16px;">
+            <i class="fas fa-undo"></i>
+            清除筛选条件
+        </a>
+        {% else %}
+        <button onclick="showImportDialog()" class="btn btn-primary" style="margin-top: 16px;">
+            <i class="fas fa-file-import"></i>
+            导入评价数据
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% if evaluations %}
+    <div class="pagination">
+        <span class="pagination-info">
+            共 {{ page_obj.paginator.count }} 条记录
+        </span>
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">上一页</a>
+        {% endif %}
+        
+        <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">尾页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/edit-modal.js' %}"></script>
+<script>
+// 显示导入对话框
+function showImportDialog() {
+    const html = `
+        <div id="importDialog" class="modal-overlay" onclick="closeImportDialog(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 style="font-size: 20px; font-weight: 600;">
+                        <i class="fas fa-file-import"></i>
+                        导入履约评价数据
+                    </h3>
+                    <button onclick="closeImportDialog()" style="background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">导入说明</label>
+                        <div style="background: #f0f7ff; border: 1px solid #bae0ff; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin-bottom: 8px; color: #0958d9;">
+                                <i class="fas fa-info-circle"></i>
+                                履约评价导入支持以下功能:
+                            </p>
+                            <ul style="margin-left: 20px; color: #595959;">
+                                <li>支持 CSV 文件格式 (UTF-8编码)</li>
+                                <li>自动关联合同信息</li>
+                                <li>自动计算综合评分 (末次60% + 过程40%)</li>
+                                <li>支持年度评价和不定期评价</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">选择文件</label>
+                        <input type="file" id="importFile" accept=".csv" class="form-input" style="padding: 8px;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-download"></i>
+                            下载模板
+                        </label>
+                        <a href="{% url 'download_import_template' %}?module=supplier_eval" download
+                           class="btn btn-secondary" style="text-decoration: none;">
+                            <i class="fas fa-file-csv"></i>
+                            CSV 导入模板
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeImportDialog()" class="btn btn-secondary">取消</button>
+                    <button type="button" onclick="startImport()" class="btn btn-primary">
+                        <i class="fas fa-upload"></i>
+                        开始导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+// 关闭导入对话框
+function closeImportDialog(event) {
+    if (event && event.target.id !== 'importDialog') return;
+    const modal = document.getElementById('importDialog');
+    if (modal) modal.remove();
+}
+
+// 开始导入
+function startImport() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('请选择要导入的文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('module', 'supplier_eval');
+    
+    const modal = document.getElementById('importDialog');
+    const modalBody = modal.querySelector('.modal-body');
+    
+    modalBody.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <div class="spinner" style="margin: 0 auto 20px;"></div>
+            <p style="font-size: 16px; color: var(--text-primary);">正在导入数据...</p>
+        </div>
+    `;
+    
+    fetch('/api/import/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-check-circle" style="font-size: 64px; color: var(--success-color); margin-bottom: 20px;"></i>
+                    <h3 style="font-size: 20px; margin-bottom: 16px;">导入完成!</h3>
+                    <p style="color: var(--text-secondary);">${data.message}</p>
+                    <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-sync"></i>
+                        刷新页面
+                    </button>
+                </div>
+            `;
+        } else {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
+                    <h3 style="font-size: 20px; margin-bottom: 16px;">导入失败</h3>
+                    <p style="color: var(--error-color);">${data.message}</p>
+                    <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-redo"></i>
+                        重新尝试
+                    </button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
+                <h3 style="font-size: 20px; margin-bottom: 16px;">请求失败</h3>
+                <p>${error.message}</p>
+            </div>
+        `;
+    });
+}
+</script>
+{% endblock %}

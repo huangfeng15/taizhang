@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}约谈记录详情 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .detail-section {
+        margin-bottom: 24px;
+    }
+    .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--border-color);
+    }
+    .detail-row {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .detail-label {
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .detail-value {
+        color: var(--text-primary);
+    }
+    .content-box {
+        background: #fafafa;
+        border: 1px solid #e8e8e8;
+        border-radius: 6px;
+        padding: 16px;
+        margin-top: 8px;
+        white-space: pre-wrap;
+        line-height: 1.8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">约谈记录详情</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <a href="{% url 'supplier_eval:supplier_interview_list' %}">约谈记录</a>
+        <span>/</span>
+        <span>详情</span>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; margin: 0;">
+            <i class="fas fa-file-alt"></i>
+            约谈记录 #{{ interview.id }}
+        </h2>
+        <div style="display: flex; gap: 12px;">
+            <a href="{% url 'supplier_eval:supplier_interview_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                返回列表
+            </a>
+            <button type="button" class="btn btn-primary" 
+                    data-edit-url="{% url 'supplier_eval:supplier_interview_edit' interview.id %}">
+                <i class="fas fa-edit"></i>
+                编辑
+            </button>
+        </div>
+    </div>
+
+    <!-- 基本信息 -->
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-info-circle"></i>
+            基本信息
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">供应商名称:</div>
+            <div class="detail-value" style="font-size: 16px; font-weight: 600; color: var(--primary-color);">
+                {{ interview.supplier_name }}
+            </div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">关联合同:</div>
+            <div class="detail-value">
+                {% if interview.contract %}
+                    <a href="{% url 'contract_detail' interview.contract.contract_code %}" 
+                       style="color: var(--primary-color); text-decoration: none;">
+                        {{ interview.contract.contract_name }}
+                    </a>
+                {% else %}
+                    <span style="color: var(--text-secondary);">无关联合同</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">约谈类型:</div>
+            <div class="detail-value">
+                {% if interview.interview_type == '违约约谈' %}
+                    <span class="badge badge-error" style="font-size: 14px; padding: 6px 12px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ interview.interview_type }}
+                    </span>
+                {% elif interview.interview_type == '履约沟通' %}
+                    <span class="badge badge-info" style="font-size: 14px; padding: 6px 12px;">
+                        {{ interview.interview_type }}
+                    </span>
+                {% elif interview.interview_type == '商务洽谈' %}
+                    <span class="badge badge-success" style="font-size: 14px; padding: 6px 12px;">
+                        {{ interview.interview_type }}
+                    </span>
+                {% else %}
+                    <span class="badge" style="font-size: 14px; padding: 6px 12px; background: #f0f0f0; color: #595959;">
+                        {{ interview.interview_type }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">约谈日期:</div>
+            <div class="detail-value">{{ interview.interview_date }}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">签约状态:</div>
+            <div class="detail-value">
+                {% if interview.has_contract %}
+                    <span class="badge badge-success">已签约供应商</span>
+                {% else %}
+                    <span class="badge badge-info">潜在供应商</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 约谈人员信息 -->
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-users"></i>
+            约谈人员
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">约谈人:</div>
+            <div class="detail-value">{{ interview.interviewer }}</div>
+        </div>
+        {% if interview.supplier_representative %}
+        <div class="detail-row">
+            <div class="detail-label">供应商代表:</div>
+            <div class="detail-value">{{ interview.supplier_representative }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 约谈内容 -->
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-comment-dots"></i>
+            约谈内容
+        </div>
+        <div class="detail-row" style="grid-template-columns: 1fr;">
+            <div class="detail-label">约谈原因:</div>
+            <div class="content-box">{{ interview.reason }}</div>
+        </div>
+        <div class="detail-row" style="grid-template-columns: 1fr;">
+            <div class="detail-label">沟通内容:</div>
+            <div class="content-box">{{ interview.content }}</div>
+        </div>
+        {% if interview.rectification_requirements %}
+        <div class="detail-row" style="grid-template-columns: 1fr;">
+            <div class="detail-label">整改要求:</div>
+            <div class="content-box" style="background: #fff7e6; border-color: #ffd591;">
+                {{ interview.rectification_requirements }}
+            </div>
+        </div>
+        {% endif %}
+        {% if interview.result %}
+        <div class="detail-row" style="grid-template-columns: 1fr;">
+            <div class="detail-label">处理结果:</div>
+            <div class="content-box" style="background: #f6ffed; border-color: #b7eb8f;">
+                {{ interview.result }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 跟进状态 -->
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-tasks"></i>
+            跟进状态
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">当前状态:</div>
+            <div class="detail-value">
+                {% if interview.status == '待整改' %}
+                    <span class="badge badge-error" style="font-size: 14px; padding: 6px 12px;">
+                        <i class="fas fa-clock"></i>
+                        {{ interview.status }}
+                    </span>
+                {% elif interview.status == '整改中' %}
+                    <span class="badge badge-warning" style="font-size: 14px; padding: 6px 12px;">
+                        <i class="fas fa-hourglass-half"></i>
+                        {{ interview.status }}
+                    </span>
+                {% elif interview.status == '已完成' %}
+                    <span class="badge badge-success" style="font-size: 14px; padding: 6px 12px;">
+                        <i class="fas fa-check-circle"></i>
+                        {{ interview.status }}
+                    </span>
+                {% else %}
+                    <span class="badge badge-info" style="font-size: 14px; padding: 6px 12px;">
+                        {{ interview.status }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 附件信息 -->
+    {% if interview.attachments %}
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-paperclip"></i>
+            附件说明
+        </div>
+        <div class="content-box">{{ interview.attachments }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 元数据 -->
+    <div class="detail-section">
+        <div class="section-title">
+            <i class="fas fa-clock"></i>
+            记录信息
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">创建时间:</div>
+            <div class="detail-value">{{ interview.created_at|date:"Y-m-d H:i:s" }}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">更新时间:</div>
+            <div class="detail-value">{{ interview.updated_at|date:"Y-m-d H:i:s" }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 相关操作 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-link"></i>
+            相关链接
+        </h2>
+    </div>
+    <div class="card-body" style="padding: 24px;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ interview.supplier_name|urlencode }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-building"></i>
+                查看该供应商承接项目
+            </a>
+            <a href="{% url 'supplier_eval:supplier_evaluation_list' %}?q={{ interview.supplier_name|urlencode }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-star"></i>
+                查看该供应商履约评价
+            </a>
+            <a href="{% url 'supplier_eval:supplier_interview_list' %}?q={{ interview.supplier_name|urlencode }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-comments"></i>
+                查看该供应商其他约谈记录
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/edit-modal.js' %}"></script>
+{% endblock %}
