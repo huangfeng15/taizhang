@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >NUL 2>&1
 echo ========================================
 echo Starting Django HTTPS Server
 echo ========================================
