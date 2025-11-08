@@ -1,0 +1,330 @@
+e{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}供应商承接项目 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-bar-container {
+        width: 100%;
+        height: 20px;
+        background: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+    }
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #1890ff, #40a9ff);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .progress-bar-fill.high {
+        background: linear-gradient(90deg, #52c41a, #73d13d);
+    }
+    .progress-bar-fill.medium {
+        background: linear-gradient(90deg, #faad14, #ffc53d);
+    }
+    .contract-status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-ongoing {
+        background: #e6f7ff;
+        color: #1890ff;
+    }
+    .status-settled {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">供应商承接项目</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>供应商管理</span>
+        <span>/</span>
+        <span>承接项目查询</span>
+    </div>
+</div>
+
+<!-- 供应商统计概览 -->
+{% if supplier_info %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-building"></i>
+            {{ supplier_info.supplier_name }}
+        </h2>
+        <div style="display: flex; gap: 12px;">
+            <a href="{% url 'supplier_eval:supplier_evaluation_list' %}?q={{ supplier_info.supplier_name|urlencode }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-star"></i>
+                查看履约评价
+            </a>
+            <a href="{% url 'supplier_eval:supplier_interview_list' %}?supplier={{ supplier_info.supplier_name|urlencode }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-comments"></i>
+                查看约谈记录
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid" style="margin: 0;">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">承接合同总数</div>
+                    <div class="stat-value">{{ supplier_info.total_contracts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1890ff, #40a9ff);">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">在执行合同</div>
+                    <div class="stat-value">{{ supplier_info.ongoing_contracts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">已结算合同</div>
+                    <div class="stat-value">{{ supplier_info.settled_contracts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">合同总金额</div>
+                    <div class="stat-value" style="font-size: 20px;">
+                        {{ supplier_info.total_amount|floatformat:0 }}<span style="font-size: 14px; font-weight: normal;">万元</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 筛选和搜索 -->
+<div class="card">
+    <div class="card-body" style="padding: 20px;">
+        <form method="get" action="">
+            <div class="filter-bar">
+                <div class="search-box">
+                    <input type="text" 
+                           name="supplier" 
+                           placeholder="搜索供应商名称..." 
+                           value="{{ request.GET.supplier|default:'' }}">
+                    <button type="submit">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                
+                <select name="status" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    <option value="ongoing" {% if request.GET.status == 'ongoing' %}selected{% endif %}>在执行中</option>
+                    <option value="settled" {% if request.GET.status == 'settled' %}selected{% endif %}>已结算</option>
+                </select>
+                
+                {% if request.GET.supplier or request.GET.status %}
+                <a href="{% url 'supplier_eval:supplier_contract_list' %}" class="filter-reset">
+                    <i class="fas fa-undo"></i>
+                    重置筛选
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 合同列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-list"></i>
+            承接合同列表
+        </h2>
+    </div>
+    
+    {% if contracts %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-column="row_number">序号</th>
+                    <th data-column="supplier_name">供应商名称</th>
+                    <th data-column="contract_code">合同编号</th>
+                    <th data-column="contract_name">合同名称</th>
+                    <th data-column="project">所属项目</th>
+                    <th data-column="contract_amount">合同金额(万元)</th>
+                    <th data-column="total_paid">累计付款(万元)</th>
+                    <th data-column="payment_ratio">付款进度</th>
+                    <th data-column="status">状态</th>
+                    <th data-column="signing_date">签订日期</th>
+                    <th data-column="operations">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in contracts %}
+                <tr>
+                    <td data-column="row_number">{{ forloop.counter }}</td>
+                    <td data-column="supplier_name" style="font-weight: 600;">
+                        {{ item.contract.party_b }}
+                    </td>
+                    <td data-column="contract_code">
+                        {{ item.contract.contract_code }}
+                    </td>
+                    <td data-column="contract_name" style="max-width: 300px;">
+                        {{ item.contract.contract_name }}
+                    </td>
+                    <td data-column="project">
+                        {% if item.contract.project %}
+                            <a href="{% url 'project_detail' item.contract.project.project_code %}" 
+                               style="color: var(--primary-color); text-decoration: none;">
+                                {{ item.contract.project.project_name }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="contract_amount">
+                        {% if item.contract_amount %}
+                            <span style="font-weight: 600;">
+                                {{ item.contract_amount|floatformat:2 }}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="total_paid">
+                        {% if item.total_paid %}
+                            <span style="color: var(--success-color); font-weight: 600;">
+                                {{ item.total_paid|floatformat:2 }}
+                            </span>
+                        {% else %}
+                            <span style="color: var(--text-secondary);">0.00</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="payment_ratio" style="min-width: 150px;">
+                        {% if item.payment_ratio > 0 %}
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill {% if item.payment_ratio >= 90 %}high{% elif item.payment_ratio >= 70 %}medium{% endif %}" 
+                                     style="width: {{ item.payment_ratio }}%;">
+                                    {{ item.payment_ratio|floatformat:1 }}%
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: 0%; background: #d9d9d9; color: #8c8c8c;">
+                                    0%
+                                </div>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td data-column="status">
+                        {% if item.is_ongoing %}
+                            <span class="contract-status-badge status-ongoing">
+                                <i class="fas fa-hourglass-half"></i>
+                                在执行中
+                            </span>
+                        {% else %}
+                            <span class="contract-status-badge status-settled">
+                                <i class="fas fa-check-circle"></i>
+                                已结算
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td data-column="signing_date">
+                        {{ item.contract.signing_date|default:"-" }}
+                    </td>
+                    <td data-column="operations">
+                        <a href="{% url 'contract_detail' item.contract.contract_code %}" 
+                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-eye"></i>
+                            查看详情
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p>暂无承接合同数据</p>
+        {% if request.GET.supplier or request.GET.status %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+            未找到符合条件的合同记录
+        </p>
+        <a href="{% url 'supplier_eval:supplier_contract_list' %}" class="btn btn-secondary" style="margin-top: 16px;">
+            <i class="fas fa-undo"></i>
+            清除筛选条件
+        </a>
+        {% else %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+            请在上方搜索框输入供应商名称查询
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% if contracts %}
+    <div class="pagination">
+        <span class="pagination-info">
+            共 {{ page_obj.paginator.count }} 条记录
+        </span>
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if request.GET.supplier %}&supplier={{ request.GET.supplier }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.supplier %}&supplier={{ request.GET.supplier }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">上一页</a>
+        {% endif %}
+        
+        <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.supplier %}&supplier={{ request.GET.supplier }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.supplier %}&supplier={{ request.GET.supplier }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">尾页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 页面加载完成后的交互增强
+document.addEventListener('DOMContentLoaded', function() {
+    // 进度条动画
+    const progressBars = document.querySelectorAll('.progress-bar-fill');
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.width = width;
+        }, 100);
+    });
+});
+</script>
+{% endblock %}

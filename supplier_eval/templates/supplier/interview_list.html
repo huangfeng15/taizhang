@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}供应商约谈记录 - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
+<style>
+    .interview-type-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .type-violation {
+        background: #fff1f0;
+        color: #ff4d4f;
+    }
+    .type-communication {
+        background: #e6f7ff;
+        color: #1890ff;
+    }
+    .type-business {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+    .type-bidding {
+        background: #fff7e6;
+        color: #fa8c16;
+    }
+    .type-other {
+        background: #f0f0f0;
+        color: #595959;
+    }
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-pending {
+        background: #fff1f0;
+        color: #ff4d4f;
+    }
+    .status-inprogress {
+        background: #fffbe6;
+        color: #faad14;
+    }
+    .status-completed {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+    .status-record {
+        background: #e6f7ff;
+        color: #1890ff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">供应商约谈记录</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>供应商管理</span>
+        <span>/</span>
+        <span>约谈记录</span>
+    </div>
+</div>
+
+<!-- 统计概览卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-comments"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">约谈总数</div>
+            <div class="stat-value">{{ stats.total|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon error">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">违约约谈</div>
+            <div class="stat-value">{{ stats.violation|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">待整改</div>
+            <div class="stat-value">{{ stats.pending|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-check-double"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">已完成</div>
+            <div class="stat-value">{{ stats.completed|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="card">
+    <div class="card-body" style="padding: 20px;">
+        <form method="get" action="">
+            <div class="filter-bar">
+                <div class="search-box">
+                    <input type="text" 
+                           name="q" 
+                           placeholder="搜索供应商名称、约谈人..." 
+                           value="{{ request.GET.q|default:'' }}">
+                    <button type="submit">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                
+                <select name="interview_type" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部类型</option>
+                    <option value="违约约谈" {% if request.GET.interview_type == '违约约谈' %}selected{% endif %}>违约约谈</option>
+                    <option value="履约沟通" {% if request.GET.interview_type == '履约沟通' %}selected{% endif %}>履约沟通</option>
+                    <option value="商务洽谈" {% if request.GET.interview_type == '商务洽谈' %}selected{% endif %}>商务洽谈</option>
+                    <option value="投标前沟通" {% if request.GET.interview_type == '投标前沟通' %}selected{% endif %}>投标前沟通</option>
+                    <option value="其他" {% if request.GET.interview_type == '其他' %}selected{% endif %}>其他</option>
+                </select>
+                
+                <select name="status" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    <option value="待整改" {% if request.GET.status == '待整改' %}selected{% endif %}>待整改</option>
+                    <option value="整改中" {% if request.GET.status == '整改中' %}selected{% endif %}>整改中</option>
+                    <option value="已完成" {% if request.GET.status == '已完成' %}selected{% endif %}>已完成</option>
+                    <option value="仅记录" {% if request.GET.status == '仅记录' %}selected{% endif %}>仅记录</option>
+                </select>
+                
+                <select name="has_contract" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部供应商</option>
+                    <option value="true" {% if request.GET.has_contract == 'true' %}selected{% endif %}>已签约</option>
+                    <option value="false" {% if request.GET.has_contract == 'false' %}selected{% endif %}>潜在供应商</option>
+                </select>
+                
+                {% if request.GET.q or request.GET.interview_type or request.GET.status or request.GET.has_contract %}
+                <a href="{% url 'supplier_eval:supplier_interview_list' %}" class="filter-reset">
+                    <i class="fas fa-undo"></i>
+                    重置筛选
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 约谈记录列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-list-alt"></i>
+            约谈记录列表
+        </h2>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn btn-primary" 
+                    data-create-url="{% url 'supplier_eval:supplier_interview_create' %}" 
+                    data-title="新增约谈记录">
+                <i class="fas fa-plus"></i>
+                新增约谈记录
+            </button>
+        </div>
+    </div>
+    
+    {% if interviews %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-column="row_number">序号</th>
+                    <th data-column="supplier_name">供应商名称</th>
+                    <th data-column="interview_type">约谈类型</th>
+                    <th data-column="interview_date">约谈日期</th>
+                    <th data-column="interviewer">约谈人</th>
+                    <th data-column="reason">约谈原因</th>
+                    <th data-column="status">跟进状态</th>
+                    <th data-column="has_contract">签约状态</th>
+                    <th data-column="operations">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for interview in interviews %}
+                <tr {% if interview.interview_type == '违约约谈' %}style="background: #fff1f0;"{% endif %}>
+                    <td data-column="row_number">{{ forloop.counter }}</td>
+                    <td data-column="supplier_name" style="font-weight: 600;">
+                        {{ interview.supplier_name }}
+                    </td>
+                    <td data-column="interview_type">
+                        {% if interview.interview_type == '违约约谈' %}
+                            <span class="interview-type-badge type-violation">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {{ interview.interview_type }}
+                            </span>
+                        {% elif interview.interview_type == '履约沟通' %}
+                            <span class="interview-type-badge type-communication">
+                                {{ interview.interview_type }}
+                            </span>
+                        {% elif interview.interview_type == '商务洽谈' %}
+                            <span class="interview-type-badge type-business">
+                                {{ interview.interview_type }}
+                            </span>
+                        {% elif interview.interview_type == '投标前沟通' %}
+                            <span class="interview-type-badge type-bidding">
+                                {{ interview.interview_type }}
+                            </span>
+                        {% else %}
+                            <span class="interview-type-badge type-other">
+                                {{ interview.interview_type }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td data-column="interview_date">
+                        {{ interview.interview_date }}
+                    </td>
+                    <td data-column="interviewer">
+                        {{ interview.interviewer }}
+                    </td>
+                    <td data-column="reason" style="max-width: 300px;">
+                        {{ interview.reason|truncatechars:50 }}
+                    </td>
+                    <td data-column="status">
+                        {% if interview.status == '待整改' %}
+                            <span class="status-badge status-pending">
+                                <i class="fas fa-clock"></i>
+                                {{ interview.status }}
+                            </span>
+                        {% elif interview.status == '整改中' %}
+                            <span class="status-badge status-inprogress">
+                                <i class="fas fa-hourglass-half"></i>
+                                {{ interview.status }}
+                            </span>
+                        {% elif interview.status == '已完成' %}
+                            <span class="status-badge status-completed">
+                                <i class="fas fa-check-circle"></i>
+                                {{ interview.status }}
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-record">
+                                {{ interview.status }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td data-column="has_contract">
+                        {% if interview.has_contract %}
+                            <span class="badge badge-success">已签约</span>
+                        {% else %}
+                            <span class="badge badge-info">潜在供应商</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="operations">
+                        <a href="{% url 'supplier_eval:supplier_interview_detail' interview.id %}" 
+                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;">
+                            <i class="fas fa-eye"></i>
+                            查看
+                        </a>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" 
+                                data-edit-url="{% url 'supplier_eval:supplier_interview_edit' interview.id %}">
+                            <i class="fas fa-edit"></i>
+                            编辑
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-comments"></i>
+        <p>暂无约谈记录</p>
+        {% if request.GET.q or request.GET.interview_type or request.GET.status or request.GET.has_contract %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+            未找到符合条件的约谈记录
+        </p>
+        <a href="{% url 'supplier_eval:supplier_interview_list' %}" class="btn btn-secondary" style="margin-top: 16px;">
+            <i class="fas fa-undo"></i>
+            清除筛选条件
+        </a>
+        {% else %}
+        <button type="button" class="btn btn-primary" style="margin-top: 16px;" 
+                data-create-url="{% url 'supplier_eval:supplier_interview_create' %}" 
+                data-title="新增约谈记录">
+            <i class="fas fa-plus"></i>
+            创建第一条约谈记录
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% if interviews %}
+    <div class="pagination">
+        <span class="pagination-info">
+            共 {{ page_obj.paginator.count }} 条记录
+        </span>
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.interview_type %}&interview_type={{ request.GET.interview_type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.has_contract %}&has_contract={{ request.GET.has_contract }}{% endif %}">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.interview_type %}&interview_type={{ request.GET.interview_type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.has_contract %}&has_contract={{ request.GET.has_contract }}{% endif %}">上一页</a>
+        {% endif %}
+        
+        <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.interview_type %}&interview_type={{ request.GET.interview_type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.has_contract %}&has_contract={{ request.GET.has_contract }}{% endif %}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.interview_type %}&interview_type={{ request.GET.interview_type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.has_contract %}&has_contract={{ request.GET.has_contract }}{% endif %}">尾页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/edit-modal.js' %}"></script>
+{% endblock %}

@@ -11,10 +11,12 @@ urlpatterns = [
     
     # 认证路由
     path('accounts/login/', auth_views.LoginView.as_view(
-        template_name='admin/login.html',
+        template_name='registration/login.html',
         redirect_authenticated_user=True
     ), name='login'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(
+        next_page='login'
+    ), name='logout'),
     
     # 前端页面路由
     path('', views.dashboard, name='dashboard'),
@@ -64,6 +66,9 @@ urlpatterns = [
     # PDF智能导入路由
     path('pdf-import/', include('pdf_import.urls')),
     path('api/import/', views.import_data, name='import_data'),
+    
+    # 供应商管理路由
+    path('supplier/', include('supplier_eval.urls')),
     
     # 数据导出API
     path('api/export/project-data/', views.export_project_data, name='export_project_data'),

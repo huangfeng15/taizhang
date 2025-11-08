@@ -36,8 +36,13 @@
             <div data-smart-selector="procurement"
                  data-initial-text="{{ initial_display.procurement|default:'' }}"></div>
             <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
-        {% elif field.name == 'contract' %}
-            {# 合同字段使用智能选择器 #}
+        {% elif field.name == 'contract' and module_type not in ['supplier_interview', 'supplier_evaluation'] %}
+            {# 合同字段使用智能选择器（非供应商模块） #}
+            <div data-smart-selector="contract"
+                 data-initial-text="{{ initial_display.contract|default:'' }}"></div>
+            <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">
+        {% elif field.name == 'contract' and module_type in ['supplier_interview', 'supplier_evaluation'] %}
+            {# 供应商模块的合同字段使用智能选择器 #}
             <div data-smart-selector="contract"
                  data-initial-text="{{ initial_display.contract|default:'' }}"></div>
             <input type="hidden" id="{{ field.id_for_label }}" name="{{ field.name }}" value="{{ field.value|default:'' }}">

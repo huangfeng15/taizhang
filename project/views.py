@@ -1931,6 +1931,7 @@ def _generate_project_excel(project, user):
     import pandas as pd
     from datetime import datetime
     from io import BytesIO
+    from project.utils.excel_beautifier import beautify_worksheet
     
     try:
         # 创建Excel写入器
@@ -1998,6 +1999,9 @@ def _generate_project_excel(project, user):
             if procurement_data:
                 df_procurement = pd.DataFrame(procurement_data)
                 df_procurement.to_excel(writer, sheet_name='采购信息', index=False)
+                
+                # 美化采购信息工作表（金额列：10,11,12）
+                beautify_worksheet(writer.sheets['采购信息'], money_columns=[10, 11, 12])
             
             # 合同工作表
             contract_data = []
@@ -2043,6 +2047,9 @@ def _generate_project_excel(project, user):
             if contract_data:
                 df_contract = pd.DataFrame(contract_data)
                 df_contract.to_excel(writer, sheet_name='合同信息', index=False)
+                
+                # 美化合同信息工作表（金额列：14,24）
+                beautify_worksheet(writer.sheets['合同信息'], money_columns=[14, 24])
             
             # 付款工作表
             payment_data = []
@@ -2066,6 +2073,9 @@ def _generate_project_excel(project, user):
             if payment_data:
                 df_payment = pd.DataFrame(payment_data)
                 df_payment.to_excel(writer, sheet_name='付款信息', index=False)
+                
+                # 美化付款信息工作表（金额列：6,8）
+                beautify_worksheet(writer.sheets['付款信息'], money_columns=[6, 8])
             
             # 结算工作表
             settlement_data = []
@@ -2093,6 +2103,9 @@ def _generate_project_excel(project, user):
             if settlement_data:
                 df_settlement = pd.DataFrame(settlement_data)
                 df_settlement.to_excel(writer, sheet_name='结算信息', index=False)
+                
+                # 美化结算信息工作表（金额列：4）
+                beautify_worksheet(writer.sheets['结算信息'], money_columns=[4])
             
             # 供应商评价工作表
             evaluation_data = []
@@ -2117,6 +2130,9 @@ def _generate_project_excel(project, user):
             if evaluation_data:
                 df_evaluation = pd.DataFrame(evaluation_data)
                 df_evaluation.to_excel(writer, sheet_name='供应商评价', index=False)
+                
+                # 美化供应商评价工作表
+                beautify_worksheet(writer.sheets['供应商评价'])
             
             # 添加导出信息工作表
             export_info = [{
@@ -2133,6 +2149,9 @@ def _generate_project_excel(project, user):
             
             df_export_info = pd.DataFrame(export_info)
             df_export_info.to_excel(writer, sheet_name='导出信息', index=False)
+            
+            # 美化导出信息工作表
+            beautify_worksheet(writer.sheets['导出信息'])
         
         # 返回BytesIO对象
         output.seek(0)
@@ -4105,6 +4124,8 @@ def statistics_detail_export(request, module):
     Args:
         module: 统计模块 (procurement/contract/payment/settlement)
     """
+    from project.utils.excel_beautifier import beautify_worksheet
+    
     try:
         # 解析筛选参数
         global_filters = _resolve_global_filters(request)
@@ -4218,6 +4239,19 @@ def statistics_detail_export(request, module):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='详情数据', index=False)
+            
+            # 美化工作表 - 根据不同模块设置金额列
+            money_cols = []
+            if module == 'procurement':
+                money_cols = [8, 9, 10, 11]  # 预算金额、中标金额、控制价、节约金额
+            elif module == 'contract':
+                money_cols = [8, 10]  # 合同金额、累计付款
+            elif module == 'payment':
+                money_cols = [2, 5]  # 付款金额、结算价
+            elif module == 'settlement':
+                money_cols = [5, 6, 7]  # 合同金额、结算金额、差异金额
+            
+            beautify_worksheet(writer.sheets['详情数据'], money_columns=money_cols)
         
         output.seek(0)
         

@@ -31,6 +31,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # HTTPS支持（开发测试用）
+    'django_extensions',
+    
     # 业务应用
     'project.apps.ProjectConfig',
     'procurement.apps.ProcurementConfig',
@@ -49,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'project.middleware.LoginRequiredMiddleware',  # 全局登录验证中间件
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -86,6 +90,16 @@ DATABASES = {
     }
 }
 
+# 为SQLite启用外键约束
+from django.db.backends.signals import connection_created
+def enable_sqlite_foreign_keys(sender, connection, **kwargs):
+    """启用SQLite外键约束"""
+    if connection.vendor == 'sqlite':
+        cursor = connection.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON;')
+
+connection_created.connect(enable_sqlite_foreign_keys)
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -108,8 +122,27 @@ TIME_ZONE = 'Asia/Shanghai'
 USE_I18N = True
 USE_TZ = True
 
+# ============================================================================
+# 会话（Session）配置
+# ============================================================================
+# 会话有效期：12小时（单位：秒）
+SESSION_COOKIE_AGE = 12 * 60 * 60  # 12小时 = 43200秒
+
+# 关闭浏览器后会话是否失效（False表示会话保持到SESSION_COOKIE_AGE到期）
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# 每次请求都更新会话的过期时间（保持活跃状态）
+SESSION_SAVE_EVERY_REQUEST = True
+
+# 会话Cookie的名称
+SESSION_COOKIE_NAME = 'procurement_sessionid'
+
+# 会话引擎（默认使用数据库存储）
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+# 使用相对路径，自动适配HTTP/HTTPS
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files
@@ -123,6 +156,18 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB - 总请求大小限制
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================================================
+# 登录认证配置
+# ============================================================================
+# 登录URL
+LOGIN_URL = '/accounts/login/'
+
+# 登录成功后的重定向URL
+LOGIN_REDIRECT_URL = '/'
+
+# 登出后的重定向URL
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Admin site customization
 ADMIN_SITE_HEADER = '项目采购与成本管理系统'
@@ -140,3 +185,51 @@ PDF_IMPORT_CONFIG = {
     'SESSION_EXPIRY_HOURS': 24,  # 会话默认过期时间（小时）
     'DRAFT_EXPIRY_HOURS': 72,  # 草稿过期时间（小时）
 }
+
+# ============================================================================
+# HTTPS安全配置（开发测试环境）
+# ============================================================================
+# 注意：以下配置适用于使用自签名证书的开发环境
+# 生产环境需要使用正规CA签发的证书，并启用更严格的安全设置
+
+# HTTPS重定向（开发环境关闭，生产环境开启）
+SECURE_SSL_REDIRECT = False  # 生产环境设为 True
+
+# 代理HTTPS头处理（如果使用Nginx等反向代理或HTTPS请求）
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 当使用自签名证书的HTTPS开发服务器时，需要配置这些设置
+# 这样Django能正确处理HTTPS请求，避免CSRF验证失败
+SECURE_SSL_HOST = '10.168.3.240:3500'  # 开发服务器地址
+
+# Cookie安全设置（开发环境使用自签名证书时可设为False，但要信任代理头）
+SESSION_COOKIE_SECURE = False  # 在开发环境中设为False以支持自签名证书
+CSRF_COOKIE_SECURE = False     # 在开发环境中设为False以支持自签名证书
+
+# 信任代理设置（重要：允许Django信任代理头，正确处理HTTPS请求）
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+# CSRF信任域名设置（允许指定域名通过CSRF验证）
+# 信任本地开发环境的IP地址
+CSRF_TRUSTED_ORIGINS = [
+    'http://10.168.3.240:3500',
+    'https://10.168.3.240:3500',
+    'http://localhost:3500',
+    'https://localhost:3500',
+    'http://127.0.0.1:3500',
+    'https://127.0.0.1:3500',
+]
+
+# 为支持HTTPS请求处理添加额外配置
+# 允许在开发环境中处理HTTPS请求
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# HSTS设置（生产环境启用，开发环境注释掉以避免自签名证书问题）
+# SECURE_HSTS_SECONDS = 31536000  # 1年
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+
+# 确保静态文件路径使用相对路径，自动适配协议
+# Django会根据请求协议自动生成正确的URL
