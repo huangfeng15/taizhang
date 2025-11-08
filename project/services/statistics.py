@@ -8,6 +8,7 @@ from django.db.models.functions import TruncMonth, TruncYear
 from datetime import datetime, timedelta
 from decimal import Decimal
 from project.enums import FilePositioning, PROCUREMENT_METHODS_COMMON, PROCUREMENT_METHODS_ALL
+from project.constants import get_current_year
 
 
 def get_procurement_statistics(year=None, project_codes=None):
@@ -639,7 +640,7 @@ def get_overview_statistics(year=None, project_codes=None):
         dict: 综合统计数据
     """
     if year is None:
-        year = datetime.now().year
+        year = get_current_year()
     
     procurement_stats = get_procurement_statistics(year, project_codes)
     contract_stats = get_contract_statistics(year, project_codes)

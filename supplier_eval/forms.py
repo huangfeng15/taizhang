@@ -197,8 +197,8 @@ class SupplierInterviewForm(forms.ModelForm):
 
 
 class SupplierEvaluationForm(forms.ModelForm):
-    """供应商履约评价编辑表单"""
-    
+    """供应商履约评价编辑表单（支持动态年度字段）"""
+
     contract = forms.ModelChoiceField(
         queryset=Contract.objects.all(),
         required=True,
@@ -212,7 +212,7 @@ class SupplierEvaluationForm(forms.ModelForm):
         label='关联合同',
         help_text='该评价对应的合同（对应CSV的"合同序号"列）'
     )
-    
+
     class Meta:
         model = SupplierEvaluation
         fields = [
@@ -220,15 +220,8 @@ class SupplierEvaluationForm(forms.ModelForm):
             'supplier_name',
             'comprehensive_score',
             'last_evaluation_score',
-            'score_2025',
-            'score_2024',
-            'score_2023',
-            'score_2022',
-            'score_2021',
-            'score_2020',
-            'score_2019',
-            'irregular_evaluation_1',
-            'irregular_evaluation_2',
+            'annual_scores',
+            'irregular_scores',
             'remarks',
         ]
         widgets = {
@@ -251,68 +244,15 @@ class SupplierEvaluationForm(forms.ModelForm):
                 'min': '0',
                 'max': '100',
             }),
-            'score_2025': forms.NumberInput(attrs={
+            'annual_scores': forms.Textarea(attrs={
                 'class': 'form-control',
-                'placeholder': '2025年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
+                'placeholder': '年度评价得分（JSON格式）\n示例: {"2019": 85.5, "2020": 88.0, "2025": 90.0}',
+                'rows': 4,
             }),
-            'score_2024': forms.NumberInput(attrs={
+            'irregular_scores': forms.Textarea(attrs={
                 'class': 'form-control',
-                'placeholder': '2024年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'score_2023': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '2023年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'score_2022': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '2022年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'score_2021': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '2021年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'score_2020': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '2020年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'score_2019': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '2019年度评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'irregular_evaluation_1': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '第一次不定期评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
-            }),
-            'irregular_evaluation_2': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '第二次不定期评价得分',
-                'step': '0.01',
-                'min': '0',
-                'max': '100',
+                'placeholder': '不定期评价得分（JSON格式）\n示例: {"1": 90.0, "2": 85.0}',
+                'rows': 3,
             }),
             'remarks': forms.Textarea(attrs={
                 'class': 'form-control',
@@ -325,70 +265,143 @@ class SupplierEvaluationForm(forms.ModelForm):
             'supplier_name': '供应商名称',
             'comprehensive_score': '综合评分',
             'last_evaluation_score': '末次评价得分',
-            'score_2025': '2025年度评价',
-            'score_2024': '2024年度评价',
-            'score_2023': '2023年度评价',
-            'score_2022': '2022年度评价',
-            'score_2021': '2021年度评价',
-            'score_2020': '2020年度评价',
-            'score_2019': '2019年度评价',
-            'irregular_evaluation_1': '第一次不定期评价',
-            'irregular_evaluation_2': '第二次不定期评价',
+            'annual_scores': '年度评价得分',
+            'irregular_scores': '不定期评价得分',
             'remarks': '备注',
         }
         help_texts = {
             'supplier_name': '填写供应商名称（自动从合同获取）',
             'comprehensive_score': '留空则根据末次评价和过程评价自动计算',
             'last_evaluation_score': '末次评价得分，权重60%',
-            'score_2025': '2025年度评价得分（可选）',
-            'score_2024': '2024年度评价得分（可选）',
-            'score_2023': '2023年度评价得分（可选）',
-            'score_2022': '2022年度评价得分（可选）',
-            'score_2021': '2021年度评价得分（可选）',
-            'score_2020': '2020年度评价得分（可选）',
-            'score_2019': '2019年度评价得分（可选）',
-            'irregular_evaluation_1': '第一次不定期评价得分（可选）',
-            'irregular_evaluation_2': '第二次不定期评价得分（可选）',
+            'annual_scores': 'JSON格式，支持任意年份。示例: {"2019": 85.5, "2020": 88.0}',
+            'irregular_scores': 'JSON格式，支持任意次数。示例: {"1": 90.0, "2": 85.0}',
             'remarks': '其他备注信息',
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # 如果是编辑模式，设置初始值
         if self.instance.pk:
             if self.instance.contract:
                 self.fields['contract'].initial = self.instance.contract
-    
+
+            # 将JSONField转换为格式化的JSON字符串便于编辑
+            import json
+            if self.instance.annual_scores:
+                self.fields['annual_scores'].initial = json.dumps(
+                    self.instance.annual_scores, ensure_ascii=False, indent=2
+                )
+            if self.instance.irregular_scores:
+                self.fields['irregular_scores'].initial = json.dumps(
+                    self.instance.irregular_scores, ensure_ascii=False, indent=2
+                )
+
     def clean_supplier_name(self):
         """供应商名称验证"""
         supplier_name = self.cleaned_data.get('supplier_name')
-        
+
         if supplier_name:
             supplier_name = supplier_name.strip()
             if len(supplier_name) < 2:
                 raise ValidationError('供应商名称至少需要2个字符')
             if len(supplier_name) > 200:
                 raise ValidationError('供应商名称不能超过200个字符')
-        
+
         return supplier_name
-    
+
+    def clean_annual_scores(self):
+        """年度评分JSON验证"""
+        import json
+        annual_scores = self.cleaned_data.get('annual_scores')
+
+        if not annual_scores:
+            return {}
+
+        # 如果已经是字典，直接返回
+        if isinstance(annual_scores, dict):
+            return annual_scores
+
+        # 尝试解析JSON字符串
+        try:
+            scores_dict = json.loads(annual_scores)
+
+            # 验证格式：键为年份字符串，值为数字
+            validated_scores = {}
+            for year, score in scores_dict.items():
+                try:
+                    year_int = int(year)
+                    score_float = float(score)
+
+                    # 验证年份范围
+                    if year_int < 2000 or year_int > 2100:
+                        raise ValidationError(f'年份 {year_int} 超出合理范围（2000-2100）')
+
+                    # 验证评分范围
+                    if score_float < 0 or score_float > 100:
+                        raise ValidationError(f'{year_int}年度评分 {score_float} 必须在0-100之间')
+
+                    validated_scores[str(year_int)] = score_float
+                except (ValueError, TypeError):
+                    raise ValidationError(f'无效的年度评分数据：{year}={score}')
+
+            return validated_scores
+        except json.JSONDecodeError as e:
+            raise ValidationError(f'JSON格式错误：{str(e)}')
+
+    def clean_irregular_scores(self):
+        """不定期评分JSON验证"""
+        import json
+        irregular_scores = self.cleaned_data.get('irregular_scores')
+
+        if not irregular_scores:
+            return {}
+
+        # 如果已经是字典，直接返回
+        if isinstance(irregular_scores, dict):
+            return irregular_scores
+
+        # 尝试解析JSON字符串
+        try:
+            scores_dict = json.loads(irregular_scores)
+
+            # 验证格式：键为次数字符串，值为数字
+            validated_scores = {}
+            for index, score in scores_dict.items():
+                try:
+                    index_int = int(index)
+                    score_float = float(score)
+
+                    # 验证次数范围
+                    if index_int < 1 or index_int > 100:
+                        raise ValidationError(f'不定期评价次数 {index_int} 超出合理范围（1-100）')
+
+                    # 验证评分范围
+                    if score_float < 0 or score_float > 100:
+                        raise ValidationError(f'第{index_int}次不定期评分 {score_float} 必须在0-100之间')
+
+                    validated_scores[str(index_int)] = score_float
+                except (ValueError, TypeError):
+                    raise ValidationError(f'无效的不定期评分数据：{index}={score}')
+
+            return validated_scores
+        except json.JSONDecodeError as e:
+            raise ValidationError(f'JSON格式错误：{str(e)}')
+
     def clean(self):
         """表单整体验证"""
         cleaned_data = super().clean()
-        
-        # 验证评分范围
-        score_fields = [
-            'comprehensive_score', 'last_evaluation_score',
-            'score_2025', 'score_2024', 'score_2023', 'score_2022',
-            'score_2021', 'score_2020', 'score_2019',
-            'irregular_evaluation_1', 'irregular_evaluation_2'
-        ]
-        
-        for field_name in score_fields:
-            score = cleaned_data.get(field_name)
-            if score is not None:
-                if score < 0 or score > 100:
-                    self.add_error(field_name, '评分必须在0-100之间')
-        
+
+        # 验证综合评分和末次评价得分
+        comprehensive_score = cleaned_data.get('comprehensive_score')
+        last_evaluation_score = cleaned_data.get('last_evaluation_score')
+
+        if comprehensive_score is not None:
+            if comprehensive_score < 0 or comprehensive_score > 100:
+                self.add_error('comprehensive_score', '综合评分必须在0-100之间')
+
+        if last_evaluation_score is not None:
+            if last_evaluation_score < 0 or last_evaluation_score > 100:
+                self.add_error('last_evaluation_score', '末次评价得分必须在0-100之间')
+
         return cleaned_data

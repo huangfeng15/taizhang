@@ -94,87 +94,20 @@ class SupplierEvaluation(BaseModel):
         help_text='权重60%，用于计算综合评分'
     )
     
-    # CSV列：2019-2025年度评价得分（支持延展2026、2027...）
-    score_2019 = models.DecimalField(
-        '2019年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
+    # CSV列：年度评价得分（动态支持任意年份）
+    annual_scores = models.JSONField(
+        '年度评价得分',
+        default=dict,
         blank=True,
-        help_text='过程评价之一'
+        help_text='格式: {"2019": 85.5, "2020": 88.0, ...}，支持任意年份动态扩展'
     )
-    
-    score_2020 = models.DecimalField(
-        '2020年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
+
+    # CSV列：不定期评价得分（动态支持任意次数）
+    irregular_scores = models.JSONField(
+        '不定期评价得分',
+        default=dict,
         blank=True,
-        help_text='过程评价之一'
-    )
-    
-    score_2021 = models.DecimalField(
-        '2021年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    score_2022 = models.DecimalField(
-        '2022年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    score_2023 = models.DecimalField(
-        '2023年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    score_2024 = models.DecimalField(
-        '2024年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    score_2025 = models.DecimalField(
-        '2025年度评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    # CSV列：不定期评价得分（支持延展第三次、第四次...）
-    irregular_evaluation_1 = models.DecimalField(
-        '第一次不定期评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
-    )
-    
-    irregular_evaluation_2 = models.DecimalField(
-        '第二次不定期评价得分',
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text='过程评价之一'
+        help_text='格式: {"1": 90.0, "2": 85.0, ...}，支持任意次数动态扩展'
     )
     
     # CSV列：备注
@@ -216,43 +149,43 @@ class SupplierEvaluation(BaseModel):
         计算综合评分
         公式：末次评价 × 60% + 过程评价平均 × 40%
         过程评价包括：所有年度评价 + 所有不定期评价
-        
+
         Returns:
             Decimal: 综合评分（保留2位小数），如果无法计算则返回None
         """
         if not self.last_evaluation_score:
             return None
-        
+
         # 收集过程评价得分
         process_scores = []
-        
-        # 年度评价得分（2019-2025，未来可扩展）
-        annual_fields = [
-            self.score_2019, self.score_2020, self.score_2021,
-            self.score_2022, self.score_2023, self.score_2024, self.score_2025
-        ]
-        process_scores.extend([s for s in annual_fields if s is not None])
-        
-        # 不定期评价得分（支持扩展）
-        irregular_fields = [
-            self.irregular_evaluation_1,
-            self.irregular_evaluation_2
-        ]
-        process_scores.extend([s for s in irregular_fields if s is not None])
-        
+
+        # 年度评价得分（从JSONField动态获取）
+        if self.annual_scores:
+            process_scores.extend([
+                float(score) for score in self.annual_scores.values()
+                if score is not None
+            ])
+
+        # 不定期评价得分（从JSONField动态获取）
+        if self.irregular_scores:
+            process_scores.extend([
+                float(score) for score in self.irregular_scores.values()
+                if score is not None
+            ])
+
         # 如果没有过程评价，综合得分 = 末次评价
         if not process_scores:
             return self.last_evaluation_score
-        
+
         # 计算过程评价平均分
         process_avg = sum(process_scores) / len(process_scores)
-        
+
         # 综合得分 = 末次评价 × 0.6 + 过程评价平均 × 0.4
         comprehensive = (
             Decimal(str(self.last_evaluation_score)) * Decimal('0.6') +
             Decimal(str(process_avg)) * Decimal('0.4')
         )
-        
+
         return round(comprehensive, 2)
     
     def get_score_level(self):
@@ -278,25 +211,95 @@ class SupplierEvaluation(BaseModel):
     def get_process_scores(self):
         """
         获取所有过程评价得分（用于展示）
-        
+
         Returns:
             dict: 年度和不定期评价得分字典
         """
         return {
-            '年度评价': {
-                '2019': self.score_2019,
-                '2020': self.score_2020,
-                '2021': self.score_2021,
-                '2022': self.score_2022,
-                '2023': self.score_2023,
-                '2024': self.score_2024,
-                '2025': self.score_2025,
-            },
+            '年度评价': self.annual_scores or {},
             '不定期评价': {
-                '第一次': self.irregular_evaluation_1,
-                '第二次': self.irregular_evaluation_2,
+                f'第{k}次': v for k, v in (self.irregular_scores or {}).items()
             }
         }
+
+    # ===== 年度评分动态管理方法 =====
+    def get_annual_score(self, year: int):
+        """
+        获取指定年份的评分
+
+        Args:
+            year: 年份（如2019）
+
+        Returns:
+            float: 评分，如果不存在则返回None
+        """
+        if not self.annual_scores:
+            return None
+        return self.annual_scores.get(str(year))
+
+    def set_annual_score(self, year: int, score: float):
+        """
+        设置指定年份的评分
+
+        Args:
+            year: 年份（如2019）
+            score: 评分（0-100）
+        """
+        if not self.annual_scores:
+            self.annual_scores = {}
+        self.annual_scores[str(year)] = float(score)
+
+    def get_irregular_score(self, index: int):
+        """
+        获取指定次数的不定期评价得分
+
+        Args:
+            index: 次数（如1表示第一次）
+
+        Returns:
+            float: 评分，如果不存在则返回None
+        """
+        if not self.irregular_scores:
+            return None
+        return self.irregular_scores.get(str(index))
+
+    def set_irregular_score(self, index: int, score: float):
+        """
+        设置指定次数的不定期评价得分
+
+        Args:
+            index: 次数（如1表示第一次）
+            score: 评分（0-100）
+        """
+        if not self.irregular_scores:
+            self.irregular_scores = {}
+        self.irregular_scores[str(index)] = float(score)
+
+    def get_all_annual_years(self):
+        """
+        获取所有已评价的年份列表（排序）
+
+        Returns:
+            list: 年份列表，如[2019, 2020, 2023]
+        """
+        if not self.annual_scores:
+            return []
+        return sorted([int(year) for year in self.annual_scores.keys()])
+
+    def get_annual_scores_display(self):
+        """
+        获取年度评分的展示字符串
+
+        Returns:
+            str: 格式化的年度评分字符串，如"2019年:85分 | 2020年:88分"
+        """
+        if not self.annual_scores:
+            return '-'
+        years = self.get_all_annual_years()
+        return ' | '.join([
+            f'{year}年:{self.annual_scores[str(year)]}分'
+            for year in years
+        ])
 
 
 class SupplierInterview(BaseModel):

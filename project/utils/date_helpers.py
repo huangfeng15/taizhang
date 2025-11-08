@@ -184,14 +184,9 @@ def get_week_date_range(target_date: Optional[date] = None) -> Tuple[date, date]
     return start_date, end_date
 
 
-def get_current_year() -> int:
-    """
-    获取当前年份
-    
-    Returns:
-        int: 当前年份
-    """
-    return timezone.now().year
+# 注意：get_current_year() 已移至 project/constants.py 统一管理
+# 为保持向后兼容，此处重新导出
+from project.constants import get_current_year
 
 
 def get_current_month() -> int:

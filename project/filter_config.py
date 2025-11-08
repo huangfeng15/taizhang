@@ -608,13 +608,14 @@ def get_payment_filter_config(request):
 
 
 def resolve_monitoring_year(request):
-    """统一解析监控类页面的年份筛选，支持默认当前年与“全部”选项。"""
+    """统一解析监控类页面的年份筛选，支持默认当前年与"全部"选项。"""
     from datetime import datetime
-    
+    from project.constants import BASE_YEAR
+
     current_year_local = datetime.now().year
     year_param = request.GET.get('year')
-    
-    available_years = list(range(2019, current_year_local + 2))
+
+    available_years = list(range(BASE_YEAR, current_year_local + 2))
     
     if year_param == 'all':
         return {

@@ -79,23 +79,12 @@ class SupplierEvaluationAdmin(admin.ModelAdmin):
             ),
             'description': '综合评分 = 末次评价×60% + 过程评价平均×40%',
         }),
-        ('年度评价(过程评价)', {
+        ('过程评价得分（动态年度）', {
             'fields': (
-                'score_2019',
-                'score_2020',
-                'score_2021',
-                'score_2022',
-                'score_2023',
-                'score_2024',
-                'score_2025',
+                'annual_scores',
+                'irregular_scores',
             ),
-            'classes': ('collapse',),
-        }),
-        ('不定期评价(过程评价)', {
-            'fields': (
-                'irregular_evaluation_1',
-                'irregular_evaluation_2',
-            ),
+            'description': 'JSON格式存储，支持任意年份和次数的动态扩展',
             'classes': ('collapse',),
         }),
         ('其他信息', {
@@ -179,30 +168,32 @@ class SupplierEvaluationAdmin(admin.ModelAdmin):
     score_level.short_description = '评分等级'
     
     def calculated_score_info(self, obj):
-        """显示综合评分计算详情"""
+        """显示综合评分计算详情（支持动态年度）"""
         if not obj.last_evaluation_score:
             return '无法计算(缺少末次评价得分)'
-        
+
         # 获取过程评价
         process_scores = []
-        score_fields = [
-            ('2019年度', obj.score_2019),
-            ('2020年度', obj.score_2020),
-            ('2021年度', obj.score_2021),
-            ('2022年度', obj.score_2022),
-            ('2023年度', obj.score_2023),
-            ('2024年度', obj.score_2024),
-            ('2025年度', obj.score_2025),
-            ('第一次不定期', obj.irregular_evaluation_1),
-            ('第二次不定期', obj.irregular_evaluation_2),
-        ]
-        
         process_items = []
-        for name, score in score_fields:
-            if score:
-                process_scores.append(float(score))
-                process_items.append(f'{name}: {score}')
-        
+
+        # 年度评价（从JSONField动态获取）
+        if obj.annual_scores:
+            years = sorted([int(y) for y in obj.annual_scores.keys()])
+            for year in years:
+                score = obj.annual_scores[str(year)]
+                if score is not None:
+                    process_scores.append(float(score))
+                    process_items.append(f'{year}年度: {score}')
+
+        # 不定期评价（从JSONField动态获取）
+        if obj.irregular_scores:
+            indices = sorted([int(i) for i in obj.irregular_scores.keys()])
+            for index in indices:
+                score = obj.irregular_scores[str(index)]
+                if score is not None:
+                    process_scores.append(float(score))
+                    process_items.append(f'第{index}次不定期: {score}')
+
         if not process_scores:
             calculated = obj.last_evaluation_score
             formula = f'综合评分 = 末次评价 = {obj.last_evaluation_score}'
@@ -210,9 +201,9 @@ class SupplierEvaluationAdmin(admin.ModelAdmin):
             process_avg = sum(process_scores) / len(process_scores)
             calculated = float(obj.last_evaluation_score) * 0.6 + process_avg * 0.4
             formula = f'综合评分 = {obj.last_evaluation_score} × 60% + {process_avg:.2f} × 40% = {calculated:.2f}'
-        
+
         process_info = '<br>'.join(process_items) if process_items else '无过程评价'
-        
+
         return format_html(
             '<div style="line-height: 1.6;">'
             '<strong>计算公式:</strong><br>{}<br><br>'

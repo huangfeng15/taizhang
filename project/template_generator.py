@@ -13,6 +13,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.comments import Comment
 from django.apps import apps
 from project.helptext import get_message
+from project.constants import get_current_year
 
 
 class TemplateGenerator:
@@ -102,7 +103,7 @@ class TemplateGenerator:
             生成的文件路径
         """
         if year is None:
-            year = datetime.now().year
+            year = get_current_year()
         
         # 生成文件名
         filename_template = self.config['file']['name_template']

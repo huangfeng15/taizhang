@@ -40,8 +40,9 @@ def _resolve_global_filters(request):
         }
     """
     from django.utils import timezone
-    
-    current_year = timezone.now().year
+    from project.constants import get_current_year
+
+    current_year = get_current_year()
     raw_year = request.GET.get('global_year') or request.GET.get('year')
     year_value = None
     year_filter = None

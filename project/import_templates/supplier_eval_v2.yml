@@ -1,0 +1,179 @@
+# 供应商履约评价导入模板配置 v2.0（动态年度支持）
+metadata:
+  name: "供应商履约评价导入模板（动态年度版）"
+  description: "支持任意年份动态扩展的供应商履约评价导入模板"
+  version: "2.0"
+  module: "supplier_eval"
+  model: "SupplierEvaluation"
+
+# 文件生成配置
+file:
+  name_template: "供应商履约评价导入模板_v2_{year}.csv"
+  encoding: "utf-8-sig"
+
+# 说明信息
+instructions: |
+  供应商履约评价CSV导入说明（动态年度版）:
+
+  1. CSV格式要求（灵活列数）:
+     基础列（必需）:
+       - 序号
+       - 合同序号
+       - 履约综合评价得分
+       - 末次评价得分
+       - 备注
+
+     年度评价列（可选，支持任意年份）:
+       - 2019年度评价得分, 2020年度评价得分, ..., 2026年度评价得分, ...
+       - 列名格式: "{年份}年度评价得分"
+
+     不定期评价列（可选，支持任意次数）:
+       - 第1次不定期评价得分, 第2次不定期评价得分, ...
+       - 列名格式: "第{次数}次不定期评价得分"
+
+  2. 必填字段:
+     - 序号: 评价记录的序号
+     - 合同序号: 必须是系统中已存在的合同编号
+
+  3. 评分规则:
+     - 所有评分字段范围: 0-100
+     - 履约综合评价得分: 可直接填写，或留空由系统自动计算
+     - 自动计算公式: 末次评价×60% + 过程评价平均×40%
+     - 过程评价包括: 所有年度评价 + 所有不定期评价
+
+  4. 动态年度支持:
+     - 年度列可以是任意年份（2000-2100）
+     - 不需要连续，可以只填写有数据的年份
+     - 示例: 只填写2019、2023、2025年度的评分
+     - 系统会自动识别列名中的年份并存储到JSON字段
+
+  5. 数据校验:
+     - 合同序号必须在系统中存在
+     - 评分必须在0-100之间
+     - 年份必须在2000-2100之间
+     - 空值表示该项未评价
+
+  6. 导入命令:
+     python manage.py import_supplier_eval <csv文件路径>
+
+     可选参数:
+     --encoding utf-8-sig   指定编码（默认utf-8-sig）
+     --skip-header          跳过第一行表头
+     --dry-run              模拟运行，不实际导入
+     --update               更新已存在的记录
+
+# 字段配置（基础字段）
+fields:
+  - column: 0
+    name: sequence
+    label: 序号
+    type: integer
+    required: true
+    help_text: 评价记录的序号，用于生成评价编号
+
+  - column: 1
+    name: contract_sequence
+    label: 合同序号
+    type: string
+    required: true
+    help_text: 关联的合同序号（必须在系统中存在）
+    validators:
+      - type: exists
+        model: contract.Contract
+        field: contract_sequence
+
+  - column: 2
+    name: comprehensive_score
+    label: 履约综合评价得分
+    type: decimal
+    required: false
+    validators:
+      - type: range
+        min: 0
+        max: 100
+    help_text: 综合评分（可选，留空则自动计算）
+
+  - column: 3
+    name: last_evaluation_score
+    label: 末次评价得分
+    type: decimal
+    required: false
+    validators:
+      - type: range
+        min: 0
+        max: 100
+    help_text: 末次评价得分，权重60%
+
+  - column: -1
+    name: remarks
+    label: 备注
+    type: text
+    required: false
+    help_text: 其他备注信息
+
+# 动态字段识别规则
+dynamic_fields:
+  # 年度评价字段识别
+  annual_scores:
+    pattern: "^(\\d{4})年度评价得分$"
+    type: decimal
+    validators:
+      - type: range
+        min: 0
+        max: 100
+      - type: year_range
+        min: 2000
+        max: 2100
+    help_text: "年度评价得分，格式: {年份}年度评价得分"
+    storage_field: annual_scores
+    key_format: "{year}"
+
+  # 不定期评价字段识别
+  irregular_scores:
+    pattern: "^第(\\d+)次不定期评价得分$"
+    type: decimal
+    validators:
+      - type: range
+        min: 0
+        max: 100
+      - type: index_range
+        min: 1
+        max: 100
+    help_text: "不定期评价得分，格式: 第{次数}次不定期评价得分"
+    storage_field: irregular_scores
+    key_format: "{index}"
+
+# 示例数据
+examples:
+  - description: "完整示例（包含多个年度）"
+    data:
+      序号: 1
+      合同序号: "HT2025001"
+      履约综合评价得分: ""
+      末次评价得分: 90.0
+      2019年度评价得分: 85.0
+      2020年度评价得分: 88.0
+      2023年度评价得分: 87.5
+      2025年度评价得分: 90.0
+      第1次不定期评价得分: 86.0
+      第2次不定期评价得分: 89.0
+      备注: "表现优秀"
+
+  - description: "最小示例（仅必填字段）"
+    data:
+      序号: 2
+      合同序号: "HT2025002"
+      履约综合评价得分: 85.0
+      末次评价得分: 85.0
+      备注: ""
+
+  - description: "跨年度示例（不连续年份）"
+    data:
+      序号: 3
+      合同序号: "HT2025003"
+      履约综合评价得分: ""
+      末次评价得分: 88.0
+      2019年度评价得分: 82.0
+      2025年度评价得分: 90.0
+      2026年度评价得分: 91.0
+      备注: "跨年度项目"

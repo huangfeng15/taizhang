@@ -291,3 +291,4 @@ Project (项目)
 - PyMuPDF==1.24.14 + pdfplumber==0.11.4（PDF处理）
 - PyYAML==6.0.3（配置管理）
 - cryptography==44.0.0（HTTPS支持）
+- 用户没有要求时不提交git变更。
