@@ -199,6 +199,20 @@ class SupplierInterviewForm(forms.ModelForm):
 class SupplierEvaluationForm(forms.ModelForm):
     """供应商履约评价编辑表单"""
     
+    contract = forms.ModelChoiceField(
+        queryset=Contract.objects.all(),
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-control smart-selector',
+            'data-url': '/api/contracts/',
+            'data-search-fields': 'contract_code,contract_name,contract_sequence',
+            'data-display-format': '{contract_sequence} - {contract_name}',
+            'data-placeholder': '搜索合同编号、序号或名称...',
+        }),
+        label='关联合同',
+        help_text='该评价对应的合同（对应CSV的"合同序号"列）'
+    )
+    
     class Meta:
         model = SupplierEvaluation
         fields = [
@@ -218,7 +232,6 @@ class SupplierEvaluationForm(forms.ModelForm):
             'remarks',
         ]
         widgets = {
-            'contract': forms.HiddenInput(),  # 合同字段将通过智能选择器渲染
             'supplier_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入供应商名称',

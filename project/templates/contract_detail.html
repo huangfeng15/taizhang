@@ -22,7 +22,7 @@
 <!-- 操作按钮 -->
 <div class="card" style="margin-bottom: 20px;">
     <div style="display: flex; gap: 10px; padding: 16px;">
-        <a href="{% url 'contract_list' %}" class="btn btn-secondary">
+        <a href="{% if request.GET.return_url %}{{ request.GET.return_url }}{% else %}{% url 'contract_list' %}{% endif %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i>
             返回列表
         </a>

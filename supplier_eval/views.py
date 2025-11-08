@@ -165,11 +165,11 @@ def supplier_contract_list(request):
     """
     # 获取筛选参数
     search_query = request.GET.get('q', '')
-    supplier_name = request.GET.get('supplier_name', '')
-    contract_status = request.GET.get('contract_status', '')  # ongoing/settled/all
+    supplier_name = request.GET.get('supplier_name') or request.GET.get('supplier', '')
+    contract_status = request.GET.get('contract_status') or request.GET.get('status', '')
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
-    
+
     # 如果没有指定供应商,显示汇总列表
     if not supplier_name and not search_query:
         # 获取所有供应商汇总
@@ -182,6 +182,7 @@ def supplier_contract_list(request):
         context = {
             'page_title': '供应商承接项目查询',
             'suppliers': page_obj,
+            'contracts': page_obj,
             'page_obj': page_obj,
             'is_summary_view': True,
             'search_query': search_query,

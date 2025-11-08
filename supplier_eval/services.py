@@ -50,7 +50,7 @@ class SupplierAnalysisService:
             total_contracts=Count('contract_code'),
             ongoing_contracts=Count(
                 'contract_code',
-                filter=Q(settlement__isnull=True)  # 未结算的合同
+                filter=Q(settlement__isnull=True) & ~Q(payments__is_settled=True)  # 未结算的合同（排除Settlement表和Payment表中标记为已结算的）
             )
         ).order_by('-total_contracts')
         
@@ -155,7 +155,10 @@ class SupplierAnalysisService:
             payment_ratio = contract.get_payment_ratio()
             
             # 判断是否在执行中
-            is_ongoing = not hasattr(contract, 'settlement') or contract.settlement is None
+            # 检查两个条件：1. Settlement表中没有记录  2. Payment表中没有标记为已结算的记录
+            has_settlement_record = hasattr(contract, 'settlement') and contract.settlement is not None
+            has_settled_payment = contract.payments.filter(is_settled=True).exists()
+            is_ongoing = not (has_settlement_record or has_settled_payment)
             
             # 补充协议数量
             supplement_count = contract.supplements.count()

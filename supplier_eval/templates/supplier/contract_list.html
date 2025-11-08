@@ -162,8 +162,19 @@ e{% extends 'base.html' %}
     <div class="card-header">
         <h2 class="card-title">
             <i class="fas fa-list"></i>
-            承接合同列表
+            {% if not is_summary_view %}
+            供应商承接合同详情
+            {% else %}
+            供应商承接合同列表
+            {% endif %}
         </h2>
+        {% if not is_summary_view %}
+        <a href="{% url 'supplier_eval:supplier_contract_list' %}{% if request.GET.global_year %}?global_year={{ request.GET.global_year }}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% endif %}"
+           class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            返回汇总列表
+        </a>
+        {% endif %}
     </div>
     
     {% if contracts %}
@@ -173,6 +184,7 @@ e{% extends 'base.html' %}
                 <tr>
                     <th data-column="row_number">序号</th>
                     <th data-column="supplier_name">供应商名称</th>
+                    {% if not is_summary_view %}
                     <th data-column="contract_code">合同编号</th>
                     <th data-column="contract_name">合同名称</th>
                     <th data-column="project">所属项目</th>
@@ -182,12 +194,38 @@ e{% extends 'base.html' %}
                     <th data-column="status">状态</th>
                     <th data-column="signing_date">签订日期</th>
                     <th data-column="operations">操作</th>
+                    {% else %}
+                    <th data-column="total_contracts">承接合同数</th>
+                    <th data-column="ongoing_contracts">在执行</th>
+                    <th data-column="total_amount">合同总金额(万元)</th>
+                    <th data-column="total_paid">累计付款(万元)</th>
+                    <th data-column="avg_score">平均评分</th>
+                    <th data-column="operations">操作</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for item in contracts %}
                 <tr>
                     <td data-column="row_number">{{ forloop.counter }}</td>
+                    {% if is_summary_view %}
+                    <td data-column="supplier_name" style="font-weight: 600;">
+                        {{ item.party_b }}
+                    </td>
+                    <td data-column="total_contracts">{{ item.total_contracts }}</td>
+                    <td data-column="ongoing_contracts">{{ item.ongoing_contracts }}</td>
+                    <td data-column="total_amount">{{ item.total_amount|floatformat:2 }}</td>
+                    <td data-column="total_paid">{{ item.total_paid|floatformat:2 }}</td>
+                    <td data-column="avg_score">
+                        {% if item.avg_score %}{{ item.avg_score }}{% else %}-{% endif %}
+                    </td>
+                    <td data-column="operations">
+                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ item.party_b|urlencode }}{% if request.GET.global_year %}&global_year={{ request.GET.global_year }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
+                            <i class="fas fa-eye"></i>
+                            查看合同
+                        </a>
+                    </td>
+                    {% else %}
                     <td data-column="supplier_name" style="font-weight: 600;">
                         {{ item.contract.party_b }}
                     </td>
@@ -199,7 +237,7 @@ e{% extends 'base.html' %}
                     </td>
                     <td data-column="project">
                         {% if item.contract.project %}
-                            <a href="{% url 'project_detail' item.contract.project.project_code %}" 
+                            <a href="{% url 'project_detail' item.contract.project.project_code %}"
                                style="color: var(--primary-color); text-decoration: none;">
                                 {{ item.contract.project.project_name }}
                             </a>
@@ -208,9 +246,9 @@ e{% extends 'base.html' %}
                         {% endif %}
                     </td>
                     <td data-column="contract_amount">
-                        {% if item.contract_amount %}
+                        {% if item.contract_total_amount %}
                             <span style="font-weight: 600;">
-                                {{ item.contract_amount|floatformat:2 }}
+                                {{ item.contract_total_amount|floatformat:2 }}
                             </span>
                         {% else %}
                             -
@@ -228,7 +266,7 @@ e{% extends 'base.html' %}
                     <td data-column="payment_ratio" style="min-width: 150px;">
                         {% if item.payment_ratio > 0 %}
                             <div class="progress-bar-container">
-                                <div class="progress-bar-fill {% if item.payment_ratio >= 90 %}high{% elif item.payment_ratio >= 70 %}medium{% endif %}" 
+                                <div class="progress-bar-fill {% if item.payment_ratio >= 90 %}high{% elif item.payment_ratio >= 70 %}medium{% endif %}"
                                      style="width: {{ item.payment_ratio }}%;">
                                     {{ item.payment_ratio|floatformat:1 }}%
                                 </div>
@@ -258,12 +296,13 @@ e{% extends 'base.html' %}
                         {{ item.contract.signing_date|default:"-" }}
                     </td>
                     <td data-column="operations">
-                        <a href="{% url 'contract_detail' item.contract.contract_code %}" 
+                        <a href="{% url 'contract_detail' item.contract.contract_code %}?return_url={% url 'supplier_eval:supplier_contract_list' %}?supplier={{ supplier_name|urlencode }}{% if request.GET.global_year %}&global_year={{ request.GET.global_year }}{% endif %}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}"
                            class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-eye"></i>
                             查看详情
                         </a>
                     </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
