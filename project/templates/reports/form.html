@@ -171,23 +171,14 @@
     }
     
     .report-form-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
         margin-bottom: 20px;
     }
-    
+
     .report-form-header h1 {
         margin: 0;
         font-size: 28px;
         font-weight: 700;
         color: #2c3e50;
-    }
-    
-    .report-form-header__filters {
-        display: flex;
-        justify-content: flex-end;
     }
 </style>
 {% endblock %}
@@ -229,25 +220,6 @@
 <div class="report-form-container">
     <div class="report-form-header">
         <h1>📊 报表生成</h1>
-        <div class="report-form-header__filters">
-            <div class="monitoring-filter">
-                <label class="monitoring-filter__label" for="reportYearSelect">年份： </label>
-                <select id="reportYearSelect" class="form-control form-control-sm filter-select monitoring-filter__select monitoring-filter__select--year">
-                    <option value="all">全部年度</option>
-                    {% for year in available_years %}
-                    <option value="{{ year }}" {% if year == global_selected_year %}selected{% endif %}>{{ year }}年</option>
-                    {% endfor %}
-                </select>
-                
-                <label class="monitoring-filter__label" for="reportProjectSelect">项目： </label>
-                <select id="reportProjectSelect" class="form-control form-control-sm filter-select monitoring-filter__select monitoring-filter__select--project">
-                    <option value="">全部项目</option>
-                    {% for project in selected_projects %}
-                    <option value="{{ project.project_code }}" {% if project.project_code == global_selected_project %}selected{% endif %}>{{ project.project_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
     </div>
     
     <div class="info-box">
@@ -262,10 +234,7 @@
     
     <form method="post" id="reportForm">
         {% csrf_token %}
-        
-        <!-- 隐藏字段：传递筛选参数 -->
-        <input type="hidden" name="project" id="hiddenProject" value="">
-        
+
         <div class="form-card">
             <h3 style="margin-bottom: 20px;">1️⃣ 选择报表类型</h3>
             
@@ -470,26 +439,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0];
         targetDateInput.value = dateStr;
-    }
-    
-    // 同步筛选器的项目参数到隐藏字段
-    function syncFilterToHiddenField() {
-        const projectSelect = document.getElementById('reportProjectSelect');
-        const hiddenProject = document.getElementById('hiddenProject');
-        if (projectSelect && hiddenProject) {
-            hiddenProject.value = projectSelect.value;
-        }
-    }
-    
-    // 初始化同步
-    syncFilterToHiddenField();
-    
-    // 监听筛选器变化
-    const projectSelect = document.getElementById('reportProjectSelect');
-    if (projectSelect) {
-        projectSelect.addEventListener('change', function() {
-            syncFilterToHiddenField();
-        });
     }
     
     // 处理表单提交 - 使用fetch下载文件
