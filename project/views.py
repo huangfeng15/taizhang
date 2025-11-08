@@ -2624,7 +2624,7 @@ def ranking_view(request):
     from datetime import datetime
     
     # Parse year and start-date filters
-    current_year = datetime.now().year
+    current_year = get_current_year()
     selected_year = request.GET.get('year', '')
     ranking_type = request.GET.get('type', 'comprehensive')
     rank_by = request.GET.get('rank_by', 'project')  # project/person
@@ -2739,7 +2739,7 @@ def generate_report(request):
     
     if request.method == 'GET':
         # 显示报表生成表单
-        current_year = datetime.now().year
+        current_year = get_current_year()
         current_month = datetime.now().month
         current_quarter = (current_month - 1) // 3 + 1
         
@@ -2779,7 +2779,7 @@ def generate_report(request):
         else:
             project_codes = [project_param] if project_param else None
         
-        year = int(request.POST.get('year', datetime.now().year))
+        year = int(request.POST.get('year', get_current_year()))
         month = int(request.POST.get('month', datetime.now().month))
         quarter = int(request.POST.get('quarter', 1))
         
@@ -2919,7 +2919,7 @@ def report_preview(request):
     try:
         # 获取报表类型和参数
         report_type = request.GET.get('report_type', 'monthly')
-        year = int(request.GET.get('year', datetime.now().year))
+        year = int(request.GET.get('year', get_current_year()))
         month = int(request.GET.get('month', datetime.now().month))
         quarter = int(request.GET.get('quarter', 1))
         
@@ -2978,7 +2978,7 @@ def report_export(request):
     try:
         # 获取报表类型和参数
         report_type = request.GET.get('report_type', 'monthly')
-        year = int(request.GET.get('year', datetime.now().year))
+        year = int(request.GET.get('year', get_current_year()))
         month = int(request.GET.get('month', datetime.now().month))
         quarter = int(request.GET.get('quarter', 1))
         
@@ -3041,10 +3041,12 @@ def report_export(request):
 
 def monitoring_cockpit(request):
     """综合监测驾驶舱"""
+    from project.constants import BASE_YEAR
+
     year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
 
     year_filter = year_context['year_filter']
-    start_date = date(year_filter, 1, 1) if year_filter else date(2019, 1, 1)
+    start_date = date(year_filter, 1, 1) if year_filter else date(BASE_YEAR, 1, 1)
 
     archive_service = ArchiveMonitorService(year=year_filter, project_codes=project_filter)
     archive_overview = archive_service.get_archive_overview()
@@ -3209,7 +3211,7 @@ def generate_professional_report(request):
     
     if request.method == 'GET':
         # 显示报表生成表单
-        current_year = datetime.now().year
+        current_year = get_current_year()
         current_month = datetime.now().month
         current_quarter = (current_month - 1) // 3 + 1
         
@@ -3247,7 +3249,7 @@ def generate_professional_report(request):
                 project_codes = None
         
         report_type = request.POST.get('report_type', 'monthly')
-        year = int(request.POST.get('year', datetime.now().year))
+        year = int(request.POST.get('year', get_current_year()))
         month = int(request.POST.get('month', datetime.now().month))
         quarter = int(request.POST.get('quarter', 1))
         
@@ -3307,156 +3309,6 @@ def generate_professional_report(request):
         return redirect('generate_professional_report')
 
 
-# ==================== 高级综合报告生成功能 ====================
-
-@require_http_methods(['GET', 'POST'])
-def generate_comprehensive_report(request):
-    """
-    生成综合详细报告（年度总结、部门总结等）
-    使用新的AdvancedReportGenerator和comprehensive_word_exporter
-    """
-    from project.services.report_generator_unified import (
-        AnnualReportGenerator,
-        ReportGenerator,
-        export_comprehensive_word_report,
-    )
-    from datetime import datetime, date
-    import os
-    import tempfile
-    
-    if request.method == 'GET':
-        # 显示报表生成表单
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        
-        # 获取全局筛选参数
-        global_filters = _resolve_global_filters(request)
-        
-        # 获取所有项目用于多选
-        projects = Project.objects.all().order_by('project_name')
-        
-        context = {
-            'page_title': '综合报告生成',
-            'current_year': current_year,
-            'current_month': current_month,
-            'available_years': get_year_range(include_future=True),
-            'available_months': list(range(1, 13)),
-            'projects': projects,
-            'selected_projects': global_filters['project_list'],
-            'global_selected_year': global_filters['year_value'],
-            'global_selected_project': global_filters['project'],
-        }
-        return render(request, 'reports/comprehensive_form.html', context)
-    
-    # POST请求 - 生成并导出Word报告
-    try:
-        # 获取报告类型
-        report_type = request.POST.get('report_type', 'annual')  # annual/department/custom
-        
-        # 获取项目筛选参数（支持多选）
-        project_codes = request.POST.getlist('projects')
-        if not project_codes:
-            project_param = request.POST.get('project', '').strip()
-            project_codes = [project_param] if project_param else None
-        else:
-            project_codes = [p for p in project_codes if p]  # 过滤空值
-            if not project_codes:
-                project_codes = None
-        
-        year = int(request.POST.get('year', datetime.now().year))
-        
-        # 根据报表类型生成数据
-        if report_type == 'annual':
-            # 年度综合报告
-            generator = AnnualComprehensiveReportGenerator(year, project_codes=project_codes)
-        elif report_type == 'department':
-            # 部门总结报告
-            department_name = request.POST.get('department_name', '采购部门')
-            
-            # 根据选择确定时间范围
-            period_type = request.POST.get('period_type', 'year')  # month/quarter/year
-            
-            if period_type == 'month':
-                month = int(request.POST.get('month', datetime.now().month))
-                start_date = date(year, month, 1)
-                if month == 12:
-                    end_date = date(year, 12, 31)
-                else:
-                    from calendar import monthrange
-                    end_date = date(year, month, monthrange(year, month)[1])
-            elif period_type == 'quarter':
-                quarter = int(request.POST.get('quarter', 1))
-                start_month = (quarter - 1) * 3 + 1
-                start_date = date(year, start_month, 1)
-                end_month = start_month + 2
-                if end_month == 12:
-                    end_date = date(year, 12, 31)
-                else:
-                    from calendar import monthrange
-                    end_date = date(year, end_month, monthrange(year, end_month)[1])
-            else:  # year
-                start_date = date(year, 1, 1)
-                end_date = date(year, 12, 31)
-            
-            generator = DepartmentReportGenerator(start_date, end_date, department_name)
-        else:
-            # 自定义时间范围
-            start_date_str = request.POST.get('start_date')
-            end_date_str = request.POST.get('end_date')
-            
-            if not start_date_str or not end_date_str:
-                messages.error(request, '请提供开始和结束日期')
-                return redirect('generate_comprehensive_report')
-            
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            
-            generator = AdvancedReportGenerator(start_date, end_date, project_codes=project_codes)
-        
-        # 生成报表数据
-        report_data = generator.generate_comprehensive_report()
-        
-        # 创建临时文件
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.docx', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-        
-        try:
-            # 导出为Word文档
-            export_comprehensive_word_report(report_data, tmp_path)
-            
-            # 验证文件是否生成成功
-            if not os.path.exists(tmp_path) or os.path.getsize(tmp_path) == 0:
-                raise Exception('Word文档生成失败，文件为空或不存在')
-            
-            # 读取文件内容
-            with open(tmp_path, 'rb') as f:
-                word_content = f.read()
-            
-            # 生成文件名
-            meta = report_data.get('meta', {})
-            report_title = meta.get('report_title', '工作报告')
-            filename = f"{report_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-            
-            # 返回Word文件
-            response = HttpResponse(
-                word_content,
-                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            )
-            # 使用URL编码确保中文文件名正确显示
-            from urllib.parse import quote
-            encoded_filename = quote(filename.encode('utf-8'))
-            response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{encoded_filename}'
-            return response
-        finally:
-            # 清理临时文件
-            try:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-            except Exception:
-                pass  # 忽略清理错误
-    except Exception as e:
-        messages.error(request, f'生成报告失败: {str(e)}')
-        return redirect('generate_comprehensive_report')
 
 
 # ==================== 前端编辑功能 ====================

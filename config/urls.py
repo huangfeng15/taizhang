@@ -42,8 +42,7 @@ urlpatterns = [
     path('reports/preview/', views.report_preview, name='report_preview'),
     path('reports/export/', views.report_export, name='report_export'),
     path('reports/professional/', views.generate_professional_report, name='generate_professional_report'),
-    path('reports/comprehensive/', views.generate_comprehensive_report, name='generate_comprehensive_report'),
-    
+
     # 级联选择器数据API
     path('api/projects/', views.api_projects_list, name='api_projects_list'),
     path('api/procurements/', views.api_procurements_list, name='api_procurements_list'),
