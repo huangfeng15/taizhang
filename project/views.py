@@ -3196,13 +3196,13 @@ def generate_professional_report(request):
     支持周报、月报、季报、年报，支持单个/多个项目
     导出Word文档格式
     """
-    from project.services.professional_report_generator import (
+    from project.services.report_generator_unified import (
         WeeklyReportGenerator,
         MonthlyReportGenerator,
         QuarterlyReportGenerator,
         AnnualReportGenerator,
+        export_to_word_professional,
     )
-    from project.services.word_exporter import export_to_word_professional
     from datetime import datetime, date
     import os
     import tempfile
@@ -3315,12 +3315,11 @@ def generate_comprehensive_report(request):
     生成综合详细报告（年度总结、部门总结等）
     使用新的AdvancedReportGenerator和comprehensive_word_exporter
     """
-    from project.services.advanced_report_generator import (
-        AnnualComprehensiveReportGenerator,
-        DepartmentReportGenerator,
-        AdvancedReportGenerator
+    from project.services.report_generator_unified import (
+        AnnualReportGenerator,
+        ReportGenerator,
+        export_comprehensive_word_report,
     )
-    from project.services.comprehensive_word_exporter import export_comprehensive_word_report
     from datetime import datetime, date
     import os
     import tempfile
