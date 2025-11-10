@@ -2170,93 +2170,114 @@ from django.contrib.auth.decorators import login_required
 
 
 def archive_monitor(request):
-    """归档监控 - 问题列表视图（重构版，支持项目视图和个人视图）"""
-    from project.services.monitors.archive_problem_detector import ArchiveProblemDetector
+    """归档监控 - 支持项目视图和个人视图（完全重构版）"""
     from project.services.monitors.archive_statistics import ArchiveStatisticsService
     from project.services.monitors.config import SEVERITY_CONFIG
 
-    # 解析筛选参数
+    # 1. 解析全局筛选参数
     global_filters = _resolve_global_filters(request)
-    view_mode = request.GET.get('view_mode', 'project')  # 视图模式：project/person
+    view_mode = request.GET.get('view_mode', 'project')  # 默认项目视图
     target_code = request.GET.get('target_code', '')  # 项目编码或经办人姓名
     show_all = request.GET.get('show_all', '') == 'true'  # 是否显示所有记录
 
-    # 构建筛选条件（包含年度筛选）
-    filters = {}
-    if global_filters['year_filter']:
-        filters['year_filter'] = global_filters['year_filter']
+    # 2. 初始化服务
+    stats_service = ArchiveStatisticsService()
 
-    # 根据视图模式设置筛选条件
-    if view_mode == 'project' and target_code:
-        filters['project'] = target_code
-    elif view_mode == 'person' and target_code:
-        filters['responsible_person'] = target_code
-        # 个人视图下，全局项目筛选仍然生效
-        if global_filters['project']:
-            filters['project'] = global_filters['project']
-    else:
-        # 未选择目标时，使用全局项目筛选
-        if global_filters['project']:
-            filters['project'] = global_filters['project']
-
-    # 构建返回URL（当前页面的完整URL）
-    return_url = request.get_full_path()
-
-    # 检测归档问题
-    detector = ArchiveProblemDetector()
-    problems = detector.detect_problems(filters, return_url=return_url, show_all=show_all)
-    statistics = detector.get_statistics(problems, filters)
-
-    # 获取统计数据（仅在选择了目标时）
-    archive_stats = None
-    if target_code:
-        stats_service = ArchiveStatisticsService()
-        if view_mode == 'project':
-            archive_stats = stats_service.get_project_statistics(
-                project_code=target_code,
-                year_filter=global_filters['year_filter'],
-                global_project=global_filters['project']
-            )
-        elif view_mode == 'person':
-            archive_stats = stats_service.get_person_statistics(
-                person_name=target_code,
-                year_filter=global_filters['year_filter'],
-                global_project=global_filters['project']
-            )
-
-    # 获取经办人列表（用于个人视图下拉选择器）
-    person_list = []
-    if view_mode == 'person':
-        stats_service = ArchiveStatisticsService()
-        person_list = stats_service.get_person_list(
-            year_filter=global_filters['year_filter'],
-            global_project=global_filters['project']
+    # 3. 根据视图模式获取概览数据
+    overview_data = None
+    if view_mode == 'project':
+        # 项目视图：获取项目列表
+        overview_data = stats_service.get_projects_archive_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project']
+        )
+    else:  # person
+        # 个人视图：获取经办人列表
+        overview_data = stats_service.get_persons_archive_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project']
         )
 
-    # 获取筛选配置（用于全局筛选组件）
-    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
+    # 4. 如果选择了目标，获取详细数据（趋势图 + 超期记录）
+    detail_data = None
+    if target_code:
+        if view_mode == 'project':
+            detail_data = stats_service.get_project_trend_and_problems(
+                project_code=target_code,
+                year_filter=global_filters['year_value'],
+                show_all=show_all,
+            )
+        else:
+            detail_data = stats_service.get_person_trend_and_problems(
+                person_name=target_code,
+                year_filter=global_filters['year_value'],
+                project_filter=global_filters['project'],
+                show_all=show_all,
+            )
 
-    # 将趋势数据转换为JSON格式
+    # 5. 构建多序列趋势数据（用于多人/多项目趋势图）
+    all_persons_data = None
+    multi_trend = None
+    if view_mode == 'person':
+        all_persons_data = stats_service.get_all_persons_trend_and_problems(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project']
+        )
+        multi_trend = stats_service.get_persons_multi_trend(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            top_n=10,
+        )
+    else:
+        if global_filters['project']:
+            multi_trend = stats_service.get_project_officers_multi_trend(
+                project_code=global_filters['project'],
+                year_filter=global_filters['year_value'],
+                top_n=10,
+            )
+        else:
+            multi_trend = stats_service.get_projects_multi_trend(
+                year_filter=global_filters['year_value'],
+                top_n=10,
+            )
+
+    # 6. 获取筛选配置（用于全局筛选组件）
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
+
+    # 7. 将趋势数据转换为JSON格式（用于Chart.js）
     trend_data_json = {}
-    if archive_stats:
+    # 以非空判断而非真值判断，避免空字典时不渲染趋势图数据
+    if detail_data is not None:
         trend_data_json = {
-            'procurement': archive_stats.get('procurement_trend', []),
-            'contract': archive_stats.get('contract_trend', [])
+            'procurement': detail_data.get('procurement_trend', []),
+            'contract': detail_data.get('contract_trend', [])
         }
+    
+    # 个人视图汇总趋势数据
+    all_persons_trend_json = {}
+    if all_persons_data:
+        all_persons_trend_json = {
+            'procurement': all_persons_data.get('procurement_trend', []),
+            'contract': all_persons_data.get('contract_trend', [])
+        }
+    multi_trend_json = json.dumps(multi_trend or {}, ensure_ascii=False)
 
+    # 8. 构建上下文
     context = {
-        'problems': problems,
-        'statistics': statistics,
-        'archive_stats': archive_stats,  # 归档统计数据
-        'trend_data_json': json.dumps(trend_data_json),  # JSON格式的趋势数据
-        'severity_config': SEVERITY_CONFIG,
+        'page_title': '归档监控',
         'view_mode': view_mode,
         'target_code': target_code,
-        'person_list': person_list,
+        'overview_data': overview_data,
+        'detail_data': detail_data,
+        'all_persons_data': all_persons_data,
         'show_all': show_all,
-        'page_title': '归档监控',
+        'trend_data_json': json.dumps(trend_data_json, ensure_ascii=False),
+        'all_persons_trend_json': json.dumps(all_persons_trend_json, ensure_ascii=False),
+        'multi_trend_json': multi_trend_json,
+        'severity_config': SEVERITY_CONFIG,
         'filter_config': filter_config,
     }
+
     return render(request, 'monitoring/archive.html', context)
 def update_monitor(request):
     """更新监控 - 问题列表视图（重构版）"""
