@@ -317,6 +317,9 @@ class Procurement(BaseModel):
             models.Index(fields=['bid_opening_date']),
             models.Index(fields=['result_publicity_release_date']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['procurement_officer']),
+            models.Index(fields=['archive_date']),
+            models.Index(fields=['project', 'procurement_officer']),
         ]
 
     def clean(self):

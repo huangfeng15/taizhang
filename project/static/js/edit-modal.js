@@ -423,13 +423,21 @@ class EditModal {
             if (data.success) {
                 // 成功提示
                 this.showSuccess(data.message || '保存成功');
-                
+
                 // 关闭模态框
                 this.modal.hide();
 
-                // 刷新页面以显示更新后的数据
+                // 检查URL中是否有return_url参数
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnUrl = urlParams.get('return_url');
+
+                // 如果有return_url，跳转到该URL；否则刷新当前页面
                 setTimeout(() => {
-                    window.location.reload();
+                    if (returnUrl) {
+                        window.location.href = returnUrl;
+                    } else {
+                        window.location.reload();
+                    }
                 }, 500);
             } else {
                 // 显示详细的错误信息

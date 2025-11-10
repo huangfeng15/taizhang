@@ -5,6 +5,7 @@ from django.urls import path, include
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from project import views
+from project.views_workload import workload_statistics_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -38,6 +39,9 @@ urlpatterns = [
     path('monitoring/completeness/', views.completeness_check, name='completeness_check'),
     path('monitoring/statistics/', views.statistics_view, name='statistics_view'),
     path('monitoring/ranking/', views.ranking_view, name='ranking_view'),
+    path('monitoring/workload/', workload_statistics_view, name='workload_statistics'),
+    path('monitoring/completeness/field-config/', views.completeness_field_config, name='completeness_field_config'),
+    path('api/completeness/field-config/update/', views.update_completeness_field_config, name='update_completeness_field_config'),
     path('reports/generate/', views.generate_report, name='generate_report'),
     path('reports/preview/', views.report_preview, name='report_preview'),
     path('reports/export/', views.report_export, name='report_export'),

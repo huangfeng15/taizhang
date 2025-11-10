@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}完整率字段配置{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .model-tabs {
+        margin-bottom: 20px;
+    }
+    .field-list {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .field-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s;
+    }
+    .field-item:hover {
+        background-color: #f8f9fa;
+    }
+    .field-item:last-child {
+        border-bottom: none;
+    }
+    .field-checkbox {
+        margin-right: 15px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    .field-label {
+        flex: 1;
+        font-size: 14px;
+        color: #333;
+    }
+    .field-name {
+        color: #6c757d;
+        font-size: 12px;
+        font-family: monospace;
+        margin-left: 10px;
+    }
+    .action-buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    .stats-info {
+        background: #e7f3ff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .select-all-container {
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>完整率字段配置</h2>
+        <a href="{% url 'completeness_check' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回齐全性检查
+        </a>
+    </div>
+
+    <div class="stats-info">
+        <div class="row">
+            <div class="col-md-6">
+                <strong>采购字段数量：</strong> {{ procurement_count }} 个
+            </div>
+            <div class="col-md-6">
+                <strong>合同字段数量：</strong> {{ contract_count }} 个
+            </div>
+        </div>
+    </div>
+
+    <!-- 模型类型切换 -->
+    <ul class="nav nav-tabs model-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if model_type == 'procurement' %}active{% endif %}"
+               href="?model_type=procurement">
+                采购字段配置
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if model_type == 'contract' %}active{% endif %}"
+               href="?model_type=contract">
+                合同字段配置
+            </a>
+        </li>
+    </ul>
+
+    <!-- 字段列表 -->
+    <div class="field-list">
+        <div class="select-all-container">
+            <label>
+                <input type="checkbox" id="selectAll" class="field-checkbox">
+                <strong>全选/取消全选</strong>
+            </label>
+            <span class="text-muted ms-3">勾选的字段将纳入完整率统计</span>
+        </div>
+
+        <form id="configForm">
+            {% csrf_token %}
+            <input type="hidden" name="model_type" value="{{ model_type }}">
+
+            {% for config in configs %}
+            <div class="field-item">
+                <input type="checkbox"
+                       class="field-checkbox field-enable-checkbox"
+                       name="field_{{ config.field_name }}"
+                       data-field-name="{{ config.field_name }}"
+                       {% if config.is_enabled %}checked{% endif %}>
+                <span class="field-label">
+                    {{ config.field_label }}
+                    <span class="field-name">({{ config.field_name }})</span>
+                </span>
+            </div>
+            {% endfor %}
+        </form>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <button type="button" class="btn btn-primary" id="saveBtn">
+            <i class="bi bi-save"></i> 保存配置
+        </button>
+        <button type="button" class="btn btn-secondary" id="resetBtn">
+            <i class="bi bi-arrow-counterclockwise"></i> 重置
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const fieldCheckboxes = document.querySelectorAll('.field-enable-checkbox');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const modelType = '{{ model_type }}';
+
+    // 全选/取消全选
+    selectAllCheckbox.addEventListener('change', function() {
+        fieldCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+    // 更新全选状态
+    function updateSelectAllState() {
+        const allChecked = Array.from(fieldCheckboxes).every(cb => cb.checked);
+        const someChecked = Array.from(fieldCheckboxes).some(cb => cb.checked);
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = someChecked && !allChecked;
+    }
+
+    fieldCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAllState);
+    });
+
+    // 初始化全选状态
+    updateSelectAllState();
+
+    // 保存配置
+    saveBtn.addEventListener('click', async function() {
+        const fields = [];
+        fieldCheckboxes.forEach(checkbox => {
+            fields.push({
+                field_name: checkbox.dataset.fieldName,
+                is_enabled: checkbox.checked
+            });
+        });
+
+        try {
+            const response = await fetch('{% url "update_completeness_field_config" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    model_type: modelType,
+                    fields: fields
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert('配置保存成功！');
+                // 可选：刷新页面或显示成功提示
+            } else {
+                alert('保存失败：' + result.message);
+            }
+        } catch (error) {
+            console.error('保存配置失败:', error);
+            alert('保存失败，请稍后重试');
+        }
+    });
+
+    // 重置配置
+    resetBtn.addEventListener('click', function() {
+        if (confirm('确定要重置配置吗？这将恢复到页面加载时的状态。')) {
+            location.reload();
+        }
+    });
+});
+</script>
+{% endblock %}

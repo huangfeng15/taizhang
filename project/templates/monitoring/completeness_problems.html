@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ page_title }}</h2>
+        <div class="text-muted">
+            <i class="fas fa-filter"></i>
+            当前筛选：{{ filter_config.display_year|default:"全部年度" }}
+            {% if filter_config.selected_project_value %}· {{ filter_config.selected_project_value }}{% else %}· 全部项目{% endif %}
+        </div>
+    </div>
+
+    <!-- KPI卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">采购齐全率</h5>
+                    <h2 class="text-primary">{{ statistics.procurement_rate }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">合同齐全率</h5>
+                    <h2 class="text-success">{{ statistics.contract_rate }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">关联异常</h5>
+                    <h2 class="text-danger">{{ statistics.anomaly_count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">项目</label>
+                    <input type="text" name="project" class="form-control" value="{{ selected_project }}" placeholder="项目编码">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">经办人</label>
+                    <input type="text" name="responsible_person" class="form-control" value="{{ selected_person }}" placeholder="经办人姓名">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="show_all" value="true" id="showAllCheck" {% if show_all %}checked{% endif %}>
+                        <label class="form-check-label" for="showAllCheck">
+                            显示所有记录
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">筛选</button>
+                    <a href="{% url 'completeness_check' %}" class="btn btn-secondary">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 采购不完整记录 -->
+    {% if problems.procurement_incomplete %}
+    <div class="card mb-3">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">📋 采购不完整记录 - {{ problems.procurement_incomplete|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>业务编码</th>
+                            <th>项目名称</th>
+                            <th>采购名称</th>
+                            <th>经办人</th>
+                            <th>完整率</th>
+                            <th>缺失字段</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in problems.procurement_incomplete %}
+                        <tr>
+                            <td><code>{{ item.code }}</code></td>
+                            <td>{{ item.project_name }}</td>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.responsible_person|default:"-" }}</td>
+                            <td><span class="badge bg-warning">{{ item.completeness_rate }}%</span></td>
+                            <td><small class="text-danger">{{ item.missing_fields }}</small></td>
+                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 合同不完整记录 -->
+    {% if problems.contract_incomplete %}
+    <div class="card mb-3">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">📋 合同不完整记录 - {{ problems.contract_incomplete|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>合同序号</th>
+                            <th>合同编码</th>
+                            <th>合同名称</th>
+                            <th>经办人</th>
+                            <th>完整率</th>
+                            <th>缺失字段</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in problems.contract_incomplete %}
+                        <tr>
+                            <td>{{ item.sequence }}</td>
+                            <td><code>{{ item.code }}</code></td>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.responsible_person|default:"-" }}</td>
+                            <td><span class="badge bg-warning">{{ item.completeness_rate }}%</span></td>
+                            <td><small class="text-danger">{{ item.missing_fields }}</small></td>
+                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 关联异常 -->
+    {% if problems.relation_anomalies %}
+    <div class="card mb-3">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">⚠️ 关联异常 - {{ problems.relation_anomalies|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>异常类型</th>
+                            <th>合同序号</th>
+                            <th>合同编码</th>
+                            <th>合同名称</th>
+                            <th>异常说明</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in problems.relation_anomalies %}
+                        <tr>
+                            <td><span class="badge bg-danger">{{ item.anomaly_type }}</span></td>
+                            <td>{{ item.sequence }}</td>
+                            <td><code>{{ item.code }}</code></td>
+                            <td>{{ item.name }}</td>
+                            <td><small>{{ item.description }}</small></td>
+                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 采购完整记录 -->
+    {% if show_all and problems.procurement_complete %}
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ 采购完整记录 - {{ problems.procurement_complete|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>业务编码</th>
+                            <th>项目名称</th>
+                            <th>采购名称</th>
+                            <th>经办人</th>
+                            <th>完整率</th>
+                            <th>缺失字段</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in problems.procurement_complete %}
+                        <tr>
+                            <td><code>{{ item.code }}</code></td>
+                            <td>{{ item.project_name }}</td>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.responsible_person|default:"-" }}</td>
+                            <td><span class="badge bg-success">{{ item.completeness_rate }}%</span></td>
+                            <td><small class="text-success">{{ item.missing_fields }}</small></td>
+                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 合同完整记录 -->
+    {% if show_all and problems.contract_complete %}
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ 合同完整记录 - {{ problems.contract_complete|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>合同序号</th>
+                            <th>合同编码</th>
+                            <th>合同名称</th>
+                            <th>经办人</th>
+                            <th>完整率</th>
+                            <th>缺失字段</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in problems.contract_complete %}
+                        <tr>
+                            <td>{{ item.sequence }}</td>
+                            <td><code>{{ item.code }}</code></td>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.responsible_person|default:"-" }}</td>
+                            <td><span class="badge bg-success">{{ item.completeness_rate }}%</span></td>
+                            <td><small class="text-success">{{ item.missing_fields }}</small></td>
+                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if statistics.procurement_incomplete_count == 0 and statistics.contract_incomplete_count == 0 and statistics.anomaly_count == 0 %}
+    <div class="alert alert-success text-center">
+        <h4>✅ 太棒了！所有记录都完整且关联正常</h4>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

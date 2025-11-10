@@ -4,7 +4,6 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/quick-actions.css' %}">
 <link rel="stylesheet" href="{% static 'css/reports-enhanced.css' %}">
 <style>
     .report-form-container {
@@ -184,39 +183,6 @@
 {% endblock %}
 
 {% block content %}
-<!-- 快捷操作区 -->
-<div class="quick-actions-container">
-    <div class="quick-actions-header">
-        <h2 class="quick-actions-title">
-            <i class="fas fa-rocket"></i>
-            快捷操作
-        </h2>
-    </div>
-    <div class="quick-actions-content">
-        <div class="quick-actions-grid">
-            <!-- 监控驾驶舱 -->
-            <a href="{% url 'monitoring_cockpit' %}" class="quick-action-card monitoring">
-                <span class="quick-action-icon">🎛️</span>
-                <h3 class="quick-action-title">监控驾驶舱</h3>
-                <p class="quick-action-description">
-                    实时监控业务数据<br>
-                    多维度分析，可视化展示
-                </p>
-            </a>
-
-            <!-- 统计分析 -->
-            <a href="{% url 'statistics_view' %}" class="quick-action-card statistics">
-                <span class="quick-action-icon">📈</span>
-                <h3 class="quick-action-title">统计分析</h3>
-                <p class="quick-action-description">
-                    查看详细的统计数据<br>
-                    支持数据导出和深度分析
-                </p>
-            </a>
-        </div>
-    </div>
-</div>
-
 <div class="report-form-container">
     <div class="report-form-header">
         <h1>📊 报表生成</h1>

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ page_title }}</h2>
+        <div class="text-muted">
+            <i class="fas fa-filter"></i>
+            当前筛选：{{ filter_config.display_year|default:"全部年度" }}
+            {% if filter_config.selected_project_value %}· {{ filter_config.selected_project_value }}{% else %}· 全部项目{% endif %}
+        </div>
+    </div>
+
+    <!-- 时间维度切换 -->
+    <div class="btn-group mb-3" role="group">
+        <a href="?time_dimension=current_month{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_person %}&responsible_person={{ selected_person }}{% endif %}"
+           class="btn btn-{% if time_dimension == 'current_month' %}primary{% else %}outline-primary{% endif %}">本月</a>
+        <a href="?time_dimension=last_month{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_person %}&responsible_person={{ selected_person }}{% endif %}"
+           class="btn btn-{% if time_dimension == 'last_month' %}primary{% else %}outline-primary{% endif %}">上月</a>
+        <a href="?time_dimension=current_year{% if selected_project %}&project={{ selected_project }}{% endif %}{% if selected_person %}&responsible_person={{ selected_person }}{% endif %}"
+           class="btn btn-{% if time_dimension == 'current_year' %}primary{% else %}outline-primary{% endif %}">本年度</a>
+    </div>
+
+    <!-- KPI卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">准时事件</h5>
+                    <h2 class="text-success">{{ statistics.on_time_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">延迟事件</h5>
+                    <h2 class="text-danger">{{ statistics.delayed_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">准时率</h5>
+                    <h2 class="text-primary">{{ statistics.on_time_rate }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">总事件数</h5>
+                    <h2 class="text-secondary">{{ statistics.total_events }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <input type="hidden" name="time_dimension" value="{{ time_dimension }}">
+                <div class="col-md-3">
+                    <label class="form-label">项目</label>
+                    <input type="text" name="project" class="form-control" value="{{ selected_project }}" placeholder="项目编码">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">经办人</label>
+                    <input type="text" name="responsible_person" class="form-control" value="{{ selected_person }}" placeholder="经办人姓名">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="show_all" value="true" id="showAllCheck" {% if show_all %}checked{% endif %}>
+                        <label class="form-check-label" for="showAllCheck">
+                            显示所有记录
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">筛选</button>
+                    <a href="?time_dimension={{ time_dimension }}" class="btn btn-secondary">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 问题列表 -->
+    {% if problems.upcoming %}
+    <div class="card mb-3">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">⚠️ 即将到期（3天内）- {{ problems.upcoming|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            {% include "monitoring/includes/update_list_table.html" with items=problems.upcoming %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if problems.delayed %}
+    <div class="card mb-3">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">🔴 已延迟 - {{ problems.delayed|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            {% include "monitoring/includes/update_list_table.html" with items=problems.delayed %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if show_all and problems.completed %}
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ 已完成 - {{ problems.completed|length }}条</h5>
+        </div>
+        <div class="card-body p-0">
+            {% include "monitoring/includes/update_list_table.html" with items=problems.completed %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if statistics.total_events == 0 %}
+    <div class="alert alert-success text-center">
+        <h4>✅ 太棒了！所有事件都已按时更新</h4>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

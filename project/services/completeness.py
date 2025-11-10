@@ -5,6 +5,7 @@
 """
 from django.db.models import Q, Count
 from project.models import Project
+from project.models_completeness_config import CompletenessFieldConfig
 from procurement.models import Procurement
 from contract.models import Contract
 from payment.models import Payment
@@ -12,57 +13,86 @@ from settlement.models import Settlement
 from project.enums import FilePositioning, ContractSource
 
 
+def get_enabled_fields(model_type):
+    """
+    获取启用的字段列表
+
+    Args:
+        model_type: 模型类型 ('procurement' 或 'contract')
+
+    Returns:
+        list: 启用的字段名列表
+    """
+    # 从数据库获取启用的字段配置
+    configs = CompletenessFieldConfig.objects.filter(
+        model_type=model_type,
+        is_enabled=True
+    ).order_by('sort_order', 'field_name')
+
+    if configs.exists():
+        return [config.field_name for config in configs]
+
+    # 如果数据库中没有配置，返回默认字段列表
+    if model_type == 'procurement':
+        return get_default_procurement_fields()
+    elif model_type == 'contract':
+        return get_default_contract_fields()
+    return []
+
+
+def get_default_procurement_fields():
+    """获取默认的采购字段列表"""
+    return [
+        'procurement_code', 'project_name', 'procurement_unit', 'procurement_category',
+        'procurement_platform', 'procurement_method', 'qualification_review_method',
+        'bid_evaluation_method', 'bid_awarding_method', 'budget_amount', 'control_price',
+        'winning_amount', 'procurement_officer', 'demand_department', 'demand_contact',
+        'winning_bidder', 'winning_contact', 'planned_completion_date', 'requirement_approval_date',
+        'announcement_release_date', 'registration_deadline', 'bid_opening_date',
+        'candidate_publicity_end_date', 'result_publicity_release_date', 'notice_issue_date',
+        'evaluation_committee', 'bid_guarantee', 'bid_guarantee_return_date',
+        'performance_guarantee', 'archive_date'
+    ]
+
+
+def get_default_contract_fields():
+    """获取默认的合同字段列表"""
+    return [
+        'contract_code', 'contract_name', 'contract_sequence', 'file_positioning',
+        'contract_type', 'contract_source', 'party_a', 'party_b',
+        'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
+        'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
+        'contract_amount', 'signing_date', 'duration', 'contract_officer',
+        'payment_method', 'performance_guarantee_return_date', 'archive_date'
+    ]
+
+
 def check_procurement_field_completeness(year=None, project_codes=None):
     """
     检查采购字段齐全性
-    按照需求文档，检查26个关键字段的填写情况
-    
+    从数据库配置读取需要检查的字段
+
     Args:
         year: 年份筛选(None表示全部年份)
         project_codes: 项目编码列表(None表示全部项目)
-    
+
     Returns:
         dict: 采购字段齐全性统计
     """
-    # 定义需要检查的26个字段
-    required_fields = [
-        'procurement_code',  # 招采编号
-        'project_name',  # 采购项目名称
-        'procurement_unit',  # 采购单位
-        'winning_bidder',  # 中标单位
-        'winning_contact',  # 中标单位联系人及方式
-        'procurement_method',  # 采购方式
-        'procurement_category',  # 采购类别
-        'budget_amount',  # 采购预算金额(元)
-        'control_price',  # 采购控制价（元）
-        'winning_amount',  # 中标金额（元）
-        'planned_completion_date',  # 计划结束采购时间
-        'candidate_publicity_end_date',  # 候选人公示结束时间
-        'result_publicity_release_date',  # 结果公示发布时间
-        'notice_issue_date',  # 中标通知书发放日期
-        'procurement_officer',  # 采购经办人
-        'demand_department',  # 需求部门
-        'demand_contact',  # 申请人联系电话（需求部门）
-        'requirement_approval_date',  # 采购需求书审批完成日期（OA）
-        'procurement_platform',  # 采购平台
-        'qualification_review_method',  # 资格审查方式
-        'bid_evaluation_method',  # 评标谈判方式
-        'bid_awarding_method',  # 定标方法
-        'announcement_release_date',  # 公告发布时间
-        'registration_deadline',  # 报名截止时间
-        'bid_opening_date',  # 开标时间
-        'evaluation_committee',  # 评标委员会成员
-    ]
+    # 从数据库获取启用的字段列表
+    required_fields = get_enabled_fields('procurement')
     
     # 应用筛选条件 - 使用select_related和only优化查询
     all_procurements = Procurement.objects.select_related('project').only(
-        'procurement_code', 'project_name', 'procurement_unit', 'winning_bidder',
-        'winning_contact', 'procurement_method', 'procurement_category', 'budget_amount',
-        'control_price', 'winning_amount', 'planned_completion_date', 'candidate_publicity_end_date',
-        'result_publicity_release_date', 'notice_issue_date', 'procurement_officer', 'demand_department',
-        'demand_contact', 'requirement_approval_date', 'procurement_platform', 'qualification_review_method',
-        'bid_evaluation_method', 'bid_awarding_method', 'announcement_release_date', 'registration_deadline',
-        'bid_opening_date', 'evaluation_committee', 'project__project_code'
+        'procurement_code', 'project_name', 'procurement_unit', 'procurement_category',
+        'procurement_platform', 'procurement_method', 'qualification_review_method',
+        'bid_evaluation_method', 'bid_awarding_method', 'budget_amount', 'control_price',
+        'winning_amount', 'procurement_officer', 'demand_department', 'demand_contact',
+        'winning_bidder', 'winning_contact', 'planned_completion_date', 'requirement_approval_date',
+        'announcement_release_date', 'registration_deadline', 'bid_opening_date',
+        'candidate_publicity_end_date', 'result_publicity_release_date', 'notice_issue_date',
+        'evaluation_committee', 'bid_guarantee', 'bid_guarantee_return_date',
+        'performance_guarantee', 'archive_date', 'project__project_code'
     )
     if year:
         all_procurements = all_procurements.filter(result_publicity_release_date__year=year)
@@ -147,43 +177,27 @@ def check_procurement_field_completeness(year=None, project_codes=None):
 def check_contract_field_completeness(year=None, project_codes=None):
     """
     检查合同字段齐全性
-    按照需求文档，检查17个关键字段的填写情况
-    
+    从数据库配置读取需要检查的字段
+
     Args:
         year: 年份筛选(None表示全部年份)
         project_codes: 项目编码列表(None表示全部项目)
-    
+
     Returns:
         dict: 合同字段齐全性统计
     """
-    # 定义需要检查的17个字段
-    required_fields = [
-        'contract_sequence',  # 合同序号
-        'contract_code',  # 合同编号
-        'contract_name',  # 合同名称
-        'contract_officer',  # 合同签订经办人
-        'file_positioning',  # 合同类型
-        'party_a',  # 甲方
-        'party_b',  # 乙方
-        'contract_amount',  # 含税签约合同价（元）
-        'signing_date',  # 合同签订日期
-        'party_a_legal_representative',  # 甲方法定代表人及联系方式
-        'party_a_contact_person',  # 甲方联系人及联系方式
-        'party_a_manager',  # 甲方负责人及联系方式
-        'party_b_legal_representative',  # 乙方法定代表人及联系方式
-        'party_b_contact_person',  # 乙方联系人及联系方式
-        'party_b_manager',  # 乙方负责人及联系方式
-        'duration',  # 合同工期/服务期限
-        'payment_method',  # 支付方式
-    ]
+    # 从数据库获取启用的字段列表
+    required_fields = get_enabled_fields('contract')
     
     # 应用筛选条件 - 使用select_related和only优化查询
     all_contracts = Contract.objects.select_related('project').only(
-        'contract_sequence', 'contract_code', 'contract_name', 'contract_officer',
-        'file_positioning', 'party_a', 'party_b', 'contract_amount', 'signing_date',
+        'contract_code', 'contract_name', 'contract_sequence', 'file_positioning',
+        'contract_type', 'contract_source', 'party_a', 'party_b',
         'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
         'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
-        'duration', 'payment_method', 'project__project_code'
+        'contract_amount', 'signing_date', 'duration', 'contract_officer',
+        'payment_method', 'performance_guarantee_return_date', 'archive_date',
+        'project__project_code'
     )
     if year:
         all_contracts = all_contracts.filter(signing_date__year=year)
@@ -682,16 +696,8 @@ def get_project_completeness_ranking(year=None, project_codes=None):
         procurement_rate = 0
         procurement_count = procurements.count()
         if procurement_count > 0:
-            # 采购字段定义
-            procurement_fields = [
-                'procurement_code', 'project_name', 'procurement_unit', 'winning_bidder',
-                'winning_contact', 'procurement_method', 'procurement_category', 'budget_amount',
-                'control_price', 'winning_amount', 'planned_completion_date', 'candidate_publicity_end_date',
-                'result_publicity_release_date', 'notice_issue_date', 'procurement_officer', 'demand_department',
-                'demand_contact', 'requirement_approval_date', 'procurement_platform', 'qualification_review_method',
-                'bid_evaluation_method', 'bid_awarding_method', 'announcement_release_date', 'registration_deadline',
-                'bid_opening_date', 'evaluation_committee'
-            ]
+            # 从数据库获取启用的采购字段
+            procurement_fields = get_enabled_fields('procurement')
             
             total_cells = procurement_count * len(procurement_fields)
             filled_cells = 0
@@ -708,14 +714,8 @@ def get_project_completeness_ranking(year=None, project_codes=None):
         contract_rate = 0
         contract_count = contracts.count()
         if contract_count > 0:
-            # 合同字段定义
-            contract_fields = [
-                'contract_sequence', 'contract_code', 'contract_name', 'contract_officer',
-                'file_positioning', 'party_a', 'party_b', 'contract_amount', 'signing_date',
-                'party_a_legal_representative', 'party_a_contact_person', 'party_a_manager',
-                'party_b_legal_representative', 'party_b_contact_person', 'party_b_manager',
-                'duration', 'payment_method'
-            ]
+            # 从数据库获取启用的合同字段
+            contract_fields = get_enabled_fields('contract')
             
             total_cells = contract_count * len(contract_fields)
             filled_cells = 0

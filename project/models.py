@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from django.db import models
 from project.validators import validate_code_field, validate_and_clean_code
+from project.models_completeness_config import CompletenessFieldConfig
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

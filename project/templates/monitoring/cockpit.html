@@ -115,6 +115,13 @@ body {
     box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(15, 35, 95, 0.15);
 }
 
 .kpi-card h3 {
@@ -280,26 +287,30 @@ body {
                 <span><i class="fas fa-bolt"></i> 最新快照：{{ monitoring_snapshot.generated_at|date:"Y-m-d H:i" }}</span>
             </div>
             <div class="kpi-grid">
-                <article class="kpi-card">
+                <a href="{% url 'update_monitor' %}" class="kpi-card" style="text-decoration:none;color:inherit;">
                     <h3>整体更新及时率</h3>
                     <div class="kpi-value">{{ kpis.timeliness_rate|default:0 }}<span class="unit">%</span></div>
                     <div class="kpi-trend"><i class="fas fa-check-circle"></i> {{ kpis.timely_events }}/{{ kpis.total_events }} 条及时</div>
-                </article>
-                <article class="kpi-card">
+                    <small class="text-muted">点击查看延迟事件 →</small>
+                </a>
+                <a href="{% url 'archive_monitor' %}" class="kpi-card" style="text-decoration:none;color:inherit;">
                     <h3>归档完成率</h3>
                     <div class="kpi-value">{{ kpis.archive_rate|default:0 }}<span class="unit">%</span></div>
                     <div class="kpi-trend text-warning"><i class="fas fa-box-archive"></i> 逾期 {{ kpis.overdue_items }} 条</div>
-                </article>
-                <article class="kpi-card">
+                    <small class="text-muted">点击查看逾期记录 →</small>
+                </a>
+                <a href="{% url 'completeness_check' %}" class="kpi-card" style="text-decoration:none;color:inherit;">
                     <h3>字段完整性</h3>
                     <div class="kpi-value">{{ kpis.completeness_rate|default:0 }}<span class="unit">%</span></div>
                     <p class="text-muted">风险提示：{{ kpis.completeness_issues_main }}</p>
-                </article>
-                <article class="kpi-card">
-                    <h3>潜在风险</h3>
-                    <div class="kpi-value">{{ kpis.risk_items|default:0 }}</div>
-                    <p class="text-muted">重点关注：{{ kpis.risk_issues_main }}</p>
-                </article>
+                    <small class="text-muted">点击查看不完整记录 →</small>
+                </a>
+                <a href="{% url 'workload_statistics' %}" class="kpi-card" style="text-decoration:none;color:inherit;">
+                    <h3>本年工作量</h3>
+                    <div class="kpi-value">{{ workload_summary.procurement|add:workload_summary.contract|add:workload_summary.payment|add:workload_summary.settlement }}</div>
+                    <p class="text-muted">采购{{ workload_summary.procurement }} 合同{{ workload_summary.contract }} 付款{{ workload_summary.payment }} 结算{{ workload_summary.settlement }}</p>
+                    <small class="text-muted">点击查看详细统计 →</small>
+                </a>
             </div>
         </section>
         <section class="filter-panel">

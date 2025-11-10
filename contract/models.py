@@ -222,6 +222,9 @@ class Contract(BaseModel):
             models.Index(fields=['contract_code']),
             models.Index(fields=['party_b']),
             models.Index(fields=['signing_date']),
+            models.Index(fields=['contract_officer']),
+            models.Index(fields=['archive_date']),
+            models.Index(fields=['project', 'contract_officer']),
         ]
     
     def __str__(self):

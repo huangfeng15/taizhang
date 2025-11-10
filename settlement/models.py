@@ -58,6 +58,7 @@ class Settlement(BaseModel):
         indexes = [
             models.Index(fields=['settlement_code']),
             models.Index(fields=['main_contract']),
+            models.Index(fields=['completion_date']),
         ]
     
     def __str__(self):

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">{{ page_title }} - {{ time_label }}</h2>
+
+    <!-- 时间维度和维度类型切换 -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <a href="?time_dimension=recent_month&dimension_type={{ dimension_type }}"
+                   class="btn btn-{% if time_dimension == 'recent_month' %}primary{% else %}outline-primary{% endif %}">最近一个月</a>
+                <a href="?time_dimension=last_month&dimension_type={{ dimension_type }}"
+                   class="btn btn-{% if time_dimension == 'last_month' %}primary{% else %}outline-primary{% endif %}">上一个月</a>
+                <a href="?time_dimension=current_year&dimension_type={{ dimension_type }}"
+                   class="btn btn-{% if time_dimension == 'current_year' %}primary{% else %}outline-primary{% endif %}">今年累计</a>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <div class="btn-group" role="group">
+                <a href="?time_dimension={{ time_dimension }}&dimension_type=person"
+                   class="btn btn-{% if dimension_type == 'person' %}success{% else %}outline-success{% endif %}">按个人</a>
+                <a href="?time_dimension={{ time_dimension }}&dimension_type=project"
+                   class="btn btn-{% if dimension_type == 'project' %}success{% else %}outline-success{% endif %}">按项目</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工作量排名表 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">工作量排名</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>排名</th>
+                            <th>{% if dimension_type == 'person' %}姓名{% else %}项目名称{% endif %}</th>
+                            <th>采购</th>
+                            <th>合同</th>
+                            <th>付款</th>
+                            <th>结算</th>
+                            <th>合计</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in ranking %}
+                        <tr>
+                            <td>
+                                {% if forloop.counter == 1 %}🥇
+                                {% elif forloop.counter == 2 %}🥈
+                                {% elif forloop.counter == 3 %}🥉
+                                {% else %}{{ forloop.counter }}
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ item.name }}</strong></td>
+                            <td>{{ item.procurement_count }}条</td>
+                            <td>{{ item.contract_count }}条</td>
+                            <td>{{ item.payment_count }}笔</td>
+                            <td>{{ item.settlement_count }}项</td>
+                            <td><span class="badge bg-primary">{{ item.total }}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info"
+                                        onclick="toggleDetails('details-{{ forloop.counter }}')">展开明细</button>
+                            </td>
+                        </tr>
+                        <tr id="details-{{ forloop.counter }}" style="display:none;">
+                            <td colspan="8" class="bg-light">
+                                <div class="p-3">
+                                    <!-- 采购明细 -->
+                                    {% if item.details.procurement %}
+                                    <h6>📋 采购（{{ item.procurement_count }}条）</h6>
+                                    <table class="table table-sm table-bordered mb-3">
+                                        <thead>
+                                            <tr>
+                                                <th>业务编码</th>
+                                                {% if dimension_type == 'project' %}<th>经办人</th>{% else %}<th>项目名称</th>{% endif %}
+                                                <th>采购名称</th>
+                                                <th>结果公示日期</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in item.details.procurement %}
+                                            <tr>
+                                                <td><code>{{ p.code }}</code></td>
+                                                <td>{% if dimension_type == 'project' %}{{ p.person }}{% else %}{{ p.project_name }}{% endif %}</td>
+                                                <td>{{ p.name }}</td>
+                                                <td>{{ p.date|date:"Y-m-d" }}</td>
+                                                <td><a href="{{ p.url }}" class="btn btn-xs btn-link">查看</a></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% endif %}
+
+                                    <!-- 合同明细 -->
+                                    {% if item.details.contract %}
+                                    <h6>📄 合同（{{ item.contract_count }}条）</h6>
+                                    <table class="table table-sm table-bordered mb-3">
+                                        <thead>
+                                            <tr>
+                                                <th>合同序号</th>
+                                                <th>合同编码</th>
+                                                {% if dimension_type == 'project' %}<th>经办人</th>{% endif %}
+                                                <th>合同名称</th>
+                                                <th>签订日期</th>
+                                                <th>合同金额</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for c in item.details.contract %}
+                                            <tr>
+                                                <td>{{ c.sequence }}</td>
+                                                <td><code>{{ c.code }}</code></td>
+                                                {% if dimension_type == 'project' %}<td>{{ c.person }}</td>{% endif %}
+                                                <td>{{ c.name }}</td>
+                                                <td>{{ c.date|date:"Y-m-d" }}</td>
+                                                <td>{{ c.amount|floatformat:2 }}元</td>
+                                                <td><a href="{{ c.url }}" class="btn btn-xs btn-link">查看</a></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% endif %}
+
+                                    <!-- 付款明细 -->
+                                    {% if item.details.payment %}
+                                    <h6>💰 付款（{{ item.payment_count }}笔）</h6>
+                                    <table class="table table-sm table-bordered mb-3">
+                                        <thead>
+                                            <tr>
+                                                <th>付款编号</th>
+                                                {% if dimension_type == 'project' %}<th>经办人</th>{% endif %}
+                                                <th>合同名称</th>
+                                                <th>付款日期</th>
+                                                <th>付款金额</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in item.details.payment %}
+                                            <tr>
+                                                <td><code>{{ p.code }}</code></td>
+                                                {% if dimension_type == 'project' %}<td>{{ p.person }}</td>{% endif %}
+                                                <td>{{ p.contract_name }}</td>
+                                                <td>{{ p.date|date:"Y-m-d" }}</td>
+                                                <td>{{ p.amount|floatformat:2 }}元</td>
+                                                <td><a href="{{ p.url }}" class="btn btn-xs btn-link">查看</a></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% endif %}
+
+                                    <!-- 结算明细 -->
+                                    {% if item.details.settlement %}
+                                    <h6>✅ 结算（{{ item.settlement_count }}项）</h6>
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>结算编号</th>
+                                                {% if dimension_type == 'project' %}<th>经办人</th>{% endif %}
+                                                <th>合同名称</th>
+                                                <th>完成日期</th>
+                                                <th>结算金额</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for s in item.details.settlement %}
+                                            <tr>
+                                                <td><code>{{ s.code }}</code></td>
+                                                {% if dimension_type == 'project' %}<td>{{ s.person }}</td>{% endif %}
+                                                <td>{{ s.contract_name }}</td>
+                                                <td>{{ s.date|date:"Y-m-d" }}</td>
+                                                <td>{{ s.amount|floatformat:2 }}元</td>
+                                                <td><a href="{{ s.url }}" class="btn btn-xs btn-link">查看</a></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDetails(id) {
+    const row = document.getElementById(id);
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+    } else {
+        row.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% load monitor_filters %}
+<!-- 更新监控问题列表表格组件 -->
+<div class="table-responsive">
+    <table class="table table-hover table-sm">
+        <thead class="table-light">
+            <tr>
+                <th>项目名称</th>
+                <th>模块</th>
+                <th>业务编码</th>
+                <th>业务名称</th>
+                <th>经办人</th>
+                <th>业务日期</th>
+                <th>更新截止日期</th>
+                <th>剩余/延迟天数</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.project_name }}</td>
+                <td><span class="badge bg-info">{{ item.module_label }}</span></td>
+                <td><code>{{ item.code }}</code></td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.responsible_person|default:"-" }}</td>
+                <td>{{ item.business_date|date:"Y-m-d" }}</td>
+                <td>{{ item.update_deadline|date:"Y-m-d" }}</td>
+                <td>
+                    {% if item.days_remaining < 0 %}
+                        <span class="badge bg-danger">延迟{{ item.days_remaining|abs_value }}天</span>
+                    {% elif item.days_remaining <= 3 %}
+                        <span class="badge bg-warning">剩余{{ item.days_remaining }}天</span>
+                    {% else %}
+                        <span class="badge bg-success">剩余{{ item.days_remaining }}天</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ item.edit_url }}" class="btn btn-sm btn-outline-primary">编辑</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center text-muted">暂无数据</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
