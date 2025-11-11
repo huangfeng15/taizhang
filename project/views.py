@@ -301,6 +301,30 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             ],
         },
     },
+    'supplier_eval': {
+        'long': {
+            'filename': 'supplier_eval_import_template_long.csv',
+            'headers': [
+                '序号',
+                '合同编号',
+                '履约综合评价得分',
+                '末次评价得分',
+            ] + [f'{year}年度评价得分' for year in range(BASE_YEAR, get_current_year() + 2)] + [
+                '第1次过程评价得分',
+                '第2次过程评价得分',
+                '备注',
+                '模板说明',
+            ],
+            'notes': [
+                '必填：序号*、合同编号*；其余可留空。',
+                '评价编号由系统基于“EVAL-<合同编码>-<序号>”规则自动生成。',
+                '分数范围0-100，可保留1-2位小数；留空不导入该项。',
+                '可选：按年动态列（如“2024年度评价得分”）会自动识别，无需固定年份。',
+                '可选：过程评价列（如“第1次过程评价得分”、“第2次过程评价得分”）会自动识别。',
+                '模板说明列可删除，不影响导入。'
+            ],
+        },
+    },
     'evaluation': {
         'long': {
             'filename': 'supplier_evaluation_import_template_long.csv',
@@ -1481,6 +1505,13 @@ def download_import_template(request):
     """下载各模块导入模板（包含字段限制说明）。"""
     module = request.GET.get('module', 'project')
     mode = request.GET.get('mode', 'long')
+    # 兼容历史命名/别名
+    _aliases = {
+        'supplier': 'supplier_eval',
+        'evaluation': 'supplier_eval',
+        'supplier_evaluation': 'supplier_eval',
+    }
+    module = _aliases.get(module, module)
 
     module_config = IMPORT_TEMPLATE_DEFINITIONS.get(module)
     if not module_config:

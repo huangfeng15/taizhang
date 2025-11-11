@@ -1,0 +1,60 @@
+{% load static %}
+{# 通用详情模态框（可用于归档、更新、齐全性等）：容器与通用样式 #}
+{# 可通过传入以下可选变量定制：
+   - modal_id: 模态框ID，默认 'detailModal'
+   - modal_title: 标题文本（若未提供，则回退到 view_mode/target_code 推断）
+   - show_trend: 是否显示趋势图，默认 true
+   - trend_container_id: 趋势图容器ID，默认 'trendChart'
+   - summary_template: 概览区模板路径，默认 'components/modal_detail_summary_default.html'
+   - records_template: 明细区模板路径，默认 'components/modal_detail_records_default.html'
+   - 其余上下文：view_mode, target_code, detail_data
+ #}
+
+<div class="modal fade" id="{{ modal_id|default:'detailModal' }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {% if modal_title %}
+            {{ modal_title }}
+          {% elif view_mode and target_code %}
+            {% if view_mode == 'project' %}项目详情{% else %}经办人详情{% endif %} - {{ target_code }}
+          {% else %}
+            详情
+          {% endif %}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+
+        {# 内联少量样式以保证组件在不同页面复用时的一致性 #}
+        <style>
+          .stats-card { border-left: 4px solid; transition: transform .2s; height: 100%; }
+          .stats-card .card-body { padding: .75rem 1rem; }
+          .stats-card:hover { transform: translateY(-2px); }
+          .stats-card.procurement { border-left-color: #0d6efd; }
+          .stats-card.contract { border-left-color: #198754; }
+          .stats-card.overall { border-left-color: #6c757d; }
+          .equal-col { display: flex; }
+          .equal-col .card { height: 100%; width: 100%; }
+        </style>
+
+        {# 概览区（可替换模板） #}
+        {% include summary_template|default:'components/modal_detail_summary_default.html' with detail_data=detail_data view_mode=view_mode only %}
+
+        {# 趋势区 #}
+        {% if show_trend|default_if_none:True %}
+          <h6 class="mt-3">归档趋势</h6>
+          <div id="{{ trend_container_id|default:'trendChart' }}" class="mb-4" style="height: 400px;"></div>
+        {% endif %}
+
+        {# 明细区（可替换模板） #}
+        {% include records_template|default:'components/modal_detail_records_default.html' with detail_data=detail_data only %}
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+  </div>

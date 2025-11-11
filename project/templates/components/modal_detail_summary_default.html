@@ -1,0 +1,32 @@
+{# 详情模态框 - 默认概览区 #}
+{% if detail_data and detail_data.summary %}
+<div class="row mb-4">
+  <div class="col-12 col-md-4 equal-col">
+    <div class="card text-center stats-card overall h-100 w-100">
+      <div class="card-body">
+        <h6 class="text-muted">综合归档率</h6>
+        <h2 class="text-success">{{ detail_data.summary.overall_archive_rate }}%</h2>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4 equal-col">
+    <div class="card text-center stats-card procurement h-100 w-100">
+      <div class="card-body">
+        <h6 class="text-muted">采购：已归档/总数</h6>
+        <h4>{{ detail_data.summary.procurement.count_archived }}/{{ detail_data.summary.procurement.count_total }}</h4>
+        <small class="text-muted">平均{{ detail_data.summary.procurement.avg_cycle }}天 ｜ 按时率 {{ detail_data.summary.procurement.on_time_rate }}%</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4 equal-col">
+    <div class="card text-center stats-card contract h-100 w-100">
+      <div class="card-body">
+        <h6 class="text-muted">合同：已归档/总数</h6>
+        <h4>{{ detail_data.summary.contract.count_archived }}/{{ detail_data.summary.contract.count_total }}</h4>
+        <small class="text-muted">平均{{ detail_data.summary.contract.avg_cycle }}天 ｜ 按时率 {{ detail_data.summary.contract.on_time_rate }}%</small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+

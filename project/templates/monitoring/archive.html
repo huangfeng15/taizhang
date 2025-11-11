@@ -293,7 +293,8 @@
 
     <!-- 详情模态框（选择了target_code时显示） -->
     {% if target_code %}
-    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+      {% include 'components/modal_detail_base.html' with modal_id='detailModal' view_mode=view_mode target_code=target_code detail_data=detail_data only %}
+    <div class="modal fade" id="detailModal_legacy" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">

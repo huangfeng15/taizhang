@@ -20,6 +20,7 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         '/accounts/logout/',
         '/admin/login/',
         '/admin/logout/',
+        '/api/import/template/',
         '/static/',
         '/media/',
     ]

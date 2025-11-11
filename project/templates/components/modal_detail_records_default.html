@@ -1,0 +1,92 @@
+{# 详情模态框 - 默认明细区 #}
+{% if detail_data and detail_data.records %}
+  <h6 class="mt-4">归档记录明细</h6>
+  <div class="row">
+    <div class="col-md-12">
+      <ul class="nav nav-tabs" id="recordTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="proc-tab" data-bs-toggle="tab" data-bs-target="#proc-panel" type="button" role="tab">采购记录</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="cont-tab" data-bs-toggle="tab" data-bs-target="#cont-panel" type="button" role="tab">合同记录</button>
+        </li>
+      </ul>
+      <div class="tab-content border border-top-0 p-3">
+        <div class="tab-pane fade show active" id="proc-panel" role="tabpanel">
+          {% if detail_data.records.procurements %}
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>编号</th>
+                  <th>名称</th>
+                  <th>经办人</th>
+                  <th>业务日期</th>
+                  <th>归档截止日</th>
+                  <th>归档日期</th>
+                  <th>耗时(天)</th>
+                  <th>逾期(天)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in detail_data.records.procurements %}
+                <tr>
+                  <td>{{ r.code }}</td>
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.responsible_person }}</td>
+                  <td>{{ r.business_date|date:"Y-m-d" }}</td>
+                  <td>{{ r.archive_deadline|date:"Y-m-d" }}</td>
+                  <td>{% if r.archive_date %}{{ r.archive_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                  <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}{% else %}-{% endif %}</td>
+                  <td>{% if r.overdue_days is not None and r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}</span>{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <div class="alert alert-secondary">暂无采购记录</div>
+          {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="cont-panel" role="tabpanel">
+          {% if detail_data.records.contracts %}
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>合同序号</th>
+                  <th>名称</th>
+                  <th>经办人</th>
+                  <th>签订日期</th>
+                  <th>归档截止日</th>
+                  <th>归档日期</th>
+                  <th>耗时(天)</th>
+                  <th>逾期(天)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in detail_data.records.contracts %}
+                <tr>
+                  <td>{{ r.contract_sequence|default:r.code }}</td>
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.responsible_person }}</td>
+                  <td>{{ r.business_date|date:"Y-m-d" }}</td>
+                  <td>{{ r.archive_deadline|date:"Y-m-d" }}</td>
+                  <td>{% if r.archive_date %}{{ r.archive_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                  <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}{% else %}-{% endif %}</td>
+                  <td>{% if r.overdue_days is not None and r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}</span>{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <div class="alert alert-secondary">暂无合同记录</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
