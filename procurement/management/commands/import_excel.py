@@ -1671,8 +1671,14 @@ class Command(BaseCommand):
             return None
         
         value_str = str(value).strip()
-        # 明确处理常见的空值标记
-        if value_str in ['/', '-', '—', '无', 'N/A', 'n/a']:
+        
+        # 增强空值检测：处理空字符串和各种空值标记
+        if not value_str or value_str in ['/', '-', '—', '无', 'N/A', 'n/a', 'nan', 'NaN', 'None', 'null']:
+            return None
+        
+        # 过滤只包含空白字符或分隔符的情况
+        import re
+        if re.match(r'^[-/\s]+$', value_str):
             return None
         
         # 尝试多种日期格式
