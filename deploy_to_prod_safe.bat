@@ -83,7 +83,7 @@ if %ERRORLEVEL% EQU 0 (
 REM 2. 备份生产数据库
 echo.
 echo [步骤2/6] 备份生产数据库...
-if exist "db_prod.sqlite3" (
+if exist "db.sqlite3" (
     if not exist "backups" mkdir backups
     
     REM 生成时间戳
@@ -91,7 +91,7 @@ if exist "db_prod.sqlite3" (
     set timestamp=%timestamp: =0%
     
     set backup_file=backups\db_prod_%timestamp%.sqlite3
-    copy db_prod.sqlite3 "%backup_file%" >NUL
+    copy db.sqlite3 "%backup_file%" >NUL
     
     if %ERRORLEVEL% EQU 0 (
         echo [成功] 数据库已备份: %backup_file%

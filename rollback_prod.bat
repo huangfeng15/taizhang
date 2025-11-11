@@ -105,7 +105,7 @@ if %ERRORLEVEL% EQU 2 (
         set /p BACKUP_FILE="请输入要恢复的备份文件名: "
         
         if exist "backups\%BACKUP_FILE%" (
-            copy "backups\%BACKUP_FILE%" db_prod.sqlite3 >NUL
+            copy "backups\%BACKUP_FILE%" db.sqlite3 >NUL
             if %ERRORLEVEL% EQU 0 (
                 echo [成功] 数据库已恢复: %BACKUP_FILE%
             ) else (
