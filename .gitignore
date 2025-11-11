@@ -1,66 +1,62 @@
-# Python
+# ==========================================
+# 项目Git忽略配置
+# ==========================================
+
+# 数据库文件 (不提交到Git)
+*.sqlite3
+db*.sqlite3
+*.db
+
+# 环境配置 (包含敏感信息)
+.env.prod
+.env.local
+
+# 备份文件
+backups/
+*.bak
+*.backup
+
+# Python缓存
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
+
+# 虚拟环境
+.venv/
 venv/
 ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+env/
 
-# Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-/media
-/staticfiles
-/static
-
-# IDE
+# IDE配置
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# 日志文件
+logs/
+*.log
+
+# 临时文件
+*.tmp
+*.temp
 .DS_Store
-*.sublime-project
-*.sublime-workspace
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# OS
 Thumbs.db
-.DS_Store
 
-# Windows specific issues
-nul
-NUL
+# 静态文件收集目录
+staticfiles/
+media/
 
-# Project specific
-/backups/*
-!/backups/.gitkeep
-/logs/*
-!/logs/.gitkeep
-/data/imports/*
-!/data/imports/.gitkeep
-/data/exports/*
-!/data/exports/.gitkeep
+# SSL证书 (自签名证书可以提交,但生产证书不要提交)
+# ssl_certs/*.key
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 系统文件
+desktop.ini
