@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableDelayedExpansion
 chcp 65001 >NUL 2>&1
 echo ========================================
 echo 生产环境紧急回滚
@@ -22,7 +23,7 @@ if not "%CURRENT_BRANCH%"=="main" (
     echo.
     echo 是否切换到main分支并回滚?
     set /p SWITCH="继续(Y) 或 取消(N): "
-    if /i not "%SWITCH%"=="Y" (
+    if /i not "!SWITCH!"=="Y" (
         echo [取消] 回滚已取消
         pause
         exit /b 0
@@ -74,6 +75,31 @@ if %ERRORLEVEL% EQU 0 (
     exit /b 1
 )
 
+REM 恢复生产环境配置
+echo.
+echo [配置] 恢复生产环境配置...
+if not exist ".env.prod" (
+    echo [警告] 生产环境配置文件 .env.prod 不存在!
+    echo [建议] 请先创建 .env.prod 文件
+    pause
+    exit /b 1
+)
+
+REM 备份当前.env
+if exist ".env" (
+    copy /Y .env .env.backup >NUL 2>&1
+)
+
+REM 复制生产环境配置
+copy /Y .env.prod .env >NUL 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [成功] 已恢复生产环境配置 (.env.prod)
+) else (
+    echo [错误] 环境配置恢复失败!
+    pause
+    exit /b 1
+)
+
 REM 3. 恢复数据库
 echo.
 echo [步骤3/4] 数据库恢复选项
@@ -104,15 +130,15 @@ if "%DB_CHOICE%"=="2" (
         echo.
         set /p BACKUP_FILE="请输入要恢复的备份文件名: "
         
-        if exist "backups\%BACKUP_FILE%" (
-            copy "backups\%BACKUP_FILE%" db.sqlite3 >NUL
-            if %ERRORLEVEL% EQU 0 (
-                echo [成功] 数据库已恢复: %BACKUP_FILE%
+        if exist "backups\!BACKUP_FILE!" (
+            copy "backups\!BACKUP_FILE!" db.sqlite3 >NUL
+            if !ERRORLEVEL! EQU 0 (
+                echo [成功] 数据库已恢复: !BACKUP_FILE!
             ) else (
                 echo [错误] 数据库恢复失败!
             )
         ) else (
-            echo [错误] 文件不存在: backups\%BACKUP_FILE%
+            echo [错误] 文件不存在: backups\!BACKUP_FILE!
         )
     ) else (
         echo [错误] 备份目录不存在!
@@ -128,6 +154,14 @@ echo.
 echo ========================================
 echo 回滚完成!
 echo ========================================
+echo.
+echo [提示] 代码已回滚到备份版本
+echo [提示] 环境配置: .env (已从 .env.prod 恢复)
+if "%DB_CHOICE%"=="2" (
+    echo [提示] 数据库: 已恢复到备份版本
+) else (
+    echo [提示] 数据库: 保持当前版本
+)
 echo.
 echo 按任意键启动生产服务...
 pause >NUL
