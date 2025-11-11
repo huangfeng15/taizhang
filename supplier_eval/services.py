@@ -36,9 +36,9 @@ class SupplierAnalysisService:
             >>> print(result[0]['total_contracts'])
             10
         """
-        # 基础查询：主合同
+        # 基础查询：主合同和框架协议（不含补充协议和解除协议）
         contracts = Contract.objects.filter(
-            file_positioning='主合同'
+            file_positioning__in=['主合同', '框架协议']
         )
         
         # 如果指定供应商名称，进行模糊查询
@@ -59,10 +59,10 @@ class SupplierAnalysisService:
         for item in summary:
             supplier = item['party_b']
             
-            # 获取该供应商的所有主合同
+            # 获取该供应商的所有主合同和框架协议
             supplier_contracts = Contract.objects.filter(
                 party_b=supplier,
-                file_positioning='主合同'
+                file_positioning__in=['主合同', '框架协议']
             )
             
             # 计算合同总金额(包含补充协议)
@@ -129,10 +129,10 @@ class SupplierAnalysisService:
             >>> for item in contracts:
             ...     print(f"{item['contract'].contract_code}: {item['payment_ratio']}%")
         """
-        # 基础查询
+        # 基础查询：主合同和框架协议
         contracts = Contract.objects.filter(
             party_b__icontains=supplier_name,
-            file_positioning='主合同'
+            file_positioning__in=['主合同', '框架协议']
         ).select_related('settlement').prefetch_related('supplements', 'payments', 'evaluations')
         
         # 状态筛选

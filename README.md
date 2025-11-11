@@ -66,7 +66,17 @@ taizhang/
 │   ├── services/        # ★ 业务服务层 (统计、监控、报表逻辑)
 │   ├── templates/       # ★ 自定义前端页面
 │   ├── static/          # ★ CSS/JS等静态资源
-│   ├── views.py         # 视图函数
+│   ├── views.py         # 视图聚合入口，统一注册URL与跨模块调用
+│   ├── views_helpers.py # 公共过滤、分页等视图辅助函数
+│   ├── views_projects.py        # 仪表盘、项目列表/详情视图
+│   ├── views_procurements.py    # 采购业务视图
+│   ├── views_contracts.py       # 合同视图与批量操作
+│   ├── views_payments.py        # 付款与结算视图
+│   ├── views_monitoring.py      # 档案归档、监测面板视图
+│   ├── views_statistics.py      # 统计分析与图表接口
+│   ├── views_reports.py         # 报表与导出视图
+│   ├── views_ops.py             # 数据导入/清理等运维视图
+│   ├── views_api.py             # JSON API 及异步接口
 │   └── models.py        # 项目模型
 ├── procurement/         # 采购应用
 ├── contract/            # 合同应用
