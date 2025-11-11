@@ -288,7 +288,7 @@ class ArchiveStatisticsService:
         return trend_data
 
     def _group_by_month(self, queryset):
-        """按月分组统计"""
+        """按月分组统计 - 只返回有数据的月份"""
         trend_data = []
 
         for month in range(1, 13):
@@ -297,20 +297,19 @@ class ArchiveStatisticsService:
 
             if count > 0:
                 avg_cycle_timedelta = month_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                avg_cycle = avg_cycle_timedelta.days if avg_cycle_timedelta else 0
-            else:
-                avg_cycle = None  # 无数据时返回None，前端可以断开折线
-
-            trend_data.append({
-                'period': f'{month}月',
-                'avg_cycle': avg_cycle,
-                'count': count
-            })
+                avg_cycle = round(avg_cycle_timedelta.days, 1) if avg_cycle_timedelta else 0
+                
+                trend_data.append({
+                    'month': month,
+                    'period': f'{month}月',
+                    'avg_cycle': avg_cycle,
+                    'count': count
+                })
 
         return trend_data
 
     def _group_by_half_year(self, queryset):
-        """按半年分组统计"""
+        """按半年分组统计 - 只返回有数据的半年"""
         trend_data = []
 
         # 获取数据的年份范围
@@ -323,15 +322,15 @@ class ArchiveStatisticsService:
 
             if h1_count > 0:
                 h1_avg_timedelta = h1_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                h1_avg_cycle = h1_avg_timedelta.days if h1_avg_timedelta else 0
-            else:
-                h1_avg_cycle = None
-
-            trend_data.append({
-                'period': f'{year}上半年',
-                'avg_cycle': h1_avg_cycle,
-                'count': h1_count
-            })
+                h1_avg_cycle = round(h1_avg_timedelta.days, 1) if h1_avg_timedelta else 0
+                
+                trend_data.append({
+                    'year': year,
+                    'half': 1,
+                    'period': f'{year}上半年',
+                    'avg_cycle': h1_avg_cycle,
+                    'count': h1_count
+                })
 
             # 下半年（7-12月）
             h2_data = queryset.filter(business_year=year, business_month__gt=6)
@@ -339,15 +338,15 @@ class ArchiveStatisticsService:
 
             if h2_count > 0:
                 h2_avg_timedelta = h2_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                h2_avg_cycle = h2_avg_timedelta.days if h2_avg_timedelta else 0
-            else:
-                h2_avg_cycle = None
-
-            trend_data.append({
-                'period': f'{year}下半年',
-                'avg_cycle': h2_avg_cycle,
-                'count': h2_count
-            })
+                h2_avg_cycle = round(h2_avg_timedelta.days, 1) if h2_avg_timedelta else 0
+                
+                trend_data.append({
+                    'year': year,
+                    'half': 2,
+                    'period': f'{year}下半年',
+                    'avg_cycle': h2_avg_cycle,
+                    'count': h2_count
+                })
 
         return trend_data
 
@@ -403,6 +402,7 @@ class ArchiveStatisticsService:
 
     # ===== 多序列趋势（多人/多项目/项目内经办人） =====
     def _sort_halfyear_labels(self, labels):
+        """排序半年标签（只包含提供的标签，不补全）"""
         def key(lbl):
             # 支持 '2024-H1'/'2024-H2' 与 '2024上半年'/'2024下半年'
             try:
@@ -421,14 +421,28 @@ class ArchiveStatisticsService:
                 pass
             return (9999, 9)
         return sorted(set(labels), key=key)
+    
+    def _sort_month_labels(self, labels):
+        """排序月份标签（只包含提供的标签，不补全）"""
+        def key(lbl):
+            try:
+                if '月' in lbl:
+                    month_str = lbl.replace('月', '')
+                    return int(month_str)
+            except Exception:
+                pass
+            return 99
+        return sorted(set(labels), key=key)
 
     def _align_series(self, trend_list, labels):
+        """将趋势数据对齐到统一的标签列表，无数据的位置返回None"""
         mapping = {item['period']: item.get('avg_cycle') for item in trend_list}
         return [mapping.get(lbl, None) for lbl in labels]
 
     def get_persons_multi_trend(self, year_filter=None, project_filter=None, top_n=10):
         """
         获取多人趋势：按经办人分别计算采购/合同的趋势，多条折线合并显示。
+        只显示至少有一个人有数据的时间段。
         返回: {
           'labels': [...],
           'procurement': [{'name': '张三', 'data': [...]}, ...],
@@ -439,7 +453,7 @@ class ArchiveStatisticsService:
         person_list = self.get_person_list(year_filter=year_filter, global_project=project_filter)
         person_names = [p['name'] for p in person_list[:top_n]]
 
-        # 逐人计算趋势并汇总标签
+        # 逐人计算趋势并汇总标签（只收集有数据的标签）
         all_labels = set()
         per_person_trend = {'procurement': {}, 'contract': {}}
         for name in person_names:
@@ -461,15 +475,22 @@ class ArchiveStatisticsService:
                 archive_field='archive_date',
                 person_field='contract_officer'
             )
-            for it in t_p: all_labels.add(it['period'])
-            for it in t_c: all_labels.add(it['period'])
+            # 只添加有数据的标签
+            for it in t_p:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
+            for it in t_c:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
             per_person_trend['procurement'][name] = t_p
             per_person_trend['contract'][name] = t_c
 
-        # 统一标签顺序
+        # 统一标签顺序（只包含有数据的标签）
         if year_filter and year_filter != 'all':
-            labels = [f'{m}月' for m in range(1, 13)]
+            # 单年度：只显示有数据的月份
+            labels = self._sort_month_labels(all_labels)
         else:
+            # 多年度：只显示有数据的半年
             labels = self._sort_halfyear_labels(all_labels)
 
         # 对齐成折线数组
@@ -488,6 +509,7 @@ class ArchiveStatisticsService:
     def get_projects_multi_trend(self, year_filter=None, top_n=10):
         """
         获取多项目趋势：按项目分别计算采购/合同的趋势，多条折线合并显示（取前N个项目）。
+        只显示至少有一个项目有数据的时间段。
         """
         from project.models import Project
         projects = list(Project.objects.all())
@@ -500,7 +522,7 @@ class ArchiveStatisticsService:
         scored.sort(key=lambda x: x[1], reverse=True)
         top_projects = [p.project_code for p, _ in scored[:top_n]]
 
-        # 计算趋势并汇总
+        # 计算趋势并汇总（只收集有数据的标签）
         all_labels = set()
         per_project_trend = {'procurement': {}, 'contract': {}}
         for code in top_projects:
@@ -518,12 +540,21 @@ class ArchiveStatisticsService:
                 date_field='signing_date',
                 archive_field='archive_date'
             )
-            for it in t_p: all_labels.add(it['period'])
-            for it in t_c: all_labels.add(it['period'])
+            # 只添加有数据的标签
+            for it in t_p:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
+            for it in t_c:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
             per_project_trend['procurement'][code] = t_p
             per_project_trend['contract'][code] = t_c
 
-        labels = [f'{m}月' for m in range(1, 13)] if (year_filter and year_filter != 'all') else self._sort_halfyear_labels(all_labels)
+        # 统一标签顺序（只包含有数据的标签）
+        if year_filter and year_filter != 'all':
+            labels = self._sort_month_labels(all_labels)
+        else:
+            labels = self._sort_halfyear_labels(all_labels)
 
         result = {'labels': labels, 'procurement': [], 'contract': []}
         for code in top_projects:
@@ -584,7 +615,10 @@ class ArchiveStatisticsService:
                 archive_field='archive_date',
                 person_field='procurement_officer'
             )
-            for it in t: all_labels.add(it['period'])
+            # 只添加有数据的标签
+            for it in t:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
             p_trends[n] = t
         for n in c_names:
             t = self._calculate_trend(
@@ -596,10 +630,17 @@ class ArchiveStatisticsService:
                 archive_field='archive_date',
                 person_field='contract_officer'
             )
-            for it in t: all_labels.add(it['period'])
+            # 只添加有数据的标签
+            for it in t:
+                if it.get('count', 0) > 0:
+                    all_labels.add(it['period'])
             c_trends[n] = t
 
-        labels = [f'{m}月' for m in range(1, 13)] if (year_filter and year_filter != 'all') else self._sort_halfyear_labels(all_labels)
+        # 统一标签顺序（只包含有数据的标签）
+        if year_filter and year_filter != 'all':
+            labels = self._sort_month_labels(all_labels)
+        else:
+            labels = self._sort_halfyear_labels(all_labels)
         result = {'labels': labels, 'procurement': [], 'contract': []}
         for n in p_names:
             result['procurement'].append({'name': n, 'data': self._align_series(p_trends.get(n, []), labels)})
@@ -1184,6 +1225,7 @@ class ArchiveStatisticsService:
             records.append({
                 'module': 'contract',
                 'code': getattr(item, 'contract_code', ''),
+                'contract_sequence': getattr(item, 'contract_sequence', '') or '',
                 'name': getattr(item, 'contract_name', ''),
                 'responsible_person': getattr(item, 'contract_officer', '') or '',
                 'business_date': business_date,
@@ -1191,7 +1233,7 @@ class ArchiveStatisticsService:
                 'archive_date': archive_date,
                 'cycle_days': cycle_days,
                 'on_time': on_time,
-                'overdue_days': overdue_days,
+                'overdue_days': overdue_days if overdue_days > 0 else 0,
             })
 
         return records

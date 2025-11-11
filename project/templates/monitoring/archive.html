@@ -51,23 +51,6 @@
     /* Equal height helpers for cards */
     .equal-col { display: flex; }
     .equal-col .card { height: 100%; width: 100%; }
-    .trend-chart-container {
-        height: 400px;
-        position: relative;
-    }
-    .trend-empty-overlay {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255,255,255,0.8);
-        color: #6c757d;
-        font-size: 14px;
-        z-index: 5;
-        text-align: center;
-        padding: 1rem;
-    }
     .progress { height: 20px; }
     .table-hover tbody tr:hover {
         background-color: #f8f9fa;
@@ -239,16 +222,10 @@
             </ul>
             <div class="tab-content border border-top-0 p-3">
                 <div class="tab-pane fade show active" id="mt-proc" role="tabpanel">
-                    <div class="trend-chart-container">
-                        <div id="multiTrendOverlayProc" class="trend-empty-overlay">暂无趋势数据</div>
-                        <canvas id="multiTrendChartProc"></canvas>
-                    </div>
+                    <div id="multiTrendChartProc" style="height: 400px;"></div>
                 </div>
                 <div class="tab-pane fade" id="mt-cont" role="tabpanel">
-                    <div class="trend-chart-container">
-                        <div id="multiTrendOverlayCont" class="trend-empty-overlay">暂无趋势数据</div>
-                        <canvas id="multiTrendChartCont"></canvas>
-                    </div>
+                    <div id="multiTrendChartCont" style="height: 400px;"></div>
                 </div>
             </div>
         </div>
@@ -358,10 +335,7 @@
 
             <!-- 趋势图 -->
             <h6>归档周期趋势</h6>
-            <div class="trend-chart-container mb-4">
-                <div id="trendChartOverlay" class="trend-empty-overlay">暂无趋势数据</div>
-                <canvas id="trendChart"></canvas>
-            </div>
+            <div id="trendChart" class="mb-4" style="height: 400px;"></div>
 
             <!-- 归档记录明细 -->
             {% if detail_data and detail_data.records %}
@@ -390,7 +364,6 @@
                                             <th>归档截止日</th>
                                             <th>归档日期</th>
                                             <th>周期(天)</th>
-                                            <th>是否及时</th>
                                             <th>逾期(天)</th>
                                         </tr>
                                     </thead>
@@ -404,8 +377,7 @@
                                             <td>{{ r.archive_deadline|date:"Y-m-d" }}</td>
                                             <td>{% if r.archive_date %}{{ r.archive_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
                                             <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}{% else %}-{% endif %}</td>
-                                            <td>{% if r.on_time is not None %}{{ r.on_time|yesno:"是,否" }}{% else %}-{% endif %}</td>
-                                            <td>{% if r.overdue_days %}{{ r.overdue_days }}{% else %}-{% endif %}</td>
+                                            <td>{% if r.overdue_days is not None and r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}</span>{% else %}-{% endif %}</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -421,29 +393,27 @@
                                 <table class="table table-sm">
                                     <thead>
                                         <tr>
-                                            <th>编号</th>
+                                            <th>合同序号</th>
                                             <th>名称</th>
                                             <th>经办人</th>
                                             <th>签订日期</th>
                                             <th>归档截止日</th>
                                             <th>归档日期</th>
                                             <th>周期(天)</th>
-                                            <th>是否及时</th>
                                             <th>逾期(天)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for r in detail_data.records.contracts %}
                                         <tr>
-                                            <td>{{ r.code }}</td>
+                                            <td>{{ r.contract_sequence|default:r.code }}</td>
                                             <td>{{ r.name }}</td>
                                             <td>{{ r.responsible_person }}</td>
                                             <td>{{ r.business_date|date:"Y-m-d" }}</td>
                                             <td>{{ r.archive_deadline|date:"Y-m-d" }}</td>
                                             <td>{% if r.archive_date %}{{ r.archive_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
                                             <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}{% else %}-{% endif %}</td>
-                                            <td>{% if r.on_time is not None %}{{ r.on_time|yesno:"是,否" }}{% else %}-{% endif %}</td>
-                                            <td>{% if r.overdue_days %}{{ r.overdue_days }}{% else %}-{% endif %}</td>
+                                            <td>{% if r.overdue_days is not None and r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}</span>{% else %}-{% endif %}</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -456,66 +426,6 @@
                     </div>
                 </div>
             </div>
-            {% endif %}
-
-            <!-- 超期记录列表 -->
-            <h6 class="mt-4">超期记录</h6>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="showAllCheck" {% if show_all %}checked{% endif %}>
-                <label class="form-check-label" for="showAllCheck">
-                    显示所有记录（包括已归档）
-                </label>
-            </div>
-
-            {% if detail_data and detail_data.problems %}
-                {% for severity, items in detail_data.problems.items %}
-                    {% if items %}
-                    <div class="card mb-2">
-                        <div class="card-header" data-bs-toggle="collapse" data-bs-target="#{{ severity }}" style="cursor: pointer;">
-                            <strong>{{ severity|upper }}</strong> ({{ items|length }}条)
-                            <i class="fas fa-chevron-down float-end"></i>
-                        </div>
-                        <div id="{{ severity }}" class="collapse show">
-                            <div class="card-body p-0">
-                                <table class="table table-sm mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>业务类型</th>
-                                            <th>编号</th>
-                                            <th>名称</th>
-                                            <th>业务日期</th>
-                                            <th>归档截止日</th>
-                                            <th>逾期天数</th>
-                                            <th>操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for item in items %}
-                                        <tr>
-                                            <td>{{ item.module_label }}</td>
-                                            <td>{{ item.code }}</td>
-                                            <td>{{ item.name }}</td>
-                                            <td>{{ item.business_date|date:"Y-m-d" }}</td>
-                                            <td>{{ item.archive_deadline|date:"Y-m-d" }}</td>
-                                            <td class="text-danger">{{ item.overdue_days }}天</td>
-                                            <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-link">编辑</a></td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-            {% elif detail_data %}
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i> 暂无超期记录
-                </div>
-            {% else %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-info-circle"></i> 暂无详情数据，请检查筛选条件或稍后重试。
-                </div>
             {% endif %}
           </div>
           <div class="modal-footer">
@@ -550,16 +460,10 @@
             </ul>
             <div class="tab-content border border-top-0 p-3">
                 <div class="tab-pane fade show active" id="pm-proc" role="tabpanel">
-                    <div class="trend-chart-container">
-                        <div id="projMultiOverlayProc" class="trend-empty-overlay">暂无趋势数据</div>
-                        <canvas id="projMultiChartProc"></canvas>
-                    </div>
+                    <div id="projMultiChartProc" style="height: 400px;"></div>
                 </div>
                 <div class="tab-pane fade" id="pm-cont" role="tabpanel">
-                    <div class="trend-chart-container">
-                        <div id="projMultiOverlayCont" class="trend-empty-overlay">暂无趋势数据</div>
-                        <canvas id="projMultiChartCont"></canvas>
-                    </div>
+                    <div id="projMultiChartCont" style="height: 400px;"></div>
                 </div>
             </div>
         </div>
@@ -570,7 +474,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.0/dist/apexcharts.min.js"></script>
+<script src="{% static 'js/trend-chart.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 视图模式切换
@@ -609,179 +514,325 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     {% endif %}
 
-    // "显示所有记录"复选框
-    const showAllCheck = document.getElementById('showAllCheck');
-    if (showAllCheck) {
-        showAllCheck.addEventListener('change', function() {
-            const url = new URL(window.location.href);
-            if (this.checked) {
-                url.searchParams.set('show_all', 'true');
-            } else {
-                url.searchParams.delete('show_all');
-            }
-            window.location.href = url.toString();
-        });
-    }
 
     // 辅助：判断序列是否存在有效数据
     function hasUsableSeries(arr) {
         return Array.isArray(arr) && arr.some(v => v !== null && v !== undefined && !Number.isNaN(v));
     }
 
-    // 渲染趋势图（详情区域）延迟到模态框显示后执行，避免隐藏渲染导致尺寸异常
+    // 渲染趋势图（详情区域）- 使用统一样式
     {% if target_code and detail_data %}
     const trendData = {{ trend_data_json|safe }};
+    
     function renderDetailTrend() {
-        if (!(trendData && trendData.procurement && trendData.contract)) return;
-        const el = document.getElementById('trendChart');
-        if (!el) return;
-        const ctx = el.getContext('2d');
-        const labels = trendData.procurement.map(d => d.period);
-        const pSeries = trendData.procurement.map(d => d.avg_cycle);
-        const cSeries = trendData.contract.map(d => d.avg_cycle);
-        const overlay = document.getElementById('trendChartOverlay');
-        const hasData = hasUsableSeries(pSeries) || hasUsableSeries(cSeries);
-
-        if (!hasData) {
-            if (overlay) overlay.style.display = 'flex';
+        if (!(trendData && trendData.procurement && trendData.contract)) {
+            const el = document.getElementById('trendChart');
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            }
             return;
         }
-        if (overlay) overlay.style.display = 'none';
-
-        const gradBlue = ctx.createLinearGradient(0,0,0,400);
-        gradBlue.addColorStop(0, 'rgba(13,110,253,0.25)');
-        gradBlue.addColorStop(1, 'rgba(13,110,253,0.02)');
-        const gradGreen = ctx.createLinearGradient(0,0,0,400);
-        gradGreen.addColorStop(0, 'rgba(25,135,84,0.25)');
-        gradGreen.addColorStop(1, 'rgba(25,135,84,0.02)');
-
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: '采购归档周期',
-                        data: pSeries,
-                        borderColor: '#0d6efd',
-                        backgroundColor: gradBlue,
-                        borderWidth: 2.5,
-                        pointRadius: 2.5,
-                        pointHoverRadius: 5,
-                        tension: 0.35,
-                        spanGaps: true,
-                        fill: true,
-                    },
-                    {
-                        label: '合同归档周期',
-                        data: cSeries,
-                        borderColor: '#198754',
-                        backgroundColor: gradGreen,
-                        borderWidth: 2.5,
-                        pointRadius: 2.5,
-                        pointHoverRadius: 5,
-                        tension: 0.35,
-                        spanGaps: true,
-                        fill: true,
-                    },
-                    {
-                        label: '采购规定周期（40天）',
-                        data: Array(labels.length).fill(40),
-                        borderColor: '#0d6efd',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: 0
-                    },
-                    {
-                        label: '合同规定周期（30天）',
-                        data: Array(labels.length).fill(30),
-                        borderColor: '#198754',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: 0
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    y: { beginAtZero: true, title: { display: true, text: '平均归档周期（天）' }, grid: { color: '#f1f3f5' } },
-                    x: { grid: { color: '#f8f9fa' } },
-                }
+        
+        // 构建标签列表（只包含有数据的时间段）
+        const labelSet = new Set();
+        trendData.procurement.forEach(item => {
+            if (item.count > 0) {
+                labelSet.add(item.period);
             }
         });
+        trendData.contract.forEach(item => {
+            if (item.count > 0) {
+                labelSet.add(item.period);
+            }
+        });
+        
+        // 判断维度并排序标签
+        const dimension = trendData.procurement.some(d => d.month) ? 'month' : 'year';
+        let labels;
+        if (dimension === 'month') {
+            // 月份排序
+            labels = Array.from(labelSet).sort((a, b) => {
+                const aMonth = parseInt(a.replace('月', ''));
+                const bMonth = parseInt(b.replace('月', ''));
+                return aMonth - bMonth;
+            });
+        } else {
+            // 半年排序
+            labels = Array.from(labelSet).sort((a, b) => {
+                const getKey = (lbl) => {
+                    if (lbl.includes('上半年')) {
+                        return [parseInt(lbl.split('上半年')[0]), 1];
+                    }
+                    if (lbl.includes('下半年')) {
+                        return [parseInt(lbl.split('下半年')[0]), 2];
+                    }
+                    return [9999, 9];
+                };
+                const [aYear, aHalf] = getKey(a);
+                const [bYear, bHalf] = getKey(b);
+                if (aYear !== bYear) return aYear - bYear;
+                return aHalf - bHalf;
+            });
+        }
+        
+        if (labels.length === 0) {
+            const el = document.getElementById('trendChart');
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            }
+            return;
+        }
+        
+        // 构建采购和合同数据系列
+        const procurementSeries = {
+            name: '采购归档周期',
+            data: labels.map(label => {
+                const item = trendData.procurement.find(d => d.period === label);
+                return item && item.count > 0 ? item.avg_cycle : null;
+            }),
+            color: '#0d6efd'
+        };
+        
+        const contractSeries = {
+            name: '合同归档周期',
+            data: labels.map(label => {
+                const item = trendData.contract.find(d => d.period === label);
+                return item && item.count > 0 ? item.avg_cycle : null;
+            }),
+            color: '#198754'
+        };
+        
+        // 基准线
+        const baselines = [
+            { name: '采购规定周期（40天）', value: 40, color: '#0d6efd' },
+            { name: '合同规定周期（30天）', value: 30, color: '#198754' }
+        ];
+        
+        // 构建完整的系列数组
+        const chartSeries = [procurementSeries, contractSeries];
+        baselines.forEach(baseline => {
+            chartSeries.push({
+                name: baseline.name,
+                data: Array(labels.length).fill(baseline.value),
+                color: baseline.color
+            });
+        });
+        
+        // 使用与主页面相同的ApexCharts配置
+        const options = {
+            chart: {
+                type: 'line',
+                height: 400,
+                toolbar: { show: true }
+            },
+            series: chartSeries,
+            xaxis: {
+                categories: labels,
+                title: { text: '时间周期' }
+            },
+            yaxis: {
+                title: { text: '平均归档周期（天）' },
+                labels: {
+                    formatter: function(value) {
+                        return value ? Math.round(value) : '';
+                    }
+                }
+            },
+            title: {
+                text: '归档周期趋势',
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: chartSeries.map((_, idx) => idx >= 2 ? 2 : 3),
+                dashArray: chartSeries.map((_, idx) => idx >= 2 ? 5 : 0)
+            },
+            markers: {
+                size: chartSeries.map((_, idx) => idx >= 2 ? 0 : 5)
+            },
+            dataLabels: {
+                enabled: false
+            },
+            legend: {
+                show: true,
+                position: 'top',
+                horizontalAlign: 'right'
+            },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function(value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    }
+                }
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: {
+                borderColor: '#e7e7e7',
+                strokeDashArray: 4
+            }
+        };
+        
+        const el = document.getElementById('trendChart');
+        if (el) {
+            el.innerHTML = ''; // 清空元素
+            const chart = new ApexCharts(el, options);
+            chart.render();
+        }
     }
+    
     if (detailModalEl) {
         detailModalEl.addEventListener('shown.bs.modal', renderDetailTrend, { once: true });
     }
     {% endif %}
 
-    // 多序列趋势图（人员/项目）
+    // 多序列趋势图（人员/项目）- 使用通用组件
     const multiData = {{ multi_trend_json|safe }};
-    function buildPalette() {
-        return ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
-    }
-    function renderMultiSeries(canvasId, overlayId, labels, series, dashedLine=null) {
-        const el = document.getElementById(canvasId);
-        const overlay = document.getElementById(overlayId);
-        if (!el) return;
-        const ctx = el.getContext('2d');
-        const pal = buildPalette();
-        const hasAny = Array.isArray(series) && series.some(s => hasUsableSeries(s.data));
-        if (!hasAny) { if (overlay) overlay.style.display = 'flex'; return; } else { if (overlay) overlay.style.display = 'none'; }
-        const datasets = (series || []).map((s, idx) => ({
-            label: s.name,
-            data: s.data,
-            borderColor: pal[idx % pal.length],
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 2,
-            pointHoverRadius: 5,
-            tension: 0.3,
-            spanGaps: true,
-            fill: false,
-        }));
-        if (dashedLine) {
-            datasets.push({
-                label: dashedLine.label,
-                data: Array(labels.length).fill(dashedLine.value),
-                borderColor: dashedLine.color,
-                borderDash: [5,5],
-                borderWidth: 2,
-                fill: false,
-                pointRadius: 0
+    const colorPalette = ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
+    
+    // 将多系列数据转换为通用组件格式
+    function prepareMultiSeriesData(labels, seriesArray) {
+        if (!labels || !seriesArray) return [];
+        
+        const dataPoints = [];
+        labels.forEach((label, idx) => {
+            const point = { period: label };
+            seriesArray.forEach(series => {
+                point[series.name] = series.data[idx] || 0;
             });
-        }
-        new Chart(ctx, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    y: { beginAtZero: true, title: { display: true, text: '平均归档周期（天）' }, grid: { color: '#f1f3f5' } },
-                    x: { grid: { color: '#f8f9fa' } },
-                }
-            }
+            dataPoints.push(point);
         });
+        return dataPoints;
     }
+    
+    function renderMultiSeriesChart(elementId, labels, seriesArray, title) {
+        if (!labels || !seriesArray || seriesArray.length === 0) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无数据</div>';
+            }
+            return;
+        }
+        
+        // 检查是否所有系列的数据都为空或null
+        const hasValidData = seriesArray.some(series =>
+            series.data && series.data.some(val => val !== null && val !== undefined && val !== 0)
+        );
+        
+        if (!hasValidData) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无有效数据</div>';
+            }
+            return;
+        }
+        
+        // 判断是采购还是合同趋势图
+        const isProcurement = title.includes('采购');
+        const baselines = isProcurement
+            ? [{ name: '采购规定周期（40天）', value: 40, color: '#0d6efd' }]
+            : [{ name: '合同规定周期（30天）', value: 30, color: '#198754' }];
+        
+        // 准备ApexCharts格式的系列数据
+        const chartSeries = seriesArray.map((s, idx) => ({
+            name: s.name,
+            data: s.data.map(v => v === null || v === undefined ? null : v),
+            color: colorPalette[idx % colorPalette.length]
+        }));
+        
+        // 添加基准线
+        baselines.forEach(baseline => {
+            chartSeries.push({
+                name: baseline.name,
+                data: Array(labels.length).fill(baseline.value),
+                color: baseline.color
+            });
+        });
+        
+        const options = {
+            chart: {
+                type: 'line',
+                height: 400,
+                toolbar: { show: true }
+            },
+            series: chartSeries,
+            xaxis: {
+                categories: labels,
+                title: { text: '时间周期' }
+            },
+            yaxis: {
+                title: { text: '平均归档周期（天）' },
+                labels: {
+                    formatter: function(value) {
+                        return value ? Math.round(value) : '';
+                    }
+                }
+            },
+            title: {
+                text: title,
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: chartSeries.map((_, idx) => idx >= seriesArray.length ? 2 : 3),
+                dashArray: chartSeries.map((_, idx) => idx >= seriesArray.length ? 5 : 0)
+            },
+            markers: {
+                size: chartSeries.map((_, idx) => idx >= seriesArray.length ? 0 : 5)
+            },
+            dataLabels: {
+                enabled: false
+            },
+            legend: {
+                show: true,
+                position: 'top',
+                horizontalAlign: 'right'
+            },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function(value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    }
+                }
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: {
+                borderColor: '#e7e7e7',
+                strokeDashArray: 4
+            }
+        };
+        
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.innerHTML = ''; // 清空元素
+            const chart = new ApexCharts(el, options);
+            chart.render();
+        }
+    }
+    
     if (multiData && multiData.labels) {
         // 个人视图
         {% if view_mode == 'person' %}
-        renderMultiSeries('multiTrendChartProc', 'multiTrendOverlayProc', multiData.labels, multiData.procurement, {label:'采购规定周期（40天）', value:40, color:'#0d6efd'});
-        renderMultiSeries('multiTrendChartCont', 'multiTrendOverlayCont', multiData.labels, multiData.contract, {label:'合同规定周期（30天）', value:30, color:'#198754'});
+        renderMultiSeriesChart('multiTrendChartProc', multiData.labels, multiData.procurement, '所有经办人采购归档周期趋势');
+        renderMultiSeriesChart('multiTrendChartCont', multiData.labels, multiData.contract, '所有经办人合同归档周期趋势');
         {% endif %}
+        
         // 项目视图
         {% if view_mode == 'project' %}
-        renderMultiSeries('projMultiChartProc', 'projMultiOverlayProc', multiData.labels, multiData.procurement, {label:'采购规定周期（40天）', value:40, color:'#0d6efd'});
-        renderMultiSeries('projMultiChartCont', 'projMultiOverlayCont', multiData.labels, multiData.contract, {label:'合同规定周期（30天）', value:30, color:'#198754'});
+        {% if filter_config.selected_project_value %}
+        renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '本项目经办人采购归档周期趋势');
+        renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '本项目经办人合同归档周期趋势');
+        {% else %}
+        renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '所有项目采购归档周期趋势');
+        renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '所有项目合同归档周期趋势');
+        {% endif %}
         {% endif %}
     }
 });
