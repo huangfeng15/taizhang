@@ -46,14 +46,23 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
 
-# 5. 启动局域网服务
-python manage.py runserver 0.0.0.0:3500
+# 5. 启动局域网服务（HTTPS）
+# 使用 start_server.bat 启动，会自动生成SSL证书并启动HTTPS服务
+start_server.bat
+
+# 停止服务器（如需重启）
+stop_server.bat
+
+# 或者一键重启
+restart_server.bat
 ```
 
 ### 3. 访问系统
 - **查看本机IP**: 在命令行运行 `ipconfig`。
-- **访问地址**: `http://<你的IP地址>:3500`
-- **管理后台**: `http://<你的IP地址>:3500/admin/`
+- **本机访问**: `https://127.0.0.1:3500/`
+- **局域网访问**: `https://<你的IP地址>:3500/`（例如：`https://10.168.3.240:3500/`）
+- **管理后台**: `https://<你的IP地址>:3500/admin/`
+- **注意**: 浏览器可能显示安全警告（因为使用自签名证书），请点击"继续访问"或"信任此站点"
 
 ---
 
@@ -129,7 +138,7 @@ python manage.py clear_all_data
 ## ❓ 常见问题
 
 **Q: 局域网其他电脑无法访问？**
-A: 1. 确保启动命令是 `python manage.py runserver 0.0.0.0:3500`。 2. 检查服务器的Windows防火墙是否已为TCP 3500端口添加入站规则。
+A: 1. 确保使用 `start_server.bat` 启动服务（会自动使用 `0.0.0.0:3500` 监听所有网络接口）。 2. 检查服务器的Windows防火墙是否已为TCP 3500端口添加入站规则。 3. 确保使用 `https://` 协议访问，而不是 `http://`。
 
 **Q: 忘记管理员密码？**
 A: 运行 `python manage.py changepassword <你的管理员用户名>`。

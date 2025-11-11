@@ -151,7 +151,12 @@ def download_import_template(request):
     """下载导入模板（包含字段说明）。"""
     module = request.GET.get('module', 'project')
     mode = request.GET.get('mode', 'long')
-    _aliases = {'supplier': 'supplier_eval', 'evaluation': 'supplier_eval', 'supplier_evaluation': 'supplier_eval'}
+    # 别名映射：统一处理各种供应商评价模块名称
+    _aliases = {
+        'supplier': 'supplier_eval',
+        'evaluation': 'supplier_eval',
+        'supplier_evaluation': 'supplier_eval',
+    }
     module = _aliases.get(module, module)
 
     # 直接从 template_generator 导入配置，避免循环导入
@@ -175,9 +180,14 @@ def download_import_template(request):
         row = [note_text if header == note_column else '' for header in headers]
         writer.writerow(row)
     csv_bytes = buffer.getvalue().encode('utf-8-sig')
+    
+    filename = template_config["filename"]
     response = HttpResponse(csv_bytes, content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="{template_config["filename"]}"'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Content-Length'] = str(len(csv_bytes))
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
     return response
 
 

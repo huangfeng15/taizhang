@@ -321,11 +321,10 @@ function showImportDialog() {
                             <i class="fas fa-download"></i>
                             下载模板
                         </label>
-                        <a href="{% url 'download_import_template' %}?module=supplier_eval" download
-                           class="btn btn-secondary" style="text-decoration: none;">
+                        <button type="button" onclick="downloadTemplate()" class="btn btn-secondary">
                             <i class="fas fa-file-csv"></i>
                             CSV 导入模板
-                        </a>
+                        </button>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -339,6 +338,30 @@ function showImportDialog() {
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', html);
+}
+
+// 下载模板
+async function downloadTemplate() {
+    try {
+        const url = '{% url "download_import_template" %}?module=supplier_eval';
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('下载失败');
+        }
+        
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = 'supplier_eval_import_template_long.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        alert('模板下载失败: ' + error.message);
+    }
 }
 
 // 关闭导入对话框
