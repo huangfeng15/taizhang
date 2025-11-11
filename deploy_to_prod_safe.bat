@@ -27,8 +27,8 @@ if not "%CURRENT_BRANCH%"=="dev" (
     echo   2. 测试通过后再部署到生产
     echo.
     echo 是否继续从当前分支(%CURRENT_BRANCH%)部署?
-    choice /C YN /N /M "继续(Y) 或 取消(N): "
-    if %ERRORLEVEL% NEQ 1 (
+    set /p CONTINUE="继续(Y) 或 取消(N): "
+    if /i not "%CONTINUE%"=="Y" (
         echo [取消] 部署已取消
         pause
         exit /b 0
@@ -44,8 +44,8 @@ if %ERRORLEVEL% NEQ 0 (
     echo.
     echo 建议先提交更改: git add . && git commit -m "描述"
     echo.
-    choice /C YN /N /M "忽略并继续(Y) 或 取消(N): "
-    if %ERRORLEVEL% NEQ 1 (
+    set /p IGNORE="忽略并继续(Y) 或 取消(N): "
+    if /i not "%IGNORE%"=="Y" (
         echo [取消] 部署已取消
         pause
         exit /b 0

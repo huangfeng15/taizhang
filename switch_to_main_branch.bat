@@ -43,23 +43,23 @@ if %ERRORLEVEL% NEQ 0 (
     git status --short
     echo.
     echo 选择操作:
-    echo   [1] 提交更改后切换
-    echo   [2] 暂存更改后切换 (git stash)
-    echo   [3] 放弃更改并切换
-    echo   [4] 取消
+    echo   1. 提交更改后切换
+    echo   2. 暂存更改后切换 (git stash)
+    echo   3. 放弃更改并切换
+    echo   4. 取消
     echo.
-    choice /C 1234 /N /M "请选择 (1-4): "
+    set /p CHOICE="请输入选项 (1-4): "
     
-    if %ERRORLEVEL% EQU 1 (
+    if "%CHOICE%"=="1" (
         echo.
         set /p COMMIT_MSG="请输入提交信息: "
         git add .
         git commit -m "!COMMIT_MSG!"
         echo [成功] 更改已提交
-    ) else if %ERRORLEVEL% EQU 2 (
+    ) else if "%CHOICE%"=="2" (
         git stash
         echo [成功] 更改已暂存
-    ) else if %ERRORLEVEL% EQU 3 (
+    ) else if "%CHOICE%"=="3" (
         git checkout -- .
         echo [成功] 更改已放弃
     ) else (

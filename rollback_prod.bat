@@ -21,8 +21,8 @@ if not "%CURRENT_BRANCH%"=="main" (
     echo [信息] 当前分支: %CURRENT_BRANCH%
     echo.
     echo 是否切换到main分支并回滚?
-    choice /C YN /N /M "继续(Y) 或 取消(N): "
-    if %ERRORLEVEL% NEQ 1 (
+    set /p SWITCH="继续(Y) 或 取消(N): "
+    if /i not "%SWITCH%"=="Y" (
         echo [取消] 回滚已取消
         pause
         exit /b 0
@@ -79,12 +79,12 @@ echo.
 echo [步骤3/4] 数据库恢复选项
 echo.
 echo 选择操作:
-echo   [1] 仅回滚代码 (保留当前数据库)
-echo   [2] 同时恢复数据库备份
+echo   1. 仅回滚代码 (保留当前数据库)
+echo   2. 同时恢复数据库备份
 echo.
-choice /C 12 /N /M "请选择 (1或2): "
+set /p DB_CHOICE="请选择 (1或2): "
 
-if %ERRORLEVEL% EQU 2 (
+if "%DB_CHOICE%"=="2" (
     echo.
     echo [信息] 打开备份目录,请手动选择要恢复的数据库文件
     echo.
