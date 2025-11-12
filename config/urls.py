@@ -31,6 +31,7 @@ urlpatterns = [
     path('payments/', views.payment_list, name='payment_list'),
     path('payment/<str:payment_code>/', views.payment_detail, name='payment_detail'),
     path('database/management/', views.database_management, name='database_management'),
+    path('database/restore-no-auth/', views.restore_database_no_auth, name='restore_database_no_auth'),
     
     # 监控与报表路由
     path('monitoring/cockpit/', views.monitoring_cockpit, name='monitoring_cockpit'),

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{% static 'css/smart-selector.css' %}">
     <link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
     <link rel="stylesheet" href="{% static 'css/sticky-table-header.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom-dialog.css' %}">
     {% block extra_head %}{% endblock %}
     <style>
         * {
@@ -1189,14 +1190,26 @@
             },
             
             // 批量删除
-            batchDelete: function(apiUrl, confirmMessage) {
+            batchDelete: async function(apiUrl, confirmMessage) {
                 const ids = this.getSelectedIds();
                 if (ids.length === 0) {
-                    alert('请先选择要删除的项目');
+                    CustomDialog.alert({
+                        title: '请选择项目',
+                        message: '请先选择要删除的项目',
+                        type: 'warning'
+                    });
                     return;
                 }
                 
-                if (!confirm(confirmMessage || `确定要删除选中的 ${ids.length} 项吗？此操作不可恢复！`)) {
+                const confirmed = await CustomDialog.confirm({
+                    title: '确认批量删除',
+                    message: confirmMessage || `确定要删除选中的 ${ids.length} 项吗？`,
+                    warnings: ['此操作不可恢复', '所有选中的数据将被永久删除'],
+                    dangerButton: true,
+                    type: 'warning'
+                });
+                
+                if (!confirmed) {
                     return;
                 }
                 
@@ -1236,17 +1249,27 @@
                 })
                 .then(data => {
                     if (data.success) {
-                        alert(data.message);
-                        // 刷新页面
-                        window.location.reload();
+                        CustomDialog.alert({
+                            title: '删除成功',
+                            message: data.message,
+                            type: 'success'
+                        }).then(() => window.location.reload());
                     } else {
-                        alert('删除失败: ' + data.message);
+                        CustomDialog.alert({
+                            title: '删除失败',
+                            message: data.message,
+                            type: 'error'
+                        });
                         deleteBtn.innerHTML = originalText;
                         deleteBtn.disabled = false;
                     }
                 })
                 .catch(error => {
-                    alert('删除失败: ' + error.message);
+                    CustomDialog.alert({
+                        title: '删除失败',
+                        message: error.message,
+                        type: 'error'
+                    });
                     deleteBtn.innerHTML = originalText;
                     deleteBtn.disabled = false;
                 });
@@ -1533,6 +1556,8 @@
     </script>
     <!-- Bootstrap JS -->
     <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'js/custom-dialog.js' %}"></script>
+    <script src="{% static 'js/dialog-polyfill.js' %}"></script>
     <script src="{% static 'js/smart-selector.js' %}"></script>
     <script src="{% static 'js/edit-modal.js' %}"></script>
     

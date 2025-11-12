@@ -10,6 +10,20 @@ from procurement.models import Procurement
 from contract.models import Contract
 from payment.models import Payment
 from project.models import Project
+from project.enums import FilePositioning
+
+
+CONTRACT_PARENT_COLUMN = '关联主合同编号'
+CONTRACT_PROCUREMENT_COLUMN = '关联采购编号'
+IMPORT_ROLLBACK_MESSAGE = '项目数据导入存在错误，所有写入已回滚'
+
+
+class ProjectDataImportError(Exception):
+    """批量导入校验失败时抛出的异常，附带统计信息以便前端提示。"""
+
+    def __init__(self, message: str, stats: dict):
+        super().__init__(message)
+        self.stats = stats
 
 
 def extract_code_parts(code):
@@ -158,6 +172,8 @@ def generate_project_excel(project, user):
                 '合同序号': contract.contract_sequence,
                 '合同名称': contract.contract_name,
                 '文件定位': contract.file_positioning,
+                '关联采购编号': contract.procurement.procurement_code if contract.procurement else '',
+                '关联主合同编号': contract.parent_contract.contract_code if contract.parent_contract else '',
                 '合同来源': contract.contract_source,
                 '乙方': contract.party_b,
                 '合同金额(元)': float(contract.contract_amount) if contract.contract_amount else 0,
@@ -213,6 +229,12 @@ def import_project_excel(file_obj, project_code, user=None):
         'payments_deleted': 0,
         'errors': []
     }
+    def _clean_cell(value):
+        if pd.notna(value):
+            text = str(value).strip()
+            if text and text.lower() != 'nan':
+                return text
+        return ''
     
     try:
         # 读取Excel文件的所有工作表
@@ -232,6 +254,7 @@ def import_project_excel(file_obj, project_code, user=None):
             except Project.DoesNotExist:
                 raise ValueError(f'项目不存在：{project_code}')
             
+            procurement_cache = {}
             # 2. 删除该项目下的所有关联数据
             # 注意：由于外键关系，需要按照依赖顺序删除
             # 付款 -> 合同 -> 采购
@@ -327,32 +350,99 @@ def import_project_excel(file_obj, project_code, user=None):
                         procurement_data['created_by'] = user.username
                         procurement_data['updated_by'] = user.username
                     
-                    Procurement.objects.create(**procurement_data)
+                    procurement = Procurement.objects.create(**procurement_data)
+                    procurement_cache[procurement_code] = procurement
                     stats['procurements_created'] += 1
                     
                 except Exception as e:
                     stats['errors'].append(f"采购记录导入失败 [{procurement_code}]: {str(e)}")
             
+            def _create_contracts_with_dependencies(contract_rows):
+                def _row_hint(info: dict) -> str:
+                    row_number = info.get('row_number')
+                    return f"第{row_number}行" if row_number else "未知行"
+                priority_map = {
+                    FilePositioning.MAIN_CONTRACT.value: 0,
+                    FilePositioning.FRAMEWORK.value: 1,
+                }
+                pending = sorted(
+                    contract_rows,
+                    key=lambda info: (priority_map.get(info['file_positioning'], 2), info['contract_code'])
+                )
+                created = {}
+                while pending:
+                    progress = False
+                    next_pending = []
+                    for info in pending:
+                        parent_code = info['parent_contract_code']
+                        if parent_code:
+                            parent_contract = created.get(parent_code)
+                            if not parent_contract:
+                                next_pending.append(info)
+                                continue
+                        else:
+                            parent_contract = None
+                        procurement = None
+                        procurement_code = info['procurement_code']
+                        if procurement_code:
+                            procurement = procurement_cache.get(procurement_code)
+                            if not procurement:
+                                stats['errors'].append(
+                                    f"合同记录导入失败（{_row_hint(info)}）[{info['contract_code']}]: 关联采购不存在 {procurement_code}"
+                                )
+                                continue
+                        contract_data = info['data'].copy()
+                        contract_data['parent_contract'] = parent_contract
+                        contract_data['procurement'] = procurement
+                        try:
+                            contract = Contract.objects.create(**contract_data)
+                        except Exception as exc:
+                            stats['errors'].append(
+                                f"合同记录导入失败（{_row_hint(info)}）[{info['contract_code']}]: {str(exc)}"
+                            )
+                            continue
+                        created[info['contract_code']] = contract
+                        stats['contracts_created'] += 1
+                        progress = True
+                    if not progress:
+                        for info in next_pending:
+                            parent_hint = info['parent_contract_code']
+                            if parent_hint:
+                                stats['errors'].append(
+                                    f"合同记录导入失败（{_row_hint(info)}）[{info['contract_code']}]: 关联主合同 {parent_hint} 未在文件中提供或顺序错误"
+                                )
+                            else:
+                                stats['errors'].append(
+                                    f"合同记录导入失败（{_row_hint(info)}）[{info['contract_code']}]: 未能解析依赖关系"
+                                )
+                        break
+                    pending = next_pending
+                return created
             # 5. 导入合同信息
             contract_df = excel_data['合同信息']
-            for _, row in contract_df.iterrows():
+            contract_rows = []
+            for idx, row in contract_df.iterrows():
                 contract_code = ''
                 try:
-                    contract_code = str(row.get('合同编号', '')).strip()
-                    if not contract_code or contract_code == 'nan':
+                    contract_code = _clean_cell(row.get('合同编号', ''))
+                    if not contract_code:
                         continue
-                    
+
+                    file_positioning_value = row.get('文件定位', '')
+                    file_positioning = _clean_cell(file_positioning_value)
+                    if not file_positioning:
+                        file_positioning = FilePositioning.MAIN_CONTRACT.value
+
                     contract_data = {
                         'contract_code': contract_code,
                         'project': project,
                         'contract_name': str(row.get('合同名称', '')) if pd.notna(row.get('合同名称')) else '',
-                        'contract_sequence': str(row.get('合同序号', '')) if pd.notna(row.get('合同序号')) else None,
-                        'file_positioning': str(row.get('文件定位', '')) if pd.notna(row.get('文件定位')) else '',
+                        'contract_sequence': _clean_cell(row.get('合同编号', '')) or None,
+                        'file_positioning': file_positioning,
                         'contract_source': str(row.get('合同来源', '')) if pd.notna(row.get('合同来源')) else '',
                         'party_b': str(row.get('乙方', '')) if pd.notna(row.get('乙方')) else '',
                     }
-                    
-                    # 处理金额字段
+
                     amount_value = row.get('合同金额(元)')
                     if pd.notna(amount_value) and str(amount_value).strip() and str(amount_value) != '0':
                         try:
@@ -361,8 +451,7 @@ def import_project_excel(file_obj, project_code, user=None):
                             contract_data['contract_amount'] = None
                     else:
                         contract_data['contract_amount'] = None
-                    
-                    # 处理签订日期
+
                     signing_date = row.get('签订日期')
                     if pd.notna(signing_date) and str(signing_date).strip():
                         try:
@@ -371,17 +460,27 @@ def import_project_excel(file_obj, project_code, user=None):
                             contract_data['signing_date'] = None
                     else:
                         contract_data['signing_date'] = None
-                    
+
                     if user:
                         contract_data['created_by'] = user.username
                         contract_data['updated_by'] = user.username
-                    
-                    Contract.objects.create(**contract_data)
-                    stats['contracts_created'] += 1
-                    
+
+                    parent_contract_code = _clean_cell(row.get(CONTRACT_PARENT_COLUMN))
+                    procurement_code = _clean_cell(row.get(CONTRACT_PROCUREMENT_COLUMN))
+
+                    contract_rows.append({
+                        'row_number': idx + 2,
+                        'contract_code': contract_code,
+                        'file_positioning': file_positioning,
+                        'parent_contract_code': parent_contract_code,
+                        'procurement_code': procurement_code,
+                        'data': contract_data,
+                    })
+
                 except Exception as e:
                     stats['errors'].append(f"合同记录导入失败 [{contract_code}]: {str(e)}")
-            
+
+            contract_cache = _create_contracts_with_dependencies(contract_rows)
             # 6. 导入付款信息
             payment_df = excel_data['付款信息']
             for _, row in payment_df.iterrows():
@@ -398,10 +497,10 @@ def import_project_excel(file_obj, project_code, user=None):
                         continue
                     
                     # 查找关联合同
-                    try:
-                        contract = Contract.objects.get(contract_code=contract_code, project=project)
-                    except Contract.DoesNotExist:
+                    contract = contract_cache.get(contract_code)
+                    if not contract:
                         stats['errors'].append(f"付款记录 [{payment_code}] 的关联合同不存在: {contract_code}")
+                        continue
                         continue
                     
                     payment_data = {
@@ -441,8 +540,12 @@ def import_project_excel(file_obj, project_code, user=None):
                 except Exception as e:
                     stats['errors'].append(f"付款记录导入失败 [{payment_code}]: {str(e)}")
         
+        if stats['errors']:
+            raise ProjectDataImportError(IMPORT_ROLLBACK_MESSAGE, stats)
         return stats
-        
+
+    except ProjectDataImportError:
+        raise
     except Exception as e:
-        stats['errors'].append(f"导入过程发生错误: {str(e)}")
-        return stats
+        stats['errors'].append(f"������̷�������: {str(e)}")
+        raise ProjectDataImportError(str(e), stats)

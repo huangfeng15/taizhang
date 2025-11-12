@@ -434,6 +434,11 @@ def import_project_data(request):
     return _views_ops.import_project_data(request)
 
 
+@require_POST
+def restore_database_no_auth(request):
+    return _views_ops.restore_database_no_auth(request)
+
+
 def _generate_project_excel(project, user):
     from project.services.export_service import generate_project_excel
     return generate_project_excel(project, user)

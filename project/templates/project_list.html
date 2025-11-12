@@ -355,19 +355,27 @@
     }
     
     // 开始导入
-    function startImport() {
+    async function startImport() {
         const fileInput = document.getElementById('importFile');
         const file = fileInput.files[0];
         
         if (!file) {
-            alert('请选择要导入的文件');
+            CustomDialog.alert({
+                title: '请选择文件',
+                message: '请选择要导入的文件',
+                type: 'warning'
+            });
             return;
         }
         
         // 检查文件格式
         const fileName = file.name.toLowerCase();
         if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
-            alert('仅支持 CSV 和 Excel 文件格式');
+            CustomDialog.alert({
+                title: '文件格式不支持',
+                message: '仅支持 CSV 和 Excel 文件格式',
+                type: 'warning'
+            });
             return;
         }
         
@@ -378,16 +386,32 @@
         if (conflictMode === 'replace') {
             const projectCode = document.getElementById('projectCode').value.trim();
             if (!projectCode) {
-                alert('替换模式必须填写项目编码！');
+                CustomDialog.alert({
+                    title: '请填写项目编码',
+                    message: '替换模式必须填写项目编码',
+                    type: 'warning'
+                });
                 return;
             }
             
             // 二次确认
-            const confirmMsg = dryRun
-                ? `确认要验证项目【${projectCode}】的数据替换吗？\n\n这将模拟清空该项目及其所有关联数据（采购、合同、付款）。`
-                : `⚠️ 警告：即将清空项目【${projectCode}】及其所有关联数据！\n\n包括该项目的采购、合同、付款记录\n此操作不可恢复，确定继续吗？`;
+            const confirmed = await CustomDialog.confirm({
+                title: dryRun ? '确认验证数据替换' : '⚠️ 警告：即将清空项目数据',
+                message: dryRun
+                    ? `确认要验证项目【${projectCode}】的数据替换吗？`
+                    : `即将清空项目【${projectCode}】及其所有关联数据！`,
+                warnings: dryRun ? [
+                    '这将模拟清空该项目及其所有关联数据',
+                    '包括采购、合同、付款记录'
+                ] : [
+                    '包括该项目的采购、合同、付款记录',
+                    '此操作不可恢复'
+                ],
+                dangerButton: !dryRun,
+                type: dryRun ? 'info' : 'error'
+            });
             
-            if (!confirm(confirmMsg)) {
+            if (!confirmed) {
                 return;
             }
         }

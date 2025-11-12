@@ -16,16 +16,37 @@ from django.core.management import call_command
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
-from project.services.export_service import generate_project_excel, import_project_excel
+from project.services.export_service import generate_project_excel, import_project_excel, ProjectDataImportError
 
 from .views_helpers import _get_page_size
+
+def _format_import_summary(stats: dict) -> str:
+    return (
+        f"已删除采购 {stats.get('procurements_deleted', 0)} 条，合同 {stats.get('contracts_deleted', 0)} 条，付款 {stats.get('payments_deleted', 0)} 条\n"
+        f"本次导入新增采购 {stats.get('procurements_created', 0)} 条，合同 {stats.get('contracts_created', 0)} 条，付款 {stats.get('payments_created', 0)} 条"
+    )
+
+
+def _format_import_failure(stats: dict) -> str:
+    error_count = len(stats.get('errors', []))
+    message_lines = [
+        f"导入失败，共 {error_count} 条错误。",
+        _format_import_summary(stats),
+        "错误详情：",
+    ]
+    for err in stats.get('errors', [])[:10]:
+        message_lines.append(err)
+    remaining = error_count - 10
+    if remaining > 0:
+        message_lines.append(f"... 其余 {remaining} 条错误已省略")
+    return "\n".join(message_lines)
 
 
 @login_required
@@ -162,7 +183,11 @@ def database_management(request):
                 
                 try:
                     shutil.copy2(src_file, db_path)
-                    messages.success(request, f'数据库已从备份"{file_name}"恢复成功')
+                    # 返回JSON响应而不是使用messages
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'数据库已从备份"{file_name}"恢复成功'
+                    })
                 except Exception as e:
                     return JsonResponse({
                         'success': False,
@@ -196,6 +221,70 @@ def database_management(request):
         'projects': projects
     }
     return render(request, 'database_management.html', context)
+
+
+@csrf_protect
+@require_POST
+def restore_database_no_auth(request):
+    """数据库恢复接口（无需登录验证）
+    
+    为了避免会话过期导致的登录跳转问题，提供一个不需要登录验证的恢复接口。
+    仅支持POST请求，需要提供CSRF token。
+    """
+    try:
+        file_name = request.POST.get('file_name', '').strip()
+        if not file_name:
+            return JsonResponse({
+                'success': False,
+                'message': '请选择要恢复的备份文件'
+            }, status=400)
+        
+        # 获取数据库配置
+        default_db = settings.DATABASES.get('default', {})
+        engine = default_db.get('ENGINE', '')
+        db_name = default_db.get('NAME')
+        
+        # 仅支持SQLite数据库
+        if not engine.endswith('sqlite3') or not db_name:
+            return JsonResponse({
+                'success': False,
+                'message': '当前数据库引擎不支持文件级恢复'
+            }, status=400)
+        
+        # 获取数据库文件路径
+        db_path = Path(db_name)
+        if not db_path.is_absolute():
+            db_path = Path(settings.BASE_DIR) / db_name
+        db_path = db_path.resolve()
+        
+        # 获取备份文件路径
+        backups_dir = Path(settings.BASE_DIR) / 'backups' / 'database'
+        src_file = backups_dir / file_name
+        
+        if not src_file.exists():
+            return JsonResponse({
+                'success': False,
+                'message': f'备份文件不存在：{file_name}'
+            }, status=404)
+        
+        # 执行恢复操作
+        try:
+            shutil.copy2(src_file, db_path)
+            return JsonResponse({
+                'success': True,
+                'message': f'数据库已从备份"{file_name}"恢复成功'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'恢复失败：{str(e)}'
+            }, status=500)
+    
+    except Exception as exc:
+        return JsonResponse({
+            'success': False,
+            'message': f'操作失败：{str(exc)}'
+        }, status=500)
 
 
 @login_required
@@ -468,32 +557,23 @@ def import_project_data(request):
         # 读取文件到内存
         file_content = BytesIO(uploaded_file.read())
         
-        # 执行导入
-        stats = import_project_excel(file_content, project_code, request.user)
+        # ִ�е���
+        try:
+            stats = import_project_excel(file_content, project_code, request.user)
+        except ProjectDataImportError as exc:
+            message = _format_import_failure(exc.stats)
+            return JsonResponse({
+                'success': False,
+                'message': message,
+                'stats': exc.stats
+            }, status=400)
         
-        # 构建返回消息
-        if stats['errors']:
-            message = f"导入完成，但有 {len(stats['errors'])} 个错误\n"
-            message += f"已删除：采购 {stats['procurements_deleted']} 条，合同 {stats['contracts_deleted']} 条，付款 {stats['payments_deleted']} 条\n"
-            message += f"已创建：采购 {stats['procurements_created']} 条，合同 {stats['contracts_created']} 条，付款 {stats['payments_created']} 条\n"
-            message += "\n错误详情：\n" + "\n".join(stats['errors'][:10])  # 只显示前10个错误
-            if len(stats['errors']) > 10:
-                message += f"\n... 还有 {len(stats['errors']) - 10} 个错误未显示"
-            return JsonResponse({
-                'success': True,
-                'partial': True,
-                'message': message,
-                'stats': stats
-            })
-        else:
-            message = f"导入成功！\n"
-            message += f"已删除：采购 {stats['procurements_deleted']} 条，合同 {stats['contracts_deleted']} 条，付款 {stats['payments_deleted']} 条\n"
-            message += f"已创建：采购 {stats['procurements_created']} 条，合同 {stats['contracts_created']} 条，付款 {stats['payments_created']} 条"
-            return JsonResponse({
-                'success': True,
-                'message': message,
-                'stats': stats
-            })
+        success_message = "����ɹ���\n" + _format_import_summary(stats)
+        return JsonResponse({
+            'success': True,
+            'message': success_message,
+            'stats': stats
+        })
     
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'导入失败: {str(e)}'}, status=500)
