@@ -475,18 +475,14 @@ def supplier_evaluation_create(request):
             try:
                 evaluation = form.save(commit=False)
                 
-                # 自动从合同获取供应商名称
+                # 自动从合同获取供应商名称（如果未填写）
                 if evaluation.contract and not evaluation.supplier_name:
                     evaluation.supplier_name = evaluation.contract.party_b
                 
                 if request.user.is_authenticated:
                     evaluation.created_by = request.user.username
                 
-                # 生成评价编号
-                from django.utils import timezone
-                timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
-                evaluation.evaluation_code = f'EVAL-{timestamp}'
-                
+                # 注意：评价编号会在模型的 save() 方法中自动生成（如果用户未填写）
                 evaluation.save()
                 
                 return JsonResponse({
@@ -520,7 +516,7 @@ def supplier_evaluation_create(request):
         'form': form,
         'title': '新增履约评价',
         'submit_url': '/supplier/evaluations/create/',
-        'module_type': 'supplier_evaluation',
+        'module_type': 'supplier_eval',
     })
 
 
@@ -594,6 +590,6 @@ def supplier_evaluation_edit(request, evaluation_code):
         'form': form,
         'title': '编辑履约评价',
         'submit_url': f'/supplier/evaluations/{evaluation_code}/edit/',
-        'module_type': 'supplier_evaluation',
+        'module_type': 'supplier_eval',
         'initial_display': initial_display,
     })

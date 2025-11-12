@@ -185,71 +185,9 @@ def get_import_template_config():
                 ],
             },
         },
-        'supplier_eval': {
-            'long': {
-                'filename': 'supplier_eval_import_template_long.csv',
-                'headers': [
-                    '序号',
-                    '合同编号',
-                    '履约综合评价得分',
-                    '末次评价得分',
-                ] + [f'{year}年度评价得分' for year in range(BASE_YEAR, get_current_year() + 2)] + [
-                    '第1次过程评价得分',
-                    '第2次过程评价得分',
-                    '备注',
-                    '模板说明',
-                ],
-                'notes': [
-                    '【必填字段】序号*、合同编号*（标记*号的为必填字段，不能为空）',
-                    '【评价编号】由系统基于"EVAL-<合同编码>-<序号>"规则自动生成',
-                    '【评分范围】所有评分字段范围0-100，可保留1-2位小数；留空表示该项未评价',
-                    '【年度扩展】支持动态添加年度列！格式："YYYY年度评价得分"（如"2026年度评价得分"、"2027年度评价得分"）',
-                    '【过程评价】支持动态添加过程评价列！格式："第N次过程评价得分"（如"第3次过程评价得分"、"第4次过程评价得分"）',
-                    '【灵活扩展】您可以在模板中自行添加任意年份的评价列，系统会自动识别并导入',
-                    '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。'
-                ],
-            },
-        },
-        'evaluation': {
-            'long': {
-                'filename': 'supplier_evaluation_import_template_long.csv',
-                'headers': [
-                    '项目编码',
-                    '序号',
-                    '评价编号',
-                    '关联合同编号',
-                    '供应商名称',
-                    '评价日期区间',
-                    '评价人员',
-                    '评分',
-                    '评价类型',
-                    '模板说明',
-                ],
-                'notes': [
-                    '【必填字段】评价编号*、关联合同编号*、供应商名称*（标记*号的为必填字段，不能为空）',
-                    '【编码规则】评价编号须遵守编号格式限制（禁止 / 等特殊字符），推荐格式：HT2024-001-PJ01',
-                    '【合同关联】关联合同编号必须填写系统中已存在的合同编号',
-                    '【评分范围】评分范围为 0-100 之间的数字，可带小数（如：85.5），可留空',
-                    '【评价类型】建议填写：履约过程评价、末次评价、阶段性评价等',
-                    '【日期区间】评价日期区间格式示例：2024年1-6月、2024年上半年、2024Q1等',
-                    '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
-                ],
-            },
-            'wide': {
-                'filename': 'supplier_evaluation_import_template_wide.csv',
-                'headers': [
-                    '关联合同编号',
-                    '供应商名称',
-                ] + [f'{year}年{half}' for year in range(BASE_YEAR, get_current_year() + 2) for half in ['上半年', '下半年']] + ['模板说明'],
-                'notes': [
-                    '【宽表格式】第1列填写合同编号，第2列填写供应商名称',
-                    '【评价周期】已预设2019年至2025年，每年上下半年共14个评价周期列',
-                    '【评分填写】每个周期列中填写对应时期的评分（0-100），可保留一位或两位小数',
-                    '【留空规则】如某时期暂无评价，对应单元格可留空',
-                    '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
-                ],
-            },
-        },
+        # 注意：supplier_eval 模块使用专门的 import_supplier_eval_v2 命令
+        # 模板配置在 project/import_templates/supplier_eval_v2.yml 中定义
+        # 不需要在这里配置长表/宽表模式
     }
 
 
@@ -291,8 +229,13 @@ class TemplateGenerator:
         try:
             model_field = self.model._meta.get_field(field_name)
             
-            if hasattr(model_field, 'choices') and model_field.choices:
-                choices = [display for value, display in model_field.choices]
+            # 获取 choices，注意可能是可调用对象
+            field_choices = model_field.choices if hasattr(model_field, 'choices') else None
+            if callable(field_choices):
+                field_choices = field_choices()
+            
+            if field_choices:
+                choices = [str(display) for value, display in field_choices]
                 return "、".join(choices)
         except Exception as e:
             print(f"警告: 无法获取字段 {field_name} 的choices: {e}")
@@ -350,7 +293,10 @@ class TemplateGenerator:
         # 创建工作簿
         wb = Workbook()
         ws = wb.active
-        ws.title = self.config['file']['sheet_name']
+        if ws is not None:
+            ws.title = self.config['file']['sheet_name']
+        else:
+            raise ValueError("无法创建工作表")
         
         # 样式定义
         header_font = Font(bold=True, size=11, color="FFFFFF")
@@ -369,37 +315,43 @@ class TemplateGenerator:
         
         # 写入说明行
         instructions_row = self.config['instructions']['row']
-        ws.merge_cells(start_row=instructions_row, start_column=1, 
-                      end_row=instructions_row, end_column=len(self.config['fields']))
-        cell = ws.cell(row=instructions_row, column=1)
-        cell.value = self._format_instructions()
-        cell.font = instruction_font
-        cell.alignment = instruction_alignment
-        ws.row_dimensions[instructions_row].height = 80
+        if ws is not None:
+            ws.merge_cells(start_row=instructions_row, start_column=1,
+                          end_row=instructions_row, end_column=len(self.config['fields']))
+            # 获取合并后的单元格
+            instruction_cell = ws.cell(row=instructions_row, column=1)
+            # openpyxl 的 MergedCell 类型标注问题，使用 type: ignore
+            instruction_cell.value = self._format_instructions()  # type: ignore[attr-defined]
+            instruction_cell.font = instruction_font  # type: ignore[attr-defined]
+            instruction_cell.alignment = instruction_alignment  # type: ignore[attr-defined]
+            ws.row_dimensions[instructions_row].height = 80
         
         # 写入表头
         header_row = instructions_row + 1
-        for col_idx, field in enumerate(self.config['fields'], start=1):
-            cell = ws.cell(row=header_row, column=col_idx)
-            
-            # 字段名（必填字段标记*）
-            field_name = field['name']
-            if field.get('required'):
-                field_name += "*"
-            
-            cell.value = field_name
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = thin_border
-            
-            # 设置列宽
-            ws.column_dimensions[cell.column_letter].width = 15
-            
-            # 添加批注（帮助文本）
-            if field.get('help_text'):
-                comment = Comment(field['help_text'], "系统")
-                cell.comment = comment
+        if ws is not None:
+            for col_idx, field in enumerate(self.config['fields'], start=1):
+                header_cell = ws.cell(row=header_row, column=col_idx)
+                
+                # 字段名（必填字段标记*）
+                field_name = field['name']
+                if field.get('required'):
+                    field_name += "*"
+                
+                header_cell.value = field_name
+                header_cell.font = header_font
+                header_cell.fill = header_fill
+                header_cell.alignment = header_alignment
+                header_cell.border = thin_border
+                
+                # 设置列宽（检查是否为真实单元格）
+                from openpyxl.cell.cell import Cell
+                if isinstance(header_cell, Cell):
+                    ws.column_dimensions[header_cell.column_letter].width = 15
+                
+                # 添加批注（帮助文本）
+                if field.get('help_text'):
+                    comment = Comment(field['help_text'], "系统")
+                    header_cell.comment = comment
         
         # 保存文件
         wb.save(filepath)
@@ -427,7 +379,7 @@ def generate_all_templates(output_dir: str, year: Optional[int] = None) -> List[
     for config_file in templates_dir.glob('*.yml'):
         print(f"正在生成模板: {config_file.name}")
         try:
-            generator = TemplateGenerator(config_file)
+            generator = TemplateGenerator(str(config_file))
             filepath = generator.generate(output_dir, year)
             print(f"  ✓ 已生成: {filepath}")
             generated_files.append(filepath)
@@ -462,7 +414,7 @@ def generate_template_by_module(module: str, output_dir: str, year: Optional[int
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     try:
-        generator = TemplateGenerator(config_file)
+        generator = TemplateGenerator(str(config_file))
         filepath = generator.generate(output_dir, year)
         print(f"✓ 已生成模板: {filepath}")
         return filepath

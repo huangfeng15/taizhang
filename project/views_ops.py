@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
@@ -22,11 +23,12 @@ from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
-from project.services.export_service import generate_project_excel
+from project.services.export_service import generate_project_excel, import_project_excel
 
 from .views_helpers import _get_page_size
 
 
+@login_required
 @require_http_methods(["GET", "POST", "DELETE", "PUT"])
 def database_management(request):
     """数据库管理：备份、恢复、清理、下载。"""
@@ -57,9 +59,11 @@ def database_management(request):
         if not path or not path.exists():
             return None
         stat = path.stat()
-        modified_at = timezone.localtime(datetime.fromtimestamp(stat.st_mtime))
+        # 将文件时间戳转换为aware datetime
+        modified_at = timezone.make_aware(datetime.fromtimestamp(stat.st_mtime))
         return {
             'path': str(path),
+            'name': path.name,  # 添加文件名字段
             'size_bytes': stat.st_size,
             'modified_at': modified_at,
             'size_display': _format_size(stat.st_size),
@@ -114,21 +118,56 @@ def database_management(request):
                 if not db_path or not db_path.exists():
                     messages.error(request, '未找到数据库文件，无法备份')
                 else:
-                    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    backup_file = backups_dir / f'{db_path.stem}_{ts}.sqlite3'
-                    shutil.copy2(db_path, backup_file)
-                    messages.success(request, f'数据库已备份到：{backup_file.name}')
-            elif action == 'restore':
-                file_name = request.POST.get('file_name')
-                if not file_name:
-                    messages.error(request, '请指定要恢复的备份文件')
-                else:
-                    src_file = backups_dir / file_name
-                    if not src_file.exists() or not db_path:
-                        messages.error(request, '备份文件不存在或无法定位数据库文件')
+                    # 获取用户输入的备份名称
+                    backup_name = request.POST.get('backup_name', '').strip()
+                    if not backup_name:
+                        messages.error(request, '请输入备份名称')
                     else:
-                        shutil.copy2(src_file, db_path)
-                        messages.success(request, '数据库已从备份恢复')
+                        # 清理文件名中的非法字符
+                        import re
+                        clean_name = re.sub(r'[<>:"/\\|?*]', '_', backup_name).strip('. ')
+                        if not clean_name:
+                            messages.error(request, '备份名称无效')
+                        else:
+                            # 添加时间戳以避免重名
+                            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                            if not clean_name.lower().endswith('.sqlite3'):
+                                backup_file = backups_dir / f'{clean_name}_{ts}.sqlite3'
+                            else:
+                                # 如果用户输入已包含.sqlite3，在扩展名前插入时间戳
+                                base_name = clean_name[:-8]  # 移除.sqlite3
+                                backup_file = backups_dir / f'{base_name}_{ts}.sqlite3'
+                            shutil.copy2(db_path, backup_file)
+                            messages.success(request, f'数据库已备份到：{backup_file.name}')
+            elif action == 'restore':
+                file_name = request.POST.get('file_name', '').strip()
+                if not file_name:
+                    return JsonResponse({
+                        'success': False,
+                        'message': '请选择要恢复的备份文件'
+                    }, status=400)
+                
+                src_file = backups_dir / file_name
+                if not src_file.exists():
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'备份文件不存在：{file_name}'
+                    }, status=404)
+                
+                if not db_path:
+                    return JsonResponse({
+                        'success': False,
+                        'message': '无法定位数据库文件'
+                    }, status=500)
+                
+                try:
+                    shutil.copy2(src_file, db_path)
+                    messages.success(request, f'数据库已从备份"{file_name}"恢复成功')
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'恢复失败：{str(e)}'
+                    }, status=500)
             else:
                 messages.error(request, '不支持的操作')
         except Exception as exc:
@@ -142,22 +181,37 @@ def database_management(request):
             backups.append(info)
     backups.sort(key=lambda x: x['modified_at'], reverse=True)
 
-    context = {'db_stat': db_stat, 'backups': backups, 'engine': engine, 'db_path': str(db_path) if db_path else None}
+    # SQLite3 数据库支持文件级备份
+    supports_file_ops = engine.endswith('sqlite3') and db_path is not None
+    
+    # 获取所有项目用于导入功能
+    projects = Project.objects.all().order_by('project_name')
+    
+    context = {
+        'db_stat': db_stat,
+        'backups': backups,
+        'engine': engine,
+        'db_path': str(db_path) if db_path else None,
+        'supports_file_ops': supports_file_ops,
+        'projects': projects
+    }
     return render(request, 'database_management.html', context)
 
 
+@login_required
 @require_http_methods(['GET'])
 def download_import_template(request):
-    """下载导入模板（包含字段说明）。"""
+    """下载导入模板（包含字段说明）。
+    
+    模块名称规范：
+    - project: 项目
+    - procurement: 采购
+    - contract: 合同
+    - payment: 付款
+    - supplier_eval: 供应商评价
+    """
     module = request.GET.get('module', 'project')
     mode = request.GET.get('mode', 'long')
-    # 别名映射：统一处理各种供应商评价模块名称
-    _aliases = {
-        'supplier': 'supplier_eval',
-        'evaluation': 'supplier_eval',
-        'supplier_evaluation': 'supplier_eval',
-    }
-    module = _aliases.get(module, module)
 
     # 直接从 template_generator 导入配置，避免循环导入
     from project.template_generator import get_import_template_config
@@ -191,15 +245,24 @@ def download_import_template(request):
     return response
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def import_data(request):
-    """通用数据导入接口（增强统计反馈）。"""
+    """通用数据导入接口（增强统计反馈）。
+    
+    模块名称规范：
+    - project: 项目
+    - procurement: 采购
+    - contract: 合同
+    - payment: 付款
+    - supplier_eval: 供应商评价
+    """
     try:
         if 'file' not in request.FILES:
             return JsonResponse({'success': False, 'message': '未找到上传文件'})
         uploaded_file = request.FILES['file']
         module = request.POST.get('module', 'project')
+        
         if not uploaded_file.name.endswith('.csv'):
             return JsonResponse({'success': False, 'message': '仅支持CSV文件格式'})
 
@@ -224,13 +287,22 @@ def import_data(request):
                 reader = _csv.reader(f)
                 header = next(reader)
                 column_count = len(header)
-            import_mode = 'long'
-            if module in ['payment', 'evaluation'] and column_count > 10:
-                import_mode = 'wide'
+            
+            # 供应商评价使用专门的导入命令
+            if module == 'supplier_eval':
+                out = StringIO()
+                call_command('import_supplier_eval_v2', tmp_file_path, '--encoding', detected_encoding, '--update', stdout=out, stderr=out)
+                output = out.getvalue()
+            else:
+                # 其他模块使用通用导入命令
+                import_mode = 'long'
+                # 付款模块支持宽表模式
+                if module == 'payment' and column_count > 10:
+                    import_mode = 'wide'
 
-            out = StringIO()
-            call_command('import_excel', tmp_file_path, '--module', module, '--mode', import_mode, '--conflict-mode', 'update', stdout=out, stderr=out)
-            output = out.getvalue()
+                out = StringIO()
+                call_command('import_excel', tmp_file_path, '--module', module, '--mode', import_mode, '--conflict-mode', 'update', stdout=out, stderr=out)
+                output = out.getvalue()
 
             import re
             def clean_ansi(text: str) -> str:
@@ -264,7 +336,7 @@ def import_data(request):
         return JsonResponse({'success': False, 'message': f'导入失败: {str(e)}'}, status=400)
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def batch_delete_contracts(request):
     try:
@@ -278,7 +350,7 @@ def batch_delete_contracts(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def batch_delete_payments(request):
     try:
@@ -292,7 +364,7 @@ def batch_delete_payments(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def batch_delete_procurements(request):
     try:
@@ -306,7 +378,7 @@ def batch_delete_procurements(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def batch_delete_projects(request):
     try:
@@ -320,6 +392,7 @@ def batch_delete_projects(request):
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
+@login_required
 @require_http_methods(['GET', 'POST'])
 def export_project_data(request):
     """导出项目数据为Excel或ZIP。"""
@@ -336,12 +409,14 @@ def export_project_data(request):
         if not projects.exists():
             return JsonResponse({'success': False, 'message': '未找到选中的项目'}, status=404)
 
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
         if len(projects) == 1:
             project = projects.first()
             if project is None:
                 return JsonResponse({'success': False, 'message': '项目不存在'}, status=404)
             excel_file = generate_project_excel(project, request.user)
-            filename = f"{project.project_name}_数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            filename = f"{project.project_name}_{timestamp}.xlsx"
             response = HttpResponse(
                 excel_file.getvalue(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -350,17 +425,75 @@ def export_project_data(request):
             return response
 
         zip_buffer = BytesIO()
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for project in projects:
                 excel_file = generate_project_excel(project, request.user)
-                filename = f"{project.project_name}_数据导出_{timestamp}.xlsx"
+                filename = f"{project.project_name}_{timestamp}.xlsx"
                 zip_file.writestr(filename, excel_file.getvalue())
 
         zip_buffer.seek(0)
-        zip_filename = f"项目数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        zip_filename = f"项目数据导出_{timestamp}.zip"
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
         return response
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'导出失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def import_project_data(request):
+    """导入项目数据（从导出的Excel文件）"""
+    try:
+        if 'file' not in request.FILES:
+            return JsonResponse({'success': False, 'message': '未找到上传文件'}, status=400)
+        
+        uploaded_file = request.FILES['file']
+        project_code = request.POST.get('project_code', '').strip()
+        
+        if not project_code:
+            return JsonResponse({'success': False, 'message': '请指定项目编码'}, status=400)
+        
+        # 验证文件格式
+        if not (uploaded_file.name.endswith('.xlsx') or uploaded_file.name.endswith('.xls')):
+            return JsonResponse({'success': False, 'message': '仅支持Excel文件格式(.xlsx或.xls)'}, status=400)
+        
+        # 验证项目是否存在
+        try:
+            project = Project.objects.get(project_code=project_code)
+        except Project.DoesNotExist:
+            return JsonResponse({'success': False, 'message': f'项目不存在：{project_code}'}, status=404)
+        
+        # 读取文件到内存
+        file_content = BytesIO(uploaded_file.read())
+        
+        # 执行导入
+        stats = import_project_excel(file_content, project_code, request.user)
+        
+        # 构建返回消息
+        if stats['errors']:
+            message = f"导入完成，但有 {len(stats['errors'])} 个错误\n"
+            message += f"已删除：采购 {stats['procurements_deleted']} 条，合同 {stats['contracts_deleted']} 条，付款 {stats['payments_deleted']} 条\n"
+            message += f"已创建：采购 {stats['procurements_created']} 条，合同 {stats['contracts_created']} 条，付款 {stats['payments_created']} 条\n"
+            message += "\n错误详情：\n" + "\n".join(stats['errors'][:10])  # 只显示前10个错误
+            if len(stats['errors']) > 10:
+                message += f"\n... 还有 {len(stats['errors']) - 10} 个错误未显示"
+            return JsonResponse({
+                'success': True,
+                'partial': True,
+                'message': message,
+                'stats': stats
+            })
+        else:
+            message = f"导入成功！\n"
+            message += f"已删除：采购 {stats['procurements_deleted']} 条，合同 {stats['contracts_deleted']} 条，付款 {stats['payments_deleted']} 条\n"
+            message += f"已创建：采购 {stats['procurements_created']} 条，合同 {stats['contracts_created']} 条，付款 {stats['payments_created']} 条"
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'stats': stats
+            })
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'导入失败: {str(e)}'}, status=500)

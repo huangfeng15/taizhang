@@ -475,7 +475,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.0/dist/apexcharts.min.js"></script>
 <script src="{% static 'js/trend-chart.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -685,8 +684,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // 确保在模态框显示时渲染趋势图
     if (detailModalEl) {
-        detailModalEl.addEventListener('shown.bs.modal', renderDetailTrend, { once: true });
+        detailModalEl.addEventListener('shown.bs.modal', function() {
+            renderDetailTrend();
+        });
     }
     {% endif %}
 
@@ -818,23 +820,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // 等待 ApexCharts 加载完成后再渲染图表
+    function waitForApexCharts(callback, maxWait = 5000) {
+        const startTime = Date.now();
+        const checkInterval = setInterval(function() {
+            if (typeof ApexCharts !== 'undefined') {
+                clearInterval(checkInterval);
+                callback();
+            } else if (Date.now() - startTime > maxWait) {
+                clearInterval(checkInterval);
+                console.error('ApexCharts 加载超时');
+            }
+        }, 100);
+    }
+    
     if (multiData && multiData.labels) {
-        // 个人视图
-        {% if view_mode == 'person' %}
-        renderMultiSeriesChart('multiTrendChartProc', multiData.labels, multiData.procurement, '所有经办人采购归档周期趋势');
-        renderMultiSeriesChart('multiTrendChartCont', multiData.labels, multiData.contract, '所有经办人合同归档周期趋势');
-        {% endif %}
-        
-        // 项目视图
-        {% if view_mode == 'project' %}
-        {% if filter_config.selected_project_value %}
-        renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '本项目经办人采购归档周期趋势');
-        renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '本项目经办人合同归档周期趋势');
-        {% else %}
-        renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '所有项目采购归档周期趋势');
-        renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '所有项目合同归档周期趋势');
-        {% endif %}
-        {% endif %}
+        waitForApexCharts(function() {
+            // 个人视图
+            {% if view_mode == 'person' %}
+            renderMultiSeriesChart('multiTrendChartProc', multiData.labels, multiData.procurement, '所有经办人采购归档周期趋势');
+            renderMultiSeriesChart('multiTrendChartCont', multiData.labels, multiData.contract, '所有经办人合同归档周期趋势');
+            {% endif %}
+            
+            // 项目视图
+            {% if view_mode == 'project' %}
+            {% if filter_config.selected_project_value %}
+            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '本项目经办人采购归档周期趋势');
+            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '本项目经办人合同归档周期趋势');
+            {% else %}
+            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '所有项目采购归档周期趋势');
+            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '所有项目合同归档周期趋势');
+            {% endif %}
+            {% endif %}
+        });
     }
 });
 </script>

@@ -22,19 +22,9 @@ echo [信息] 当前分支: %CURRENT_BRANCH%
 if "%CURRENT_BRANCH%"=="main" (
     echo [提示] 已经在main分支了
     echo.
-    REM 验证生产环境配置
-    if not exist ".env.prod" (
-        echo [警告] 生产环境配置文件 .env.prod 不存在!
-        echo [建议] 请先创建 .env.prod 文件
-        pause
-        exit /b 1
-    )
-    echo [验证] 生产环境配置文件存在
-    echo.
-    echo 是否启动生产服务器?
-    choice /C YN /N /M "启动(Y) 或 取消(N): "
-    if %ERRORLEVEL% EQU 1 (
-        start_prod.bat
+    set /p START_SERVER="是否启动生产服务器? (Y/N): "
+    if /i "%START_SERVER%"=="Y" (
+        call start_prod.bat
     )
     exit /b 0
 )

@@ -263,51 +263,11 @@ IMPORT_TEMPLATE_DEFINITIONS = {
             ],
             'notes': [
                 '必填：序号*、合同编号*；其余可留空。',
-                '评价编号由系统基于“EVAL-<合同编码>-<序号>”规则自动生成。',
+                '评价编号由系统基于"EVAL-<合同编码>-<序号>"规则自动生成。',
                 '分数范围0-100，可保留1-2位小数；留空不导入该项。',
-                '可选：按年动态列（如“2024年度评价得分”）会自动识别，无需固定年份。',
-                '可选：过程评价列（如“第1次过程评价得分”、“第2次过程评价得分”）会自动识别。',
+                '可选：按年动态列（如"2024年度评价得分"）会自动识别，无需固定年份。',
+                '可选：过程评价列（如"第1次过程评价得分"、"第2次过程评价得分"）会自动识别。',
                 '模板说明列可删除，不影响导入。'
-            ],
-        },
-    },
-    'evaluation': {
-        'long': {
-            'filename': 'supplier_evaluation_import_template_long.csv',
-            'headers': [
-                '项目编码',
-                '序号',
-                '评价编号',
-                '关联合同编号',
-                '供应商名称',
-                '评价日期区间',
-                '评价人员',
-                '评分',
-                '评价类型',
-                '模板说明',
-            ],
-            'notes': [
-                '【必填字段】评价编号*、关联合同编号*、供应商名称*（标记*号的为必填字段，不能为空）',
-                '【编码规则】评价编号须遵守编号格式限制（禁止 / 等特殊字符），推荐格式：HT2024-001-PJ01',
-                '【合同关联】关联合同编号必须填写系统中已存在的合同编号',
-                '【评分范围】评分范围为 0-100 之间的数字，可带小数（如：85.5），可留空',
-                '【评价类型】建议填写：履约过程评价、末次评价、阶段性评价等',
-                '【日期区间】评价日期区间格式示例：2024年1-6月、2024年上半年、2024Q1等',
-                '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
-            ],
-        },
-        'wide': {
-            'filename': 'supplier_evaluation_import_template_wide.csv',
-            'headers': [
-                '关联合同编号',
-                '供应商名称',
-            ] + [f'{year}年{half}' for year in range(BASE_YEAR, get_current_year() + 2) for half in ['上半年', '下半年']] + ['模板说明'],
-            'notes': [
-                '【宽表格式】第1列填写合同编号，第2列填写供应商名称',
-                '【评价周期】已预设2019年至2025年，每年上下半年共14个评价周期列',
-                '【评分填写】每个周期列中填写对应时期的评分（0-100），可保留一位或两位小数',
-                '【留空规则】如某时期暂无评价，对应单元格可留空',
-                '【说明】本模板说明行可保留或删除，不影响导入。导入时系统会自动跳过说明行。',
             ],
         },
     },
@@ -468,6 +428,12 @@ def export_project_data(request):
     return _views_ops.export_project_data(request)
 
 
+@csrf_exempt
+@require_POST
+def import_project_data(request):
+    return _views_ops.import_project_data(request)
+
+
 def _generate_project_excel(project, user):
     from project.services.export_service import generate_project_excel
     return generate_project_excel(project, user)
@@ -616,3 +582,8 @@ def completeness_field_config(request):
 @require_POST
 def update_completeness_field_config(request):
     return _views_monitoring.update_completeness_field_config(request)
+
+
+def user_manual(request):
+    """用户使用手册页面"""
+    return render(request, 'user_manual.html')

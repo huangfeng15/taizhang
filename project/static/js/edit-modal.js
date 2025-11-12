@@ -157,7 +157,7 @@ class EditModal {
             case 'supplier_interview':
                 this.initSupplierInterviewSelectors();
                 break;
-            case 'supplier_evaluation':
+            case 'supplier_eval':
                 this.initSupplierEvaluationSelectors();
                 break;
         }

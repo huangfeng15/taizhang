@@ -73,8 +73,9 @@ urlpatterns = [
     # 供应商管理路由
     path('supplier/', include('supplier_eval.urls')),
     
-    # 数据导出API
+    # 数据导出/导入API
     path('api/export/project-data/', views.export_project_data, name='export_project_data'),
+    path('api/import/project-data/', views.import_project_data, name='import_project_data'),
     
     # 前端编辑API
     path('projects/<str:project_code>/edit/', views.project_edit, name='project_edit'),
@@ -87,6 +88,9 @@ urlpatterns = [
     path('procurements/create/', views.procurement_create, name='procurement_create'),
     path('contracts/create/', views.contract_create, name='contract_create'),
     path('payments/create/', views.payment_create, name='payment_create'),
+    
+    # 用户使用手册
+    path('user-manual/', views.user_manual, name='user_manual'),
 ]
 
 # 自定义Admin站点标题

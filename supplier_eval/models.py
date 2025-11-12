@@ -117,7 +117,7 @@ class SupplierEvaluation(BaseModel):
         help_text='其他说明信息'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):  # type: ignore[misc]
         verbose_name = '供应商履约评价'
         verbose_name_plural = '供应商履约评价'
         ordering = ['-created_at']
@@ -133,10 +133,14 @@ class SupplierEvaluation(BaseModel):
         return f"{self.evaluation_code} - {self.supplier_name}"
     
     def save(self, *args, **kwargs):
-        """保存时自动计算综合评分（如果CSV未提供）"""
+        """保存时自动计算综合评分和生成评价编号（如果未提供）"""
         # 自动获取供应商名称
         if self.contract and not self.supplier_name:
             self.supplier_name = self.contract.party_b
+        
+        # 自动生成评价编号（如果未提供）
+        if not self.evaluation_code and self.contract:
+            self.evaluation_code = f"PJ{self.contract.contract_code}"
         
         # 如果CSV没有提供综合评分，则自动计算
         if not self.comprehensive_score and self.last_evaluation_score:
@@ -421,7 +425,7 @@ class SupplierInterview(BaseModel):
         help_text='相关文件、照片等附件的说明'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):  # type: ignore[misc]
         verbose_name = '供应商约谈记录'
         verbose_name_plural = '供应商约谈记录'
         ordering = ['-interview_date', '-created_at']

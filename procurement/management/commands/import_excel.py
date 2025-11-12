@@ -48,7 +48,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--module',
             type=str,
-            choices=['project', 'procurement', 'contract', 'payment', 'evaluation'],
+            choices=['project', 'procurement', 'contract', 'payment', 'supplier_eval'],
             default='procurement',
             help='导入模块类型'
         )
@@ -144,7 +144,7 @@ class Command(BaseCommand):
             'procurement': '采购',
             'contract': '合同',
             'payment': '付款',
-            'evaluation': '供应商评价'
+            'supplier_eval': '供应商评价'
         }
         return module_names.get(module, module)
     
@@ -182,7 +182,7 @@ class Command(BaseCommand):
             Payment.objects.filter(contract__project=project).delete()
             deleted_counts['付款记录'] = count
             
-        elif module == 'evaluation':
+        elif module == 'supplier_eval':
             # 清空供应商评价数据
             count = SupplierEvaluation.objects.filter(contract__project=project).count()
             SupplierEvaluation.objects.filter(contract__project=project).delete()
@@ -586,7 +586,7 @@ class Command(BaseCommand):
         self.stdout.write(f'识别到 {len(date_cols)} 个日期列: {date_cols[:5]}... (显示前5个)')
         
         # 确定ID列（供应商评价需要保留供应商名称列）
-        if module == 'evaluation':
+        if module == 'supplier_eval':
             # 供应商评价：第1列=合同编号，第2列=供应商名称
             id_cols = [df.columns[0], df.columns[1]]
             # 模板说明列已被删除，无需检查
@@ -1017,7 +1017,7 @@ class Command(BaseCommand):
             return self._import_contract_long(row, conflict_mode)
         elif module == 'payment':
             return self._import_payment_long(row, conflict_mode)
-        elif module == 'evaluation':
+        elif module == 'supplier_eval':
             return self._import_evaluation_long(row, conflict_mode)
         else:
             raise ValueError(f'不支持的模块: {module}')
@@ -1026,7 +1026,7 @@ class Command(BaseCommand):
         """导入宽表转换后的单行数据"""
         if module == 'payment':
             return self._import_payment_wide(row, seq, group_id, conflict_mode)
-        elif module == 'evaluation':
+        elif module == 'supplier_eval':
             return self._import_evaluation_wide(row, seq, group_id, conflict_mode)
         else:
             raise ValueError(f'宽表模式不支持模块: {module}')
@@ -1777,7 +1777,7 @@ class Command(BaseCommand):
                 '付款编号': row.get('付款编号', ''),
                 '关联合同编号': row.get('关联合同编号', ''),
             }
-        elif module == 'evaluation':
+        elif module == 'supplier_eval':
             return {
                 '评价编号': row.get('评价编号', ''),
                 '关联合同编号': row.get('关联合同编号', ''),
