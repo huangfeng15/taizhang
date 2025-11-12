@@ -243,6 +243,7 @@ def archive_monitor(request):
         'multi_trend_json': multi_trend_json,
         'severity_config': SEVERITY_CONFIG,
         'filter_config': filter_config,
+        'procurement_method_choices': list((CYCLE_RULES.get('procurement', {}).get('deadline_map', {}) or {}).keys()),
     }
     return render(request, 'monitoring/archive.html', context)
 
@@ -378,3 +379,78 @@ def update_completeness_field_config(request):
         return JsonResponse({'success': True, 'message': '配置已更新'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'更新失败: {str(e)}'}, status=400)
+
+
+def cycle_monitor(request):
+    """工作周期监控：项目/人员视图"""
+    from project.services.monitors.cycle_statistics import CycleStatisticsService
+    from project.services.monitors.config import CYCLE_RULES
+    import json
+
+    global_filters = _resolve_global_filters(request)
+    view_mode = request.GET.get('view_mode', 'project')
+    target_code = request.GET.get('target_code', '')
+
+    # 新增：采购方式与分组参数
+    procurement_methods = request.GET.getlist('procurement_method')
+    group_by = request.GET.get('group_by')
+
+    stats_service = CycleStatisticsService()
+
+    if view_mode == 'project':
+        overview_data = stats_service.get_projects_cycle_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            procurement_methods=procurement_methods,
+            group_by=group_by
+        )
+    else:
+        overview_data = stats_service.get_persons_cycle_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            procurement_methods=procurement_methods,
+            group_by=group_by
+        )
+
+    detail_data = None
+    if target_code:
+        if view_mode == 'project':
+            detail_data = stats_service.get_project_cycle_detail(
+                project_code=target_code,
+                year_filter=global_filters['year_value'],
+                procurement_methods=procurement_methods,
+                group_by=group_by
+            )
+        else:
+            detail_data = stats_service.get_person_cycle_detail(
+                person_name=target_code,
+                year_filter=global_filters['year_value'],
+                project_filter=global_filters['project'],
+                procurement_methods=procurement_methods,
+                group_by=group_by
+            )
+
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
+    
+    # 趋势图数据
+    trend_data_json = {}
+    if detail_data is not None:
+        trend_data_json = {
+            'procurement': detail_data.get('procurement_trend', []),
+            'contract': detail_data.get('contract_trend', []),
+        }
+
+    context = {
+        'page_title': '工作周期监控',
+        'view_mode': view_mode,
+        'target_code': target_code,
+        'overview_data': overview_data,
+        'detail_data': detail_data,
+        'trend_data_json': json.dumps(trend_data_json, ensure_ascii=False),
+        'cycle_rules': CYCLE_RULES,
+        'filter_config': filter_config,
+        # 新增：采购方式筛选回显与分组模式
+        'selected_procurement_methods': procurement_methods,
+        'group_by': group_by,
+    }
+    return render(request, 'monitoring/cycle.html', context)
