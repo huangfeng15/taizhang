@@ -377,10 +377,17 @@ def import_data(request):
                 header = next(reader)
                 column_count = len(header)
             
-            # 供应商评价使用专门的导入命令
+            # 供应商评价使用专用的导入命令（带JSON输出）
             if module == 'supplier_eval':
                 out = StringIO()
-                call_command('import_supplier_eval_v2', tmp_file_path, '--encoding', detected_encoding, '--update', stdout=out, stderr=out)
+                call_command(
+                    'import_supplier_eval_v2',
+                    tmp_file_path,
+                    '--encoding', detected_encoding,
+                    '--update',
+                    '--json-output',
+                    stdout=out, stderr=out
+                )
                 output = out.getvalue()
             else:
                 # 其他模块使用通用导入命令
@@ -390,7 +397,16 @@ def import_data(request):
                     import_mode = 'wide'
 
                 out = StringIO()
-                call_command('import_excel', tmp_file_path, '--module', module, '--mode', import_mode, '--conflict-mode', 'update', stdout=out, stderr=out)
+                call_command(
+                    'import_excel',
+                    tmp_file_path,
+                    '--module', module,
+                    '--mode', import_mode,
+                    '--conflict-mode', 'update',
+                    '--encoding', detected_encoding,
+                    '--json-output',
+                    stdout=out, stderr=out
+                )
                 output = out.getvalue()
 
             import re
@@ -398,24 +414,62 @@ def import_data(request):
                 ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
                 return ansi_escape.sub('', text)
 
+            cleaned_output = clean_ansi(output)
+
+            # 提取命令输出中的JSON摘要（命令已支持 --json-output）
+            summary = None
+            for line in cleaned_output.split('\n'):
+                text = line.strip()
+                if text.startswith('{') and text.endswith('}'):
+                    try:
+                        summary = json.loads(text)
+                    except Exception:
+                        continue
+            if not summary:
+                # 兼容旧版本命令：无法解析JSON时，回退为原始输出
+                return JsonResponse({'success': True, 'message': '导入任务已提交', 'stats': {}, 'raw': cleaned_output})
+
+            # 规范化统计字段，满足前端展示需要
+            s = summary.get('stats', {})
             stats = {
-                'total_rows': 0,
-                'valid_rows': 0,
-                'empty_rows': 0,
-                'template_rows': 0,
-                'success_rows': 0,
-                'created': 0,
-                'updated': 0,
-                'skipped': 0,
-                'error_rows': 0,
-                'actual_imported': 0,
+                'total_rows': int(s.get('total_rows', 0)),
+                'valid_rows': int(s.get('success_rows', 0)),
+                'empty_rows': int(s.get('empty_rows', 0)) if isinstance(s.get('empty_rows', 0), (int, float)) else 0,
+                'template_rows': int(s.get('template_rows', 0)) if isinstance(s.get('template_rows', 0), (int, float)) else 0,
+                'success_rows': int(s.get('success_rows', 0)),
+                'created': int(s.get('created', 0)),
+                'updated': int(s.get('updated', 0)),
+                'skipped': int(s.get('skipped', 0)),
+                'error_rows': int(s.get('error_rows', 0)),
+                'actual_imported': int(s.get('created', 0)) + int(s.get('updated', 0)),
             }
 
-            cleaned_output = clean_ansi(output)
-            for line in cleaned_output.split('\n'):
-                pass  # 原统计解析逻辑较长，保持现状或后续完善
+            errors = summary.get('errors', []) or []
+            has_more_errors = bool(summary.get('has_more_errors'))
 
-            return JsonResponse({'success': True, 'message': '导入任务已提交', 'stats': stats, 'raw': cleaned_output})
+            # 友好提示
+            if stats['error_rows'] > 0:
+                message_type = 'warning'
+                message = (
+                    f"导入完成：新增 {stats['created']}，更新 {stats['updated']}，"
+                    f"跳过 {stats['skipped']}，失败 {stats['error_rows']}。"
+                )
+            else:
+                message_type = 'success'
+                message = (
+                    f"导入完成：新增 {stats['created']}，更新 {stats['updated']}，"
+                    f"跳过 {stats['skipped']}。"
+                )
+
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'message_type': message_type,
+                'stats': stats,
+                'errors': errors,
+                'has_more_errors': has_more_errors,
+                'raw': cleaned_output,
+            })
         finally:
             try:
                 os.unlink(tmp_file_path)

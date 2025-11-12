@@ -868,6 +868,12 @@
                         </a>
                     </li>
                     <li class="menu-item">
+                        <a href="{% url 'cycle_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'cycle_monitor' %}active{% endif %}">
+                            <i class="fas fa-clock"></i>
+                            <span>工作周期监控</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
                         <a href="{% url 'statistics_view' %}" class="menu-link {% if request.resolver_match.url_name == 'statistics_view' %}active{% endif %}">
                             <i class="fas fa-chart-bar"></i>
                             <span>统计分析</span>

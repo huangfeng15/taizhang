@@ -409,3 +409,95 @@ class SupplierAnalysisService:
             'evaluation_stats': evaluation_stats,
             'interview_stats': interview_stats,
         }
+    
+    @staticmethod
+    def get_latest_evaluations_by_year(year=None):
+        """
+        获取每个供应商在指定年度的最新履约评价
+        
+        Args:
+            year (int, optional): 年度，默认为当前年度
+        
+        Returns:
+            list: 供应商最新评价列表，每项包含:
+                - supplier_name (str): 供应商名称
+                - evaluation (SupplierEvaluation): 最新评价对象
+                - contract_name (str): 关联合同名称
+                - comprehensive_score (Decimal): 综合评分
+                - last_evaluation_score (Decimal): 末次评价得分
+                - evaluation_type (str): 评价类型
+                - evaluation_result (str): 综合评价结果（优秀/良好/合格/不合格）
+        """
+        from django.utils import timezone
+        from django.db.models import Max
+        
+        if year is None:
+            year = timezone.now().year
+        
+        # 获取指定年度的所有评价记录
+        evaluations = SupplierEvaluation.objects.filter(
+            created_at__year=year,
+            comprehensive_score__isnull=False
+        ).select_related('contract')
+        
+        # 按供应商分组，获取每个供应商的最新评价
+        supplier_latest = {}
+        for evaluation in evaluations:
+            supplier = evaluation.supplier_name
+            # 如果该供应商尚未记录，或当前评价更新
+            if (supplier not in supplier_latest or
+                evaluation.created_at > supplier_latest[supplier].created_at):
+                supplier_latest[supplier] = evaluation
+        
+        # 构建结果列表
+        result = []
+        for supplier_name, evaluation in supplier_latest.items():
+            result.append({
+                'supplier_name': supplier_name,
+                'evaluation': evaluation,
+                'contract_name': evaluation.contract.contract_name if evaluation.contract else '-',
+                'comprehensive_score': evaluation.comprehensive_score,
+                'last_evaluation_score': evaluation.last_evaluation_score,
+                'evaluation_type': evaluation.evaluation_type or '-',
+                'evaluation_result': evaluation.get_score_level(),
+            })
+        
+        # 按综合评分降序排序
+        result.sort(key=lambda x: x['comprehensive_score'] or 0, reverse=True)
+        
+        return result
+    
+    @staticmethod
+    def get_supplier_all_evaluations(supplier_name):
+        """
+        获取供应商的所有历史评价记录（跨年度）
+        
+        Args:
+            supplier_name (str): 供应商名称
+        
+        Returns:
+            list: 历史评价记录列表，按时间倒序，每项包含:
+                - evaluation (SupplierEvaluation): 评价对象
+                - contract (Contract): 关联合同对象
+                - year (int): 评价年度
+                - comprehensive_score (Decimal): 综合评分
+                - evaluation_result (str): 评价结果
+        """
+        evaluations = SupplierEvaluation.objects.filter(
+            supplier_name__icontains=supplier_name
+        ).select_related('contract').order_by('-created_at')
+        
+        result = []
+        for evaluation in evaluations:
+            result.append({
+                'evaluation': evaluation,
+                'contract': evaluation.contract,
+                'year': evaluation.created_at.year,
+                'comprehensive_score': evaluation.comprehensive_score,
+                'last_evaluation_score': evaluation.last_evaluation_score,
+                'evaluation_type': evaluation.evaluation_type or '-',
+                'evaluation_result': evaluation.get_score_level(),
+                'created_at': evaluation.created_at,
+            })
+        
+        return result

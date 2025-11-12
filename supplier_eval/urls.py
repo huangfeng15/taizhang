@@ -9,6 +9,7 @@ app_name = 'supplier_eval'
 urlpatterns = [
     # 供应商履约评价
     path('evaluations/', views.supplier_evaluation_list, name='supplier_evaluation_list'),
+    path('evaluations/detail/<str:supplier_name>/', views.supplier_evaluation_detail, name='supplier_evaluation_detail'),
     path('evaluations/create/', views.supplier_evaluation_create, name='supplier_evaluation_create'),
     path('evaluations/<str:evaluation_code>/edit/', views.supplier_evaluation_edit, name='supplier_evaluation_edit'),
     

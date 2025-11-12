@@ -90,25 +90,31 @@
         <form method="get" action="">
             <div class="filter-bar">
                 <div class="search-box">
-                    <input type="text" 
-                           name="q" 
-                           placeholder="搜索供应商名称、合同序号..." 
-                           value="{{ request.GET.q|default:'' }}">
+                    <input type="text"
+                           name="q"
+                           placeholder="搜索供应商名称..."
+                           value="{{ search_query }}">
                     <button type="submit">
                         <i class="fas fa-search"></i>
                     </button>
                 </div>
                 
-                <select name="score_range" class="filter-select" onchange="this.form.submit()">
-                    <option value="">全部评分</option>
-                    <option value="excellent" {% if request.GET.score_range == 'excellent' %}selected{% endif %}>优秀 (≥90分)</option>
-                    <option value="good" {% if request.GET.score_range == 'good' %}selected{% endif %}>良好 (≥80分)</option>
-                    <option value="qualified" {% if request.GET.score_range == 'qualified' %}selected{% endif %}>合格 (≥70分)</option>
-                    <option value="unqualified" {% if request.GET.score_range == 'unqualified' %}selected{% endif %}>不合格 (<70分)</option>
+                <select name="year" class="filter-select" onchange="this.form.submit()" style="min-width: 120px;">
+                    {% for year in year_choices %}
+                    <option value="{{ year }}" {% if year == display_year %}selected{% endif %}>{{ year }}年度</option>
+                    {% endfor %}
                 </select>
                 
-                {% if request.GET.q or request.GET.score_range %}
-                <a href="{% url 'supplier_eval:supplier_evaluation_list' %}" class="filter-reset">
+                <select name="score_level" class="filter-select" onchange="this.form.submit()">
+                    <option value="">全部评分</option>
+                    <option value="excellent" {% if score_level_filter == 'excellent' %}selected{% endif %}>优秀 (≥90分)</option>
+                    <option value="good" {% if score_level_filter == 'good' %}selected{% endif %}>良好 (≥80分)</option>
+                    <option value="qualified" {% if score_level_filter == 'qualified' %}selected{% endif %}>合格 (≥70分)</option>
+                    <option value="unqualified" {% if score_level_filter == 'unqualified' %}selected{% endif %}>不合格 (<70分)</option>
+                </select>
+                
+                {% if search_query or score_level_filter %}
+                <a href="{% url 'supplier_eval:supplier_evaluation_list' %}?year={{ display_year }}" class="filter-reset">
                     <i class="fas fa-undo"></i>
                     重置筛选
                 </a>
@@ -123,7 +129,7 @@
     <div class="card-header">
         <h2 class="card-title">
             <i class="fas fa-list-alt"></i>
-            履约评价列表
+            履约评价列表 - {{ display_year }}年度最新评价
         </h2>
         <div style="display: flex; gap: 12px;">
             <button type="button" class="btn btn-primary"
@@ -146,84 +152,80 @@
                 <tr>
                     <th data-column="row_number">序号</th>
                     <th data-column="supplier_name">供应商名称</th>
-                    <th data-column="contract">关联合同</th>
-                    <th data-column="comprehensive_score">综合评分</th>
-                    <th data-column="last_evaluation_score">末次评价</th>
-                    <th data-column="score_2025">2025年度</th>
-                    <th data-column="score_2024">2024年度</th>
-                    <th data-column="score_2023">2023年度</th>
+                    <th data-column="contract">评价合同名称</th>
+                    <th data-column="comprehensive_score">当前评价得分</th>
+                    <th data-column="evaluation_type">评价类别</th>
+                    <th data-column="evaluation_result">综合评价结果</th>
                     <th data-column="operations">操作</th>
                 </tr>
             </thead>
             <tbody>
-                {% for evaluation in evaluations %}
+                {% for item in evaluations %}
                 <tr>
                     <td data-column="row_number">{{ forloop.counter }}</td>
                     <td data-column="supplier_name" style="font-weight: 600;">
-                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ evaluation.supplier_name|urlencode }}" 
-                           style="color: var(--text-primary); text-decoration: none;">
-                            {{ evaluation.supplier_name }}
-                        </a>
+                        {{ item.supplier_name }}
                     </td>
                     <td data-column="contract">
-                        {% if evaluation.contract %}
-                            <a href="{% url 'contract_detail' evaluation.contract.contract_code %}" 
-                               style="color: var(--primary-color); text-decoration: none;">
-                                {{ evaluation.contract.contract_name|truncatechars:30 }}
+                        {% if item.evaluation.contract %}
+                            <a href="{% url 'contract_detail' item.evaluation.contract.contract_code %}"
+                               style="color: var(--primary-color); text-decoration: none;"
+                               title="{{ item.contract_name }}">
+                                {{ item.contract_name|truncatechars:40 }}
                             </a>
                         {% else %}
                             -
                         {% endif %}
                     </td>
                     <td data-column="comprehensive_score">
-                        {% if evaluation.comprehensive_score %}
-                            {% if evaluation.comprehensive_score >= 90 %}
+                        {% if item.comprehensive_score %}
+                            {% if item.comprehensive_score >= 90 %}
                                 <span class="score-badge score-excellent">
-                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                    {{ item.comprehensive_score|floatformat:1 }}分
                                 </span>
-                            {% elif evaluation.comprehensive_score >= 80 %}
+                            {% elif item.comprehensive_score >= 80 %}
                                 <span class="score-badge score-good">
-                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                    {{ item.comprehensive_score|floatformat:1 }}分
                                 </span>
-                            {% elif evaluation.comprehensive_score >= 70 %}
+                            {% elif item.comprehensive_score >= 70 %}
                                 <span class="score-badge score-qualified">
-                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                    {{ item.comprehensive_score|floatformat:1 }}分
                                 </span>
                             {% else %}
                                 <span class="score-badge score-unqualified">
-                                    {{ evaluation.comprehensive_score|floatformat:1 }}分
+                                    {{ item.comprehensive_score|floatformat:1 }}分
                                 </span>
                             {% endif %}
                         {% else %}
                             <span style="color: var(--text-secondary);">未评分</span>
                         {% endif %}
                     </td>
-                    <td data-column="last_evaluation_score">
-                        {% if evaluation.last_evaluation_score %}
-                            <span style="font-weight: 600; color: var(--primary-color);">
-                                {{ evaluation.last_evaluation_score|floatformat:1 }}
-                            </span>
+                    <td data-column="evaluation_type">
+                        <span style="color: var(--text-secondary);">
+                            {{ item.evaluation_type }}
+                        </span>
+                    </td>
+                    <td data-column="evaluation_result">
+                        {% if item.evaluation_result == '优秀' %}
+                            <span class="score-badge score-excellent">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '良好' %}
+                            <span class="score-badge score-good">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '合格' %}
+                            <span class="score-badge score-qualified">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '不合格' %}
+                            <span class="score-badge score-unqualified">{{ item.evaluation_result }}</span>
                         {% else %}
-                            -
+                            <span style="color: var(--text-secondary);">{{ item.evaluation_result }}</span>
                         {% endif %}
                     </td>
-                    <td data-column="score_2025">
-                        {{ evaluation.score_2025|floatformat:1|default:"-" }}
-                    </td>
-                    <td data-column="score_2024">
-                        {{ evaluation.score_2024|floatformat:1|default:"-" }}
-                    </td>
-                    <td data-column="score_2023">
-                        {{ evaluation.score_2023|floatformat:1|default:"-" }}
-                    </td>
                     <td data-column="operations">
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;"
-                                data-edit-url="{% url 'supplier_eval:supplier_evaluation_edit' evaluation.evaluation_code %}">
-                            <i class="fas fa-edit"></i>
-                            编辑
-                        </button>
-                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ evaluation.supplier_name|urlencode }}"
-                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
+                        <a href="{% url 'supplier_eval:supplier_evaluation_detail' item.supplier_name %}"
+                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;">
+                            <i class="fas fa-info-circle"></i>
+                            详情
+                        </a>
+                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ item.supplier_name|urlencode }}"
+                           class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-building"></i>
                             承接项目
                         </a>
@@ -261,15 +263,15 @@
             共 {{ page_obj.paginator.count }} 条记录
         </span>
         {% if page_obj.has_previous %}
-        <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">首页</a>
-        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">上一页</a>
+        <a href="?page=1&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">上一页</a>
         {% endif %}
         
         <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
         
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">下一页</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.score_range %}&score_range={{ request.GET.score_range }}{% endif %}">尾页</a>
+        <a href="?page={{ page_obj.next_page_number }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">尾页</a>
         {% endif %}
     </div>
     {% endif %}

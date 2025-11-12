@@ -80,6 +80,11 @@ class Command(BaseCommand):
             type=str,
             help='replace 模式下需要指定的项目编码，其关联数据会在导入前清空'
         )
+        parser.add_argument(
+            '--json-output',
+            action='store_true',
+            help='以JSON格式输出统计汇总（提供给API使用）'
+        )
 
     def handle(self, *args, **options):
         file_path = options['file_path']
@@ -90,6 +95,7 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
         conflict_mode = options['conflict_mode']
         project_code = options.get('project_code')
+        self.json_output = options.get('json_output', False) or options.get('json-output', False)
 
         # 验证replace模式必须提供project_code
         if conflict_mode == 'replace':
@@ -1786,6 +1792,23 @@ class Command(BaseCommand):
     
     def _print_enhanced_summary(self, stats, errors, error_details, module):
         """打印增强的导入统计摘要"""
+        # 当需要JSON输出时，直接输出JSON并返回
+        if getattr(self, 'json_output', False):
+            import json as _json
+            actual_imported = stats.get("created", 0) + stats.get("updated", 0)
+            summary = {
+                'module': module,
+                'stats': {
+                    **stats,
+                    'success_rows': actual_imported,
+                },
+                'errors': errors[:200],
+                'error_details': error_details,
+                'has_more_errors': len(errors) > 200,
+            }
+            self.stdout.write(_json.dumps(summary, ensure_ascii=False))
+            return
+
         self.stdout.write('\n' + '=' * 70)
         self.stdout.write(self.style.SUCCESS('📊 导入统计报告'))
         self.stdout.write('=' * 70)
@@ -1862,6 +1885,22 @@ class Command(BaseCommand):
 
     def _print_summary(self, stats, errors):
         """打印导入统计摘要"""
+        # 当需要JSON输出时，直接输出JSON并返回
+        if getattr(self, 'json_output', False):
+            import json as _json
+            actual_imported = stats.get("created", 0) + stats.get("updated", 0)
+            summary = {
+                'module': 'payment',  # 宽表目前只用于付款
+                'stats': {
+                    **stats,
+                    'success_rows': actual_imported,
+                },
+                'errors': errors[:200],
+                'has_more_errors': len(errors) > 200,
+            }
+            self.stdout.write(_json.dumps(summary, ensure_ascii=False))
+            return
+
         self.stdout.write('\n' + '=' * 50)
         self.stdout.write(self.style.SUCCESS('导入完成！'))
         self.stdout.write('=' * 50)
@@ -1897,7 +1936,7 @@ class Command(BaseCommand):
         
         self.stdout.write('=' * 50)
         
-        # 添加友好的总结提示
+        # 友好的总结提示
         if actual_imported == 0 and stats.get("skipped", 0) > 0:
             self.stdout.write(self.style.WARNING(
                 f'\n提示：本次未导入任何新数据，所有 {stats.get("skipped", 0)} 条记录均为重复数据。'

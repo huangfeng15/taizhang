@@ -453,8 +453,12 @@ from django.contrib.auth.decorators import login_required
 
 def archive_monitor(request):
     return _views_monitoring.archive_monitor(request)
+
 def update_monitor(request):
     return _views_monitoring.update_monitor(request)
+
+def cycle_monitor(request):
+    return _views_monitoring.cycle_monitor(request)
 
 
 def completeness_check(request):

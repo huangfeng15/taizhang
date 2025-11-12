@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}供应商履约评价详情 - {{ supplier_name }} - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .score-excellent {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+    .score-good {
+        background: #e6f7ff;
+        color: #1890ff;
+    }
+    .score-qualified {
+        background: #fffbe6;
+        color: #faad14;
+    }
+    .score-unqualified {
+        background: #fff1f0;
+        color: #ff4d4f;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 30px;
+        padding-bottom: 20px;
+        border-left: 2px solid #e8e8e8;
+    }
+    .timeline-item:last-child {
+        border-left-color: transparent;
+    }
+    .timeline-dot {
+        position: absolute;
+        left: -6px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-color);
+    }
+    .trend-chart {
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">供应商履约评价详情</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <a href="{% url 'supplier_eval:supplier_evaluation_list' %}">供应商履约评价</a>
+        <span>/</span>
+        <span>{{ supplier_name }}</span>
+    </div>
+</div>
+
+<!-- 供应商概况 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-building"></i>
+            供应商概况 - {{ supplier_name }}
+        </h2>
+        <a href="{% url 'supplier_eval:supplier_evaluation_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            返回列表
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">承接合同总数</div>
+                    <div class="stat-value">{{ summary.total_contracts|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">平均评分</div>
+                    <div class="stat-value">{{ summary.avg_score|default:'-' }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">评价记录总数</div>
+                    <div class="stat-value">{{ total_evaluations }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">合同总金额(万元)</div>
+                    <div class="stat-value">{{ summary.total_amount|floatformat:2|default:0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评价趋势 -->
+{% if trend_chart_data %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-chart-line"></i>
+            评分趋势分析
+        </h2>
+    </div>
+    <div class="card-body">
+        <div class="trend-chart">
+            <canvas id="trendChart" style="max-height: 300px;"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 历史评价记录列表 -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-history"></i>
+            历史评价记录（共 {{ total_evaluations }} 条）
+        </h2>
+    </div>
+    
+    {% if evaluations %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th data-column="row_number">序号</th>
+                    <th data-column="year">评价年度</th>
+                    <th data-column="contract">关联合同</th>
+                    <th data-column="evaluation_type">评价类别</th>
+                    <th data-column="comprehensive_score">综合评分</th>
+                    <th data-column="last_evaluation_score">末次评价</th>
+                    <th data-column="evaluation_result">评价结果</th>
+                    <th data-column="created_at">评价时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in evaluations %}
+                <tr>
+                    <td data-column="row_number">{{ forloop.counter }}</td>
+                    <td data-column="year">
+                        <span style="font-weight: 600; color: var(--primary-color);">
+                            {{ item.year }}年
+                        </span>
+                    </td>
+                    <td data-column="contract">
+                        {% if item.contract %}
+                            <a href="{% url 'contract_detail' item.contract.contract_code %}" 
+                               style="color: var(--primary-color); text-decoration: none;"
+                               title="{{ item.contract.contract_name }}">
+                                {{ item.contract.contract_name|truncatechars:40 }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="evaluation_type">
+                        <span style="color: var(--text-secondary);">
+                            {{ item.evaluation_type }}
+                        </span>
+                    </td>
+                    <td data-column="comprehensive_score">
+                        {% if item.comprehensive_score %}
+                            {% if item.comprehensive_score >= 90 %}
+                                <span class="score-badge score-excellent">
+                                    {{ item.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% elif item.comprehensive_score >= 80 %}
+                                <span class="score-badge score-good">
+                                    {{ item.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% elif item.comprehensive_score >= 70 %}
+                                <span class="score-badge score-qualified">
+                                    {{ item.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% else %}
+                                <span class="score-badge score-unqualified">
+                                    {{ item.comprehensive_score|floatformat:1 }}分
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-secondary);">未评分</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="last_evaluation_score">
+                        {% if item.last_evaluation_score %}
+                            <span style="font-weight: 600;">
+                                {{ item.last_evaluation_score|floatformat:1 }}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-column="evaluation_result">
+                        {% if item.evaluation_result == '优秀' %}
+                            <span class="score-badge score-excellent">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '良好' %}
+                            <span class="score-badge score-good">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '合格' %}
+                            <span class="score-badge score-qualified">{{ item.evaluation_result }}</span>
+                        {% elif item.evaluation_result == '不合格' %}
+                            <span class="score-badge score-unqualified">{{ item.evaluation_result }}</span>
+                        {% else %}
+                            <span style="color: var(--text-secondary);">{{ item.evaluation_result }}</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="created_at">
+                        {{ item.created_at|date:"Y-m-d" }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-clipboard-list"></i>
+        <p>暂无评价记录</p>
+    </div>
+    {% endif %}
+    
+    <!-- 分页 -->
+    {% if evaluations %}
+    <div class="pagination">
+        <span class="pagination-info">
+            共 {{ page_obj.paginator.count }} 条记录
+        </span>
+        {% if page_obj.has_previous %}
+        <a href="?page=1">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}">上一页</a>
+        {% endif %}
+        
+        <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}">尾页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{% if trend_chart_json %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// 评分趋势图表
+const trendData = {{ trend_chart_json|safe }};
+const ctx = document.getElementById('trendChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: trendData.map(item => item.year + '年'),
+        datasets: [{
+            label: '平均评分',
+            data: trendData.map(item => item.avg_score),
+            borderColor: 'rgb(24, 144, 255)',
+            backgroundColor: 'rgba(24, 144, 255, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 5,
+            pointHoverRadius: 7
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {
+                    afterLabel: function(context) {
+                        const index = context.dataIndex;
+                        return '评价次数: ' + trendData[index].count + '次';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                min: 60,
+                max: 100,
+                ticks: {
+                    stepSize: 10
+                },
+                title: {
+                    display: true,
+                    text: '评分'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: '年度'
+                }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
