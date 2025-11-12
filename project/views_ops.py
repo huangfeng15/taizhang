@@ -57,9 +57,11 @@ def database_management(request):
         if not path or not path.exists():
             return None
         stat = path.stat()
-        modified_at = timezone.localtime(datetime.fromtimestamp(stat.st_mtime))
+        # 将文件时间戳转换为aware datetime
+        modified_at = timezone.make_aware(datetime.fromtimestamp(stat.st_mtime))
         return {
             'path': str(path),
+            'name': path.name,  # 添加文件名字段
             'size_bytes': stat.st_size,
             'modified_at': modified_at,
             'size_display': _format_size(stat.st_size),
@@ -114,10 +116,27 @@ def database_management(request):
                 if not db_path or not db_path.exists():
                     messages.error(request, '未找到数据库文件，无法备份')
                 else:
-                    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    backup_file = backups_dir / f'{db_path.stem}_{ts}.sqlite3'
-                    shutil.copy2(db_path, backup_file)
-                    messages.success(request, f'数据库已备份到：{backup_file.name}')
+                    # 获取用户输入的备份名称
+                    backup_name = request.POST.get('backup_name', '').strip()
+                    if not backup_name:
+                        messages.error(request, '请输入备份名称')
+                    else:
+                        # 清理文件名中的非法字符
+                        import re
+                        clean_name = re.sub(r'[<>:"/\\|?*]', '_', backup_name).strip('. ')
+                        if not clean_name:
+                            messages.error(request, '备份名称无效')
+                        else:
+                            # 添加时间戳以避免重名
+                            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                            if not clean_name.lower().endswith('.sqlite3'):
+                                backup_file = backups_dir / f'{clean_name}_{ts}.sqlite3'
+                            else:
+                                # 如果用户输入已包含.sqlite3，在扩展名前插入时间戳
+                                base_name = clean_name[:-8]  # 移除.sqlite3
+                                backup_file = backups_dir / f'{base_name}_{ts}.sqlite3'
+                            shutil.copy2(db_path, backup_file)
+                            messages.success(request, f'数据库已备份到：{backup_file.name}')
             elif action == 'restore':
                 file_name = request.POST.get('file_name')
                 if not file_name:
@@ -142,22 +161,32 @@ def database_management(request):
             backups.append(info)
     backups.sort(key=lambda x: x['modified_at'], reverse=True)
 
-    context = {'db_stat': db_stat, 'backups': backups, 'engine': engine, 'db_path': str(db_path) if db_path else None}
+    # SQLite3 数据库支持文件级备份
+    supports_file_ops = engine.endswith('sqlite3') and db_path is not None
+    
+    context = {
+        'db_stat': db_stat,
+        'backups': backups,
+        'engine': engine,
+        'db_path': str(db_path) if db_path else None,
+        'supports_file_ops': supports_file_ops
+    }
     return render(request, 'database_management.html', context)
 
 
 @require_http_methods(['GET'])
 def download_import_template(request):
-    """下载导入模板（包含字段说明）。"""
+    """下载导入模板（包含字段说明）。
+    
+    模块名称规范：
+    - project: 项目
+    - procurement: 采购
+    - contract: 合同
+    - payment: 付款
+    - supplier_eval: 供应商评价
+    """
     module = request.GET.get('module', 'project')
     mode = request.GET.get('mode', 'long')
-    # 别名映射：统一处理各种供应商评价模块名称
-    _aliases = {
-        'supplier': 'supplier_eval',
-        'evaluation': 'supplier_eval',
-        'supplier_evaluation': 'supplier_eval',
-    }
-    module = _aliases.get(module, module)
 
     # 直接从 template_generator 导入配置，避免循环导入
     from project.template_generator import get_import_template_config
@@ -194,12 +223,21 @@ def download_import_template(request):
 @csrf_exempt
 @require_POST
 def import_data(request):
-    """通用数据导入接口（增强统计反馈）。"""
+    """通用数据导入接口（增强统计反馈）。
+    
+    模块名称规范：
+    - project: 项目
+    - procurement: 采购
+    - contract: 合同
+    - payment: 付款
+    - supplier_eval: 供应商评价
+    """
     try:
         if 'file' not in request.FILES:
             return JsonResponse({'success': False, 'message': '未找到上传文件'})
         uploaded_file = request.FILES['file']
         module = request.POST.get('module', 'project')
+        
         if not uploaded_file.name.endswith('.csv'):
             return JsonResponse({'success': False, 'message': '仅支持CSV文件格式'})
 
@@ -224,13 +262,22 @@ def import_data(request):
                 reader = _csv.reader(f)
                 header = next(reader)
                 column_count = len(header)
-            import_mode = 'long'
-            if module in ['payment', 'evaluation'] and column_count > 10:
-                import_mode = 'wide'
+            
+            # 供应商评价使用专门的导入命令
+            if module == 'supplier_eval':
+                out = StringIO()
+                call_command('import_supplier_eval_v2', tmp_file_path, '--encoding', detected_encoding, '--update', stdout=out, stderr=out)
+                output = out.getvalue()
+            else:
+                # 其他模块使用通用导入命令
+                import_mode = 'long'
+                # 付款模块支持宽表模式
+                if module == 'payment' and column_count > 10:
+                    import_mode = 'wide'
 
-            out = StringIO()
-            call_command('import_excel', tmp_file_path, '--module', module, '--mode', import_mode, '--conflict-mode', 'update', stdout=out, stderr=out)
-            output = out.getvalue()
+                out = StringIO()
+                call_command('import_excel', tmp_file_path, '--module', module, '--mode', import_mode, '--conflict-mode', 'update', stdout=out, stderr=out)
+                output = out.getvalue()
 
             import re
             def clean_ansi(text: str) -> str:

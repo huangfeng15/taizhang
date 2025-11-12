@@ -286,7 +286,7 @@
     </div>
     <div>
         <div class="action-group">
-            <button type="button" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="showBackupModal()">
+            <button type="button" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="showBackupModal(event); event.stopPropagation();">
                 <i class="fas fa-database"></i> 手动备份
             </button>
             
@@ -372,17 +372,14 @@
 </div>
 
 <!-- 备份模态框 -->
-<div id="backupModal" class="modal" style="display: none;" onclick="if(event.target === this) hideBackupModal();">
-    <div class="modal-content">
+<div id="backupModal" class="modal" style="display: none;" onclick="if(event.target === this) hideBackupModal(event);">
+    <div class="modal-content" onclick="event.stopPropagation();">
         <div class="modal-header">
             <h3>创建数据库备份</h3>
-            <span class="close" onclick="hideBackupModal()">&times;</span>
+            <span class="close" onclick="hideBackupModal(event)">&times;</span>
         </div>
         <div class="modal-body">
-            <form id="backupForm" method="post">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="backup">
-                
+            <form id="backupForm">
                 <div class="form-group">
                     <label for="backupName">备份名称 *</label>
                     <input type="text" id="backupName" name="backup_name" class="form-control"
@@ -400,13 +397,13 @@
                 <div class="form-group">
                     <small class="form-text text-muted">
                         <i class="fas fa-info-circle"></i>
-                        备份文件将保存为：{备份名称}.sqlite3
+                        备份文件将保存为：{备份名称}_时间戳.sqlite3
                     </small>
                 </div>
                 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="hideBackupModal()">取消</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="button" class="btn btn-secondary" onclick="hideBackupModal(event)">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitBackup(event)">
                         <i class="fas fa-database"></i> 创建备份
                     </button>
                 </div>
@@ -422,10 +419,11 @@
 // 防止函数重复定义
 if (typeof window.showBackupModal === 'undefined') {
     window.showBackupModal = function(e) {
-        // 阻止事件冒泡，避免触发edit-modal的事件委托
+        // 阻止事件冒泡和默认行为，避免触发edit-modal的事件委托
         if (e) {
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation(); // 阻止其他监听器
         }
         const modal = document.getElementById('backupModal');
         if (modal) {
@@ -534,6 +532,74 @@ if (typeof window.deleteBackup === 'undefined') {
     };
 }
 
+// AJAX提交备份请求
+if (typeof window.submitBackup === 'undefined') {
+    window.submitBackup = async function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        const backupNameInput = document.getElementById('backupName');
+        if (!backupNameInput) {
+            alert('备份名称输入框未找到');
+            return;
+        }
+        
+        const backupName = backupNameInput.value.trim();
+        if (!backupName) {
+            alert('请输入备份名称');
+            backupNameInput.focus();
+            return;
+        }
+        
+        // 验证文件名
+        const invalidChars = /[<>:"/\\|?*]/;
+        if (invalidChars.test(backupName)) {
+            alert('备份名称包含无效字符，请避免使用 < > : " / \\ | ? *');
+            backupNameInput.focus();
+            return;
+        }
+        
+        // 禁用按钮，显示加载状态
+        const submitBtn = e.target;
+        const originalHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 备份中...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'backup');
+            formData.append('backup_name', backupName);
+            formData.append('backup_description', document.getElementById('backupDescription').value);
+            
+            const response = await fetch('{% url "database_management" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            
+            if (response.ok) {
+                alert('备份成功！');
+                hideBackupModal();
+                // 刷新页面以显示新备份
+                window.location.reload();
+            } else {
+                const text = await response.text();
+                alert('备份失败：' + (text || response.statusText));
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            }
+        } catch (error) {
+            alert('备份失败：' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        }
+    };
+}
+
 // ESC键关闭模态框
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
@@ -546,40 +612,23 @@ document.addEventListener('keydown', function(e) {
 
 // 表单提交验证 - 确保DOM元素存在后再绑定
 document.addEventListener('DOMContentLoaded', function() {
-    // 修复: 移除edit-modal.js创建的editModal，防止它阻止页面点击
+    // 修复: 移除edit-modal.js创建的editModal及其遮罩层，防止它们阻止页面交互
     const editModal = document.getElementById('editModal');
     if (editModal) {
-        editModal.remove(); // 直接移除DOM元素，而不是隐藏
+        // 移除Bootstrap模态框的遮罩层
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        // 移除模态框元素
+        editModal.remove();
+        // 恢复body的滚动和样式
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
     }
     
-    const backupForm = document.getElementById('backupForm');
-    if (backupForm) {
-        backupForm.addEventListener('submit', function(e) {
-            const backupNameInput = document.getElementById('backupName');
-            if (!backupNameInput) {
-                e.preventDefault();
-                alert('备份名称输入框未找到');
-                return false;
-            }
-            
-            const backupName = backupNameInput.value.trim();
-            if (!backupName) {
-                e.preventDefault();
-                alert('请输入备份名称');
-                return false;
-            }
-            
-            // 简单的文件名验证
-            const invalidChars = /[<>:"/\\|?*]/;
-            if (invalidChars.test(backupName)) {
-                e.preventDefault();
-                alert('备份名称包含无效字符，请避免使用 < > : " / \\ | ? *');
-                return false;
-            }
-            
-            return true;
-        });
-    }
+    // 备份表单已改为AJAX提交，不需要submit事件监听
 });
 </script>
 {% endblock %}

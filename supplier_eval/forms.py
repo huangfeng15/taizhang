@@ -216,6 +216,7 @@ class SupplierEvaluationForm(forms.ModelForm):
     class Meta:
         model = SupplierEvaluation
         fields = [
+            'evaluation_code',
             'contract',
             'supplier_name',
             'comprehensive_score',
@@ -225,6 +226,10 @@ class SupplierEvaluationForm(forms.ModelForm):
             'remarks',
         ]
         widgets = {
+            'evaluation_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '留空则自动生成 "PJ+合同编号"',
+            }),
             'supplier_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '请输入供应商名称',
@@ -261,6 +266,7 @@ class SupplierEvaluationForm(forms.ModelForm):
             }),
         }
         labels = {
+            'evaluation_code': '评价编号',
             'contract': '关联合同',
             'supplier_name': '供应商名称',
             'comprehensive_score': '综合评分',
@@ -270,6 +276,7 @@ class SupplierEvaluationForm(forms.ModelForm):
             'remarks': '备注',
         }
         help_texts = {
+            'evaluation_code': '留空则自动生成格式：PJ+合同编号，也可自定义',
             'supplier_name': '填写供应商名称（自动从合同获取）',
             'comprehensive_score': '留空则根据末次评价和过程评价自动计算',
             'last_evaluation_score': '末次评价得分，权重60%',

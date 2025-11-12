@@ -47,9 +47,10 @@ class SupplierAnalysisService:
         
         # 按供应商分组统计
         summary = contracts.values('party_b').annotate(
-            total_contracts=Count('contract_code'),
+            total_contracts=Count('contract_code', distinct=True),  # 使用distinct避免重复计数
             ongoing_contracts=Count(
                 'contract_code',
+                distinct=True,  # 使用distinct避免重复计数
                 filter=Q(settlement__isnull=True) & ~Q(payments__is_settled=True)  # 未结算的合同（排除Settlement表和Payment表中标记为已结算的）
             )
         ).order_by('-total_contracts')

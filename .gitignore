@@ -6,6 +6,7 @@
 *.sqlite3
 db*.sqlite3
 *.db
+data
 
 # 环境配置 (包含敏感信息)
 .env.prod
@@ -28,6 +29,7 @@ __pycache__/
 venv/
 ENV/
 env/
+.env
 
 # IDE配置
 .vscode/

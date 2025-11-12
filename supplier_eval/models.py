@@ -133,10 +133,14 @@ class SupplierEvaluation(BaseModel):
         return f"{self.evaluation_code} - {self.supplier_name}"
     
     def save(self, *args, **kwargs):
-        """保存时自动计算综合评分（如果CSV未提供）"""
+        """保存时自动计算综合评分和生成评价编号（如果未提供）"""
         # 自动获取供应商名称
         if self.contract and not self.supplier_name:
             self.supplier_name = self.contract.party_b
+        
+        # 自动生成评价编号（如果未提供）
+        if not self.evaluation_code and self.contract:
+            self.evaluation_code = f"PJ{self.contract.contract_code}"
         
         # 如果CSV没有提供综合评分，则自动计算
         if not self.comprehensive_score and self.last_evaluation_score:

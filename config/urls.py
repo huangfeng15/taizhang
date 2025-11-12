@@ -87,6 +87,9 @@ urlpatterns = [
     path('procurements/create/', views.procurement_create, name='procurement_create'),
     path('contracts/create/', views.contract_create, name='contract_create'),
     path('payments/create/', views.payment_create, name='payment_create'),
+    
+    # 用户使用手册
+    path('user-manual/', views.user_manual, name='user_manual'),
 ]
 
 # 自定义Admin站点标题
