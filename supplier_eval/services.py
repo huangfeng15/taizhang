@@ -157,15 +157,15 @@ class SupplierAnalysisService:
             
             # 判断是否在执行中
             # 检查两个条件：1. Settlement表中没有记录  2. Payment表中没有标记为已结算的记录
-            has_settlement_record = hasattr(contract, 'settlement') and contract.settlement is not None
-            has_settled_payment = contract.payments.filter(is_settled=True).exists()
+            has_settlement_record = hasattr(contract, 'settlement') and contract.settlement is not None  # type: ignore[attr-defined]
+            has_settled_payment = contract.payments.filter(is_settled=True).exists()  # type: ignore[attr-defined]
             is_ongoing = not (has_settlement_record or has_settled_payment)
             
             # 补充协议数量
-            supplement_count = contract.supplements.count()
+            supplement_count = contract.supplements.count()  # type: ignore[attr-defined]
             
             # 是否有履约评价
-            has_evaluation = contract.evaluations.exists()
+            has_evaluation = contract.evaluations.exists()  # type: ignore[attr-defined]
             
             result.append({
                 'contract': contract,

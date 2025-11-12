@@ -293,6 +293,10 @@
             <a href="{% url 'export_project_data' %}" class="btn btn-primary" style="text-decoration: none;">
                 <i class="fas fa-file-excel"></i> 导出数据
             </a>
+            
+            <button type="button" class="btn btn-primary" onclick="showImportModal(event); event.stopPropagation();">
+                <i class="fas fa-file-import"></i> 导入数据
+            </button>
 
             <form method="post" onsubmit="return confirm('确定要清除所有数据并重新初始化数据库吗？此操作不可撤销！');">
                 {% csrf_token %}
@@ -314,19 +318,17 @@
     <div class="card-header">
         <span class="card-title">备份文件</span>
         {% if backups %}
-            <form method="post" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="restore">
-                <select name="file_name" class="filter-select" {% if not supports_file_ops %}disabled{% endif %}>
+            <div style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+                <select id="restoreFileSelect" class="filter-select" {% if not supports_file_ops %}disabled{% endif %}>
                     <option value="">选择备份文件</option>
                     {% for backup in backups %}
                         <option value="{{ backup.name }}">{{ backup.name }} ｜ {{ backup.size_display }} ｜ {{ backup.modified_display }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="return confirm('确定要恢复该备份吗？当前数据库将被覆盖。');">
+                <button type="button" class="btn btn-primary" {% if not supports_file_ops %}disabled{% endif %} onclick="submitRestore(event)">
                     <i class="fas fa-undo"></i> 恢复数据库
                 </button>
-            </form>
+            </div>
         {% endif %}
     </div>
     <div class="table-container">
@@ -405,6 +407,53 @@
                     <button type="button" class="btn btn-secondary" onclick="hideBackupModal(event)">取消</button>
                     <button type="button" class="btn btn-primary" onclick="submitBackup(event)">
                         <i class="fas fa-database"></i> 创建备份
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div id="importModal" class="modal" style="display: none;" onclick="if(event.target === this) hideImportModal(event);">
+    <div class="modal-content" onclick="event.stopPropagation();">
+        <div class="modal-header">
+            <h3>导入项目数据</h3>
+            <span class="close" onclick="hideImportModal(event)">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="importForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="projectCode">项目编码 *</label>
+                    <select id="projectCode" name="project_code" class="form-control" required>
+                        <option value="">请选择要导入的项目</option>
+                        {% for project in projects %}
+                            <option value="{{ project.project_code }}">{{ project.project_code }} - {{ project.project_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">选择要导入数据的目标项目</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="importFile">Excel文件 *</label>
+                    <input type="file" id="importFile" name="file" class="form-control" accept=".xlsx,.xls" required>
+                    <small class="form-text text-muted">仅支持从"导出数据"功能生成的Excel文件</small>
+                </div>
+                
+                <div class="form-group" style="background: #fff3cd; padding: 12px; border-radius: 4px; border: 1px solid #ffc107;">
+                    <strong style="color: #856404;"><i class="fas fa-exclamation-triangle"></i> 重要提示：</strong>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #856404;">
+                        <li>导入前将<strong>清空该项目的所有现有数据</strong>（采购、合同、付款）</li>
+                        <li>请务必在导入前<strong>备份数据库</strong></li>
+                        <li>此操作<strong>不可撤销</strong>，请谨慎操作</li>
+                        <li>仅支持导入本系统导出的Excel文件</li>
+                    </ul>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="hideImportModal(event)">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitImport(event)">
+                        <i class="fas fa-file-import"></i> 确认导入
                     </button>
                 </div>
             </form>
@@ -600,15 +649,218 @@ if (typeof window.submitBackup === 'undefined') {
     };
 }
 
+// 显示导入模态框
+if (typeof window.showImportModal === 'undefined') {
+    window.showImportModal = function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }
+        const modal = document.getElementById('importModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            const projectSelect = document.getElementById('projectCode');
+            if (projectSelect) {
+                setTimeout(() => projectSelect.focus(), 100);
+            }
+        }
+    };
+}
+
+// 隐藏导入模态框
+if (typeof window.hideImportModal === 'undefined') {
+    window.hideImportModal = function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const modal = document.getElementById('importModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+            const form = document.getElementById('importForm');
+            if (form) {
+                form.reset();
+            }
+        }
+    };
+}
+
+// 提交导入
+if (typeof window.submitImport === 'undefined') {
+    window.submitImport = async function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        const projectCodeInput = document.getElementById('projectCode');
+        const fileInput = document.getElementById('importFile');
+        
+        if (!projectCodeInput || !fileInput) {
+            alert('表单元素未找到');
+            return;
+        }
+        
+        const projectCode = projectCodeInput.value.trim();
+        const file = fileInput.files[0];
+        
+        if (!projectCode) {
+            alert('请选择项目');
+            projectCodeInput.focus();
+            return;
+        }
+        
+        if (!file) {
+            alert('请选择要导入的Excel文件');
+            fileInput.focus();
+            return;
+        }
+        
+        // 二次确认
+        const confirmMsg = `确定要导入数据到项目 "${projectCode}" 吗？\n\n警告：\n1. 该项目的所有现有数据将被清空\n2. 此操作不可撤销\n3. 请确保已备份数据库\n\n是否继续？`;
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+        
+        // 禁用按钮，显示加载状态
+        const submitBtn = e.target;
+        const originalHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 导入中...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('project_code', projectCode);
+            
+            const response = await fetch('{% url "import_project_data" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('导入成功！\n\n' + data.message);
+                hideImportModal();
+                // 刷新页面
+                window.location.reload();
+            } else {
+                alert('导入失败：\n\n' + data.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            }
+        } catch (error) {
+            alert('导入失败：' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        }
+    };
+}
+
 // ESC键关闭模态框
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        const modal = document.getElementById('backupModal');
-        if (modal && modal.style.display !== 'none') {
+        const backupModal = document.getElementById('backupModal');
+        const importModal = document.getElementById('importModal');
+        
+        if (backupModal && backupModal.style.display !== 'none') {
             hideBackupModal(e);
+        } else if (importModal && importModal.style.display !== 'none') {
+            hideImportModal(e);
         }
     }
 });
+
+// 提交恢复请求
+if (typeof window.submitRestore === 'undefined') {
+    window.submitRestore = async function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        const fileSelect = document.getElementById('restoreFileSelect');
+        if (!fileSelect || !fileSelect.value) {
+            alert('请先选择要恢复的备份文件！');
+            if (fileSelect) {
+                fileSelect.focus();
+            }
+            return;
+        }
+        
+        // 二次确认
+        const fileName = fileSelect.value;
+        const fileDisplayName = fileSelect.options[fileSelect.selectedIndex].text;
+        const confirmMsg = `确定要恢复备份吗？\n\n备份文件：${fileDisplayName}\n\n警告：\n1. 当前数据库将被完全覆盖\n2. 此操作不可撤销\n3. 所有未保存的数据将丢失\n\n是否继续？`;
+        
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+        
+        // 禁用按钮，显示加载状态
+        const submitBtn = e.target;
+        const originalHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 恢复中...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'restore');
+            formData.append('file_name', fileName);
+            
+            const response = await fetch('{% url "database_management" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            
+            // 先获取响应的内容类型
+            const contentType = response.headers.get('content-type');
+            
+            if (response.ok) {
+                // 成功的情况
+                if (contentType && contentType.includes('application/json')) {
+                    // 如果是JSON响应，解析它
+                    const data = await response.json();
+                    if (data.success === false) {
+                        alert('恢复失败：' + data.message);
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHTML;
+                        return;
+                    }
+                }
+                
+                // 成功恢复
+                alert('数据库恢复成功！页面即将刷新...');
+                window.location.reload();
+            } else {
+                // 失败的情况
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    alert('恢复失败：' + (data.message || response.statusText));
+                } else {
+                    const text = await response.text();
+                    alert('恢复失败：' + (text || response.statusText));
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            }
+        } catch (error) {
+            alert('恢复失败：' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        }
+    };
+}
 
 // 表单提交验证 - 确保DOM元素存在后再绑定
 document.addEventListener('DOMContentLoaded', function() {

@@ -1,11 +1,94 @@
 from io import BytesIO
 from datetime import datetime
 import pandas as pd
+import re
+from decimal import Decimal
+from django.db import transaction
 
 from project.utils.excel_beautifier import beautify_worksheet
 from procurement.models import Procurement
 from contract.models import Contract
 from payment.models import Payment
+from project.models import Project
+
+
+def extract_code_parts(code):
+    """
+    提取编号的各个部分用于排序
+    处理如下格式：
+    - BHHY-K-004
+    - BHHY-ZC-026
+    - 2025-PGCHT-014
+    - 2025-PGCHT-013-001
+    
+    返回: (前缀部分, 主数字, 子数字或None)
+    """
+    if not code:
+        return ('', 0, 0)
+    
+    # 移除空白字符
+    code = str(code).strip()
+    
+    # 尝试匹配类似 2025-PGCHT-013-001 的格式（有子编号）
+    match = re.match(r'^(.+?)-(\d+)-(\d+)$', code)
+    if match:
+        prefix = match.group(1)
+        main_num = int(match.group(2))
+        sub_num = int(match.group(3))
+        return (prefix, main_num, sub_num)
+    
+    # 尝试匹配类似 2025-PGCHT-014 或 BHHY-K-004 的格式（无子编号）
+    match = re.match(r'^(.+?)-(\d+)$', code)
+    if match:
+        prefix = match.group(1)
+        main_num = int(match.group(2))
+        return (prefix, main_num, 999999)  # 使用大数字确保无子编号的排在后面
+    
+    # 如果都不匹配，尝试提取所有数字
+    numbers = re.findall(r'\d+', code)
+    if numbers:
+        return (code, int(numbers[0]), 999999)
+    
+    # 完全无法解析，返回字符串本身
+    return (code, 0, 999999)
+
+
+def sort_procurement_list(procurements):
+    """
+    对采购列表进行排序
+    规则：
+    1. 相同编号规则（前缀相同）的，按照招采编号从小到大排序
+    2. 不同编号规则（前缀不同）的，按照结果公示发布时间从早到晚排序
+    3. 特殊处理：2025-PGCHT-013-001 应该排在 2025-PGCHT-014 之前
+    """
+    def sort_key(proc):
+        prefix, main_num, sub_num = extract_code_parts(proc.procurement_code)
+        # 使用结果公示发布时间作为主要排序依据（用于不同前缀的情况）
+        date_sort = proc.result_publicity_release_date if proc.result_publicity_release_date else datetime.max.date()
+        # 返回：先按日期，再按前缀，最后按编号
+        return (date_sort, prefix, main_num, sub_num)
+    
+    return sorted(procurements, key=sort_key)
+
+
+def sort_contract_list(contracts):
+    """
+    对合同列表进行排序
+    规则：
+    1. 相同编号规则（前缀相同）的，按照合同序号从小到大排序
+    2. 不同编号规则（前缀不同）的，按照合同签订日期从早到晚排序
+    3. 特殊处理：2025-PGCHT-013-001 应该排在 2025-PGCHT-014 之前
+    """
+    def sort_key(contract):
+        # 优先使用合同序号，如果没有则使用合同编号
+        code = contract.contract_sequence if contract.contract_sequence else contract.contract_code
+        prefix, main_num, sub_num = extract_code_parts(code)
+        # 使用合同签订日期作为主要排序依据（用于不同前缀的情况）
+        date_sort = contract.signing_date if contract.signing_date else datetime.max.date()
+        # 返回：先按日期，再按前缀，最后按编号
+        return (date_sort, prefix, main_num, sub_num)
+    
+    return sorted(contracts, key=sort_key)
 
 
 def generate_project_excel(project, user):
@@ -26,7 +109,11 @@ def generate_project_excel(project, user):
         df_projects.to_excel(writer, sheet_name='项目信息', index=False)
 
         procurement_rows = []
-        for procurement in Procurement.objects.filter(project=project):
+        # 获取并排序采购列表
+        procurements = Procurement.objects.filter(project=project)
+        sorted_procurements = sort_procurement_list(procurements)
+        
+        for procurement in sorted_procurements:
             procurement_rows.append({
                 '项目编码': project.project_code,
                 '项目名称': project.project_name,
@@ -57,10 +144,13 @@ def generate_project_excel(project, user):
         pd.DataFrame(procurement_rows).to_excel(writer, sheet_name='采购信息', index=False)
 
         contract_rows = []
+        # 获取并排序合同列表
         contracts = Contract.objects.filter(project=project).select_related('project').prefetch_related('payments')
-        for contract in contracts:
-            total_paid = sum(p.payment_amount or 0 for p in contract.payments.all())
-            payment_count = contract.payments.count()
+        sorted_contracts = sort_contract_list(contracts)
+        
+        for contract in sorted_contracts:
+            total_paid = sum(p.payment_amount or 0 for p in contract.payments.all())  # type: ignore[attr-defined]
+            payment_count = contract.payments.count()  # type: ignore[attr-defined]
             contract_rows.append({
                 '项目编码': project.project_code,
                 '项目名称': project.project_name,
@@ -98,3 +188,261 @@ def generate_project_excel(project, user):
     output.seek(0)
     return output
 
+
+
+
+def import_project_excel(file_obj, project_code, user=None):
+    """
+    从Excel文件导入项目数据，替换指定项目的所有数据
+    
+    Args:
+        file_obj: Excel文件对象（BytesIO或文件路径）
+        project_code: 要导入的项目编码
+        user: 当前操作用户
+    
+    Returns:
+        dict: 包含导入统计信息的字典
+    """
+    stats = {
+        'project_updated': False,
+        'procurements_created': 0,
+        'contracts_created': 0,
+        'payments_created': 0,
+        'procurements_deleted': 0,
+        'contracts_deleted': 0,
+        'payments_deleted': 0,
+        'errors': []
+    }
+    
+    try:
+        # 读取Excel文件的所有工作表
+        excel_data = pd.read_excel(file_obj, sheet_name=None, dtype=str)
+        
+        # 检查必需的工作表
+        required_sheets = ['项目信息', '采购信息', '合同信息', '付款信息']
+        for sheet_name in required_sheets:
+            if sheet_name not in excel_data:
+                raise ValueError(f'Excel文件缺少必需的工作表：{sheet_name}')
+        
+        # 开始事务
+        with transaction.atomic():
+            # 1. 验证项目是否存在
+            try:
+                project = Project.objects.get(project_code=project_code)
+            except Project.DoesNotExist:
+                raise ValueError(f'项目不存在：{project_code}')
+            
+            # 2. 删除该项目下的所有关联数据
+            # 注意：由于外键关系，需要按照依赖顺序删除
+            # 付款 -> 合同 -> 采购
+            
+            # 删除付款记录（通过合同关联）
+            deleted_payments = Payment.objects.filter(contract__project=project).delete()[0]
+            stats['payments_deleted'] = deleted_payments
+            
+            # 删除合同记录
+            deleted_contracts = Contract.objects.filter(project=project).delete()[0]
+            stats['contracts_deleted'] = deleted_contracts
+            
+            # 删除采购记录
+            deleted_procurements = Procurement.objects.filter(project=project).delete()[0]
+            stats['procurements_deleted'] = deleted_procurements
+            
+            # 3. 更新项目信息
+            project_df = excel_data['项目信息']
+            if not project_df.empty:
+                row = project_df.iloc[0]
+                project.project_name = str(row.get('项目名称', project.project_name))
+                project.description = str(row.get('项目描述', '')) if pd.notna(row.get('项目描述')) else ''
+                project.project_manager = str(row.get('项目负责人', '')) if pd.notna(row.get('项目负责人')) else ''
+                project.status = str(row.get('项目状态', project.status))
+                project.remarks = str(row.get('备注', '')) if pd.notna(row.get('备注')) else ''
+                project.save()
+                stats['project_updated'] = True
+            
+            # 4. 导入采购信息
+            procurement_df = excel_data['采购信息']
+            for _, row in procurement_df.iterrows():
+                procurement_code = ''
+                try:
+                    procurement_code = str(row.get('招采编号', '')).strip()
+                    if not procurement_code or procurement_code == 'nan':
+                        continue
+                    
+                    procurement_data = {
+                        'procurement_code': procurement_code,
+                        'project': project,
+                        'project_name': str(row.get('采购项目名称', '')) if pd.notna(row.get('采购项目名称')) else '',
+                        'procurement_unit': str(row.get('采购单位', '')) if pd.notna(row.get('采购单位')) else '',
+                        'winning_bidder': str(row.get('中标单位', '')) if pd.notna(row.get('中标单位')) else '',
+                        'winning_contact': str(row.get('中标单位联系人及方式', '')) if pd.notna(row.get('中标单位联系人及方式')) else '',
+                        'procurement_method': str(row.get('采购方式', '')) if pd.notna(row.get('采购方式')) else '',
+                        'procurement_category': str(row.get('采购类别', '')) if pd.notna(row.get('采购类别')) else '',
+                        'procurement_officer': str(row.get('采购经办人', '')) if pd.notna(row.get('采购经办人')) else '',
+                        'demand_department': str(row.get('需求部门', '')) if pd.notna(row.get('需求部门')) else '',
+                        'demand_contact': str(row.get('申请人联系电话（需求部门）', '')) if pd.notna(row.get('申请人联系电话（需求部门）')) else '',
+                        'procurement_platform': str(row.get('采购平台', '')) if pd.notna(row.get('采购平台')) else '',
+                        'qualification_review_method': str(row.get('资格审查方式', '')) if pd.notna(row.get('资格审查方式')) else '',
+                        'bid_evaluation_method': str(row.get('评标谈判方式', '')) if pd.notna(row.get('评标谈判方式')) else '',
+                        'bid_awarding_method': str(row.get('定标方法', '')) if pd.notna(row.get('定标方法')) else '',
+                    }
+                    
+                    # 处理金额字段
+                    for field in ['budget_amount', 'control_price', 'winning_amount']:
+                        col_name = {
+                            'budget_amount': '采购预算金额(元)',
+                            'control_price': '采购控制价（元）',
+                            'winning_amount': '中标金额（元）'
+                        }[field]
+                        value = row.get(col_name)
+                        if pd.notna(value) and str(value).strip() and str(value) != '0':
+                            try:
+                                procurement_data[field] = Decimal(str(value))
+                            except:
+                                procurement_data[field] = None
+                        else:
+                            procurement_data[field] = None
+                    
+                    # 处理日期字段
+                    date_fields = {
+                        'planned_completion_date': '计划结束采购时间',
+                        'candidate_publicity_end_date': '候选人公示结束时间',
+                        'result_publicity_release_date': '结果公示发布时间',
+                        'notice_issue_date': '中标通知书发放日期',
+                        'requirement_approval_date': '采购需求书审批完成日期（OA）',
+                        'announcement_release_date': '公告发布时间'
+                    }
+                    
+                    for field, col_name in date_fields.items():
+                        value = row.get(col_name)
+                        if pd.notna(value) and str(value).strip():
+                            try:
+                                procurement_data[field] = pd.to_datetime(str(value)).date()
+                            except:
+                                procurement_data[field] = None
+                        else:
+                            procurement_data[field] = None
+                    
+                    if user:
+                        procurement_data['created_by'] = user.username
+                        procurement_data['updated_by'] = user.username
+                    
+                    Procurement.objects.create(**procurement_data)
+                    stats['procurements_created'] += 1
+                    
+                except Exception as e:
+                    stats['errors'].append(f"采购记录导入失败 [{procurement_code}]: {str(e)}")
+            
+            # 5. 导入合同信息
+            contract_df = excel_data['合同信息']
+            for _, row in contract_df.iterrows():
+                contract_code = ''
+                try:
+                    contract_code = str(row.get('合同编号', '')).strip()
+                    if not contract_code or contract_code == 'nan':
+                        continue
+                    
+                    contract_data = {
+                        'contract_code': contract_code,
+                        'project': project,
+                        'contract_name': str(row.get('合同名称', '')) if pd.notna(row.get('合同名称')) else '',
+                        'contract_sequence': str(row.get('合同序号', '')) if pd.notna(row.get('合同序号')) else None,
+                        'file_positioning': str(row.get('文件定位', '')) if pd.notna(row.get('文件定位')) else '',
+                        'contract_source': str(row.get('合同来源', '')) if pd.notna(row.get('合同来源')) else '',
+                        'party_b': str(row.get('乙方', '')) if pd.notna(row.get('乙方')) else '',
+                    }
+                    
+                    # 处理金额字段
+                    amount_value = row.get('合同金额(元)')
+                    if pd.notna(amount_value) and str(amount_value).strip() and str(amount_value) != '0':
+                        try:
+                            contract_data['contract_amount'] = Decimal(str(amount_value))
+                        except:
+                            contract_data['contract_amount'] = None
+                    else:
+                        contract_data['contract_amount'] = None
+                    
+                    # 处理签订日期
+                    signing_date = row.get('签订日期')
+                    if pd.notna(signing_date) and str(signing_date).strip():
+                        try:
+                            contract_data['signing_date'] = pd.to_datetime(str(signing_date)).date()
+                        except:
+                            contract_data['signing_date'] = None
+                    else:
+                        contract_data['signing_date'] = None
+                    
+                    if user:
+                        contract_data['created_by'] = user.username
+                        contract_data['updated_by'] = user.username
+                    
+                    Contract.objects.create(**contract_data)
+                    stats['contracts_created'] += 1
+                    
+                except Exception as e:
+                    stats['errors'].append(f"合同记录导入失败 [{contract_code}]: {str(e)}")
+            
+            # 6. 导入付款信息
+            payment_df = excel_data['付款信息']
+            for _, row in payment_df.iterrows():
+                payment_code = ''
+                try:
+                    payment_code = str(row.get('付款编号', '')).strip()
+                    contract_code = str(row.get('关联合同编号', '')).strip()
+                    
+                    if not payment_code or payment_code == 'nan':
+                        continue
+                    
+                    if not contract_code or contract_code == 'nan':
+                        stats['errors'].append(f"付款记录 [{payment_code}] 缺少关联合同编号")
+                        continue
+                    
+                    # 查找关联合同
+                    try:
+                        contract = Contract.objects.get(contract_code=contract_code, project=project)
+                    except Contract.DoesNotExist:
+                        stats['errors'].append(f"付款记录 [{payment_code}] 的关联合同不存在: {contract_code}")
+                        continue
+                    
+                    payment_data = {
+                        'payment_code': payment_code,
+                        'contract': contract,
+                        'is_settled': str(row.get('是否结算', '')).strip() == '是',
+                    }
+                    
+                    # 处理金额字段
+                    for field, col_name in [('payment_amount', '付款金额(元)'), ('settlement_amount', '结算价(元)')]:
+                        value = row.get(col_name)
+                        if pd.notna(value) and str(value).strip() and str(value) != '0':
+                            try:
+                                payment_data[field] = Decimal(str(value))
+                            except:
+                                payment_data[field] = None
+                        else:
+                            payment_data[field] = None
+                    
+                    # 处理付款日期
+                    payment_date = row.get('付款日期')
+                    if pd.notna(payment_date) and str(payment_date).strip():
+                        try:
+                            payment_data['payment_date'] = pd.to_datetime(str(payment_date)).date()
+                        except:
+                            payment_data['payment_date'] = None
+                    else:
+                        payment_data['payment_date'] = None
+                    
+                    if user:
+                        payment_data['created_by'] = user.username
+                        payment_data['updated_by'] = user.username
+                    
+                    Payment.objects.create(**payment_data)
+                    stats['payments_created'] += 1
+                    
+                except Exception as e:
+                    stats['errors'].append(f"付款记录导入失败 [{payment_code}]: {str(e)}")
+        
+        return stats
+        
+    except Exception as e:
+        stats['errors'].append(f"导入过程发生错误: {str(e)}")
+        return stats

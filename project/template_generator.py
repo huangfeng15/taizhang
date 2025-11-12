@@ -229,8 +229,13 @@ class TemplateGenerator:
         try:
             model_field = self.model._meta.get_field(field_name)
             
-            if hasattr(model_field, 'choices') and model_field.choices:
-                choices = [display for value, display in model_field.choices]
+            # 获取 choices，注意可能是可调用对象
+            field_choices = model_field.choices if hasattr(model_field, 'choices') else None
+            if callable(field_choices):
+                field_choices = field_choices()
+            
+            if field_choices:
+                choices = [str(display) for value, display in field_choices]
                 return "、".join(choices)
         except Exception as e:
             print(f"警告: 无法获取字段 {field_name} 的choices: {e}")
@@ -288,7 +293,10 @@ class TemplateGenerator:
         # 创建工作簿
         wb = Workbook()
         ws = wb.active
-        ws.title = self.config['file']['sheet_name']
+        if ws is not None:
+            ws.title = self.config['file']['sheet_name']
+        else:
+            raise ValueError("无法创建工作表")
         
         # 样式定义
         header_font = Font(bold=True, size=11, color="FFFFFF")
@@ -307,37 +315,43 @@ class TemplateGenerator:
         
         # 写入说明行
         instructions_row = self.config['instructions']['row']
-        ws.merge_cells(start_row=instructions_row, start_column=1, 
-                      end_row=instructions_row, end_column=len(self.config['fields']))
-        cell = ws.cell(row=instructions_row, column=1)
-        cell.value = self._format_instructions()
-        cell.font = instruction_font
-        cell.alignment = instruction_alignment
-        ws.row_dimensions[instructions_row].height = 80
+        if ws is not None:
+            ws.merge_cells(start_row=instructions_row, start_column=1,
+                          end_row=instructions_row, end_column=len(self.config['fields']))
+            # 获取合并后的单元格
+            instruction_cell = ws.cell(row=instructions_row, column=1)
+            # openpyxl 的 MergedCell 类型标注问题，使用 type: ignore
+            instruction_cell.value = self._format_instructions()  # type: ignore[attr-defined]
+            instruction_cell.font = instruction_font  # type: ignore[attr-defined]
+            instruction_cell.alignment = instruction_alignment  # type: ignore[attr-defined]
+            ws.row_dimensions[instructions_row].height = 80
         
         # 写入表头
         header_row = instructions_row + 1
-        for col_idx, field in enumerate(self.config['fields'], start=1):
-            cell = ws.cell(row=header_row, column=col_idx)
-            
-            # 字段名（必填字段标记*）
-            field_name = field['name']
-            if field.get('required'):
-                field_name += "*"
-            
-            cell.value = field_name
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = thin_border
-            
-            # 设置列宽
-            ws.column_dimensions[cell.column_letter].width = 15
-            
-            # 添加批注（帮助文本）
-            if field.get('help_text'):
-                comment = Comment(field['help_text'], "系统")
-                cell.comment = comment
+        if ws is not None:
+            for col_idx, field in enumerate(self.config['fields'], start=1):
+                header_cell = ws.cell(row=header_row, column=col_idx)
+                
+                # 字段名（必填字段标记*）
+                field_name = field['name']
+                if field.get('required'):
+                    field_name += "*"
+                
+                header_cell.value = field_name
+                header_cell.font = header_font
+                header_cell.fill = header_fill
+                header_cell.alignment = header_alignment
+                header_cell.border = thin_border
+                
+                # 设置列宽（检查是否为真实单元格）
+                from openpyxl.cell.cell import Cell
+                if isinstance(header_cell, Cell):
+                    ws.column_dimensions[header_cell.column_letter].width = 15
+                
+                # 添加批注（帮助文本）
+                if field.get('help_text'):
+                    comment = Comment(field['help_text'], "系统")
+                    header_cell.comment = comment
         
         # 保存文件
         wb.save(filepath)
@@ -365,7 +379,7 @@ def generate_all_templates(output_dir: str, year: Optional[int] = None) -> List[
     for config_file in templates_dir.glob('*.yml'):
         print(f"正在生成模板: {config_file.name}")
         try:
-            generator = TemplateGenerator(config_file)
+            generator = TemplateGenerator(str(config_file))
             filepath = generator.generate(output_dir, year)
             print(f"  ✓ 已生成: {filepath}")
             generated_files.append(filepath)
@@ -400,7 +414,7 @@ def generate_template_by_module(module: str, output_dir: str, year: Optional[int
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     try:
-        generator = TemplateGenerator(config_file)
+        generator = TemplateGenerator(str(config_file))
         filepath = generator.generate(output_dir, year)
         print(f"✓ 已生成模板: {filepath}")
         return filepath

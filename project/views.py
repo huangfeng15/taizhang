@@ -428,6 +428,12 @@ def export_project_data(request):
     return _views_ops.export_project_data(request)
 
 
+@csrf_exempt
+@require_POST
+def import_project_data(request):
+    return _views_ops.import_project_data(request)
+
+
 def _generate_project_excel(project, user):
     from project.services.export_service import generate_project_excel
     return generate_project_excel(project, user)

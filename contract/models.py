@@ -11,8 +11,10 @@ from project.helptext import get_help_text
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
+    from django.db.models.manager import RelatedManager
     from payment.models import Payment
     from settlement.models import Settlement
+    from supplier_eval.models import SupplierEvaluation
 
 
 class Contract(BaseModel):
@@ -213,6 +215,13 @@ class Contract(BaseModel):
         blank=True,
         help_text='合同资料归档的日期'
     )
+    
+    if TYPE_CHECKING:
+        # 类型提示：Django 反向关系
+        payments: 'RelatedManager[Payment]'
+        settlement: 'Settlement | None'
+        supplements: 'RelatedManager[Contract]'
+        evaluations: 'RelatedManager[SupplierEvaluation]'
     
     class Meta(BaseModel.Meta):
         verbose_name = '合同信息'

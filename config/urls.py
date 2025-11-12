@@ -73,8 +73,9 @@ urlpatterns = [
     # 供应商管理路由
     path('supplier/', include('supplier_eval.urls')),
     
-    # 数据导出API
+    # 数据导出/导入API
     path('api/export/project-data/', views.export_project_data, name='export_project_data'),
+    path('api/import/project-data/', views.import_project_data, name='import_project_data'),
     
     # 前端编辑API
     path('projects/<str:project_code>/edit/', views.project_edit, name='project_edit'),

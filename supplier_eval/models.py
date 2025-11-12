@@ -117,7 +117,7 @@ class SupplierEvaluation(BaseModel):
         help_text='其他说明信息'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):  # type: ignore[misc]
         verbose_name = '供应商履约评价'
         verbose_name_plural = '供应商履约评价'
         ordering = ['-created_at']
@@ -425,7 +425,7 @@ class SupplierInterview(BaseModel):
         help_text='相关文件、照片等附件的说明'
     )
     
-    class Meta:
+    class Meta(BaseModel.Meta):  # type: ignore[misc]
         verbose_name = '供应商约谈记录'
         verbose_name_plural = '供应商约谈记录'
         ordering = ['-interview_date', '-created_at']
