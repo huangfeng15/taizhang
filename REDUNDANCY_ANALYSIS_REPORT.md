@@ -238,6 +238,23 @@ class BaseListViewMixin:
 
 #### 6.2 枚举映射多处定义 ❌
 **位置**：
+ 
+---
+
+## 配置冗余优化落实进展（对应 CONFIG_REDUNDANCY_ANALYSIS.md）
+
+本节跟踪并落实《CONFIG_REDUNDANCY_ANALYSIS.md》中提出的配置类冗余优化项，状态如下：
+
+- [x] 移除 settings.py 中重复的 `SECURE_PROXY_SSL_HEADER` 定义（保留单一定义）
+- [x] 统一 Admin 标题配置：urls.py 改为引用 `settings.ADMIN_SITE_*` 常量，去除硬编码重复
+- [x] 安全化 `ALLOWED_HOSTS`：默认仅 `127.0.0.1, localhost`，生产通过环境变量覆盖
+- [x] 抽取批处理公共逻辑：新增 `server_common.bat` 并复用到 start/stop/restart 脚本
+- [x] `pdf_patterns.yml` 补充优先级范围说明（1-10，值越小优先）
+- [x] 无效文件名 `nul`：已核实当前仓库不存在该文件（无需处理）
+- [ ] `field_mapping.yml` 提取规则去重抽象（P1，需进一步验证回归影响）
+
+说明：本次迭代遵循 KISS/DRY/SOLID 原则，优先落地 P0 级与低风险 P1 改动；涉及解析策略抽象的项列入下一批次以降低回归风险。
+
 - `config/field_mapping.yml:63-69`
 - `utils/enum_mapper.py:10-22`
 - `core/field_extractor.py:380-407`

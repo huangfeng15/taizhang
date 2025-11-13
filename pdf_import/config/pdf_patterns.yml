@@ -4,6 +4,8 @@
 version: "1.0"
 description: "PDF文件类型识别配置"
 
+# 说明：priority 优先级范围为 1-10，数值越小优先级越高
+
 # PDF类型定义
 pdf_types:
   # 采购请示OA审批

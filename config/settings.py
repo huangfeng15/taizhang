@@ -14,13 +14,13 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-secret-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
-# 允许局域网访问
-default_allowed_hosts = ['127.0.0.1', 'localhost', '0.0.0.0', '*']
+# 允许访问的主机（更安全的默认值；生产请通过环境变量显式配置）
+default_allowed_hosts = ['127.0.0.1', 'localhost']
 env_allowed_hosts = [
     host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
     if host.strip()
 ]
-ALLOWED_HOSTS = env_allowed_hosts or default_allowed_hosts
+ALLOWED_HOSTS = env_allowed_hosts if env_allowed_hosts else default_allowed_hosts
 
 # Application definition
 INSTALLED_APPS = [
@@ -207,7 +207,6 @@ SESSION_COOKIE_SECURE = False  # 在开发环境中设为False以支持自签名
 CSRF_COOKIE_SECURE = False     # 在开发环境中设为False以支持自签名证书
 
 # 信任代理设置（重要：允许Django信任代理头，正确处理HTTPS请求）
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 
 # CSRF信任域名设置（允许指定域名通过CSRF验证）

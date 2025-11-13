@@ -6,7 +6,7 @@ echo ========================================
 echo.
 
 echo [步骤 1/3] 停止现有服务器...
-taskkill /F /IM python.exe 2>NUL
+call server_common.bat stop_python
 if %ERRORLEVEL% EQU 0 (
     echo [成功] 已停止现有服务器
 ) else (
@@ -16,10 +16,7 @@ if %ERRORLEVEL% EQU 0 (
 echo.
 echo [步骤 2/3] 检查并清理端口3500占用...
 timeout /t 1 /nobreak >NUL
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3500" ^| findstr "LISTENING"') do (
-    echo [INFO] 终止占用端口的进程 PID: %%a
-    taskkill /F /PID %%a >NUL 2>&1
-)
+call server_common.bat kill_port_3500
 
 echo.
 echo [步骤 3/3] 启动 HTTPS 服务器...
@@ -27,16 +24,10 @@ timeout /t 1 /nobreak >NUL
 echo.
 
 REM 检查SSL证书是否存在
-if not exist "ssl_certs\server.crt" (
-    echo [INFO] SSL证书不存在，正在生成...
-    python generate_ssl_cert.py
-    echo.
-)
+call server_common.bat ensure_ssl
 
 REM 执行数据库迁移
-echo [INFO] 检查数据库迁移...
-python manage.py migrate
-echo.
+call server_common.bat migrate_db
 
 echo [INFO] 启动服务器...
 echo.
@@ -49,7 +40,7 @@ echo Note: 浏览器可能显示安全警告（自签名证书），请点击"�
 echo.
 
 REM 使用0.0.0.0监听所有网络接口，端口3500
-python manage.py runserver_plus --cert-file ssl_certs\server.crt --key-file ssl_certs\server.key 0.0.0.0:3500
+call server_common.bat run_https_server
 
 echo.
 echo 服务器已停止

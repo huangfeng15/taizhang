@@ -3,6 +3,7 @@ URL configuration for procurement_system project.
 """
 from django.urls import path, include
 from django.contrib import admin
+from django.conf import settings
 from django.contrib.auth import views as auth_views
 from project import views
 from project.views_workload import workload_statistics_view
@@ -95,7 +96,7 @@ urlpatterns = [
     path('user-manual/', views.user_manual, name='user_manual'),
 ]
 
-# 自定义Admin站点标题
-admin.site.site_header = '项目采购与成本管理系统'
-admin.site.site_title = '采购管理'
-admin.site.index_title = '欢迎使用项目采购与成本管理系统'
+# 自定义Admin站点标题（从settings集中配置，避免硬编码重复）
+admin.site.site_header = getattr(settings, 'ADMIN_SITE_HEADER', 'Admin')
+admin.site.site_title = getattr(settings, 'ADMIN_SITE_TITLE', 'Admin')
+admin.site.index_title = getattr(settings, 'ADMIN_INDEX_TITLE', 'Site administration')

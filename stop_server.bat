@@ -8,7 +8,7 @@ echo.
 echo [INFO] 正在查找并停止所有 Python 进程...
 echo.
 
-taskkill /F /IM python.exe 2>NUL
+call server_common.bat stop_python
 
 if %ERRORLEVEL% EQU 0 (
     echo.
