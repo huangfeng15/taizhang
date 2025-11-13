@@ -856,6 +856,12 @@
                         </a>
                     </li>
                     <li class="menu-item">
+                        <a href="{% url 'cycle_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'cycle_monitor' %}active{% endif %}">
+                            <i class="fas fa-clock"></i>
+                            <span>工作周期监控</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
                         <a href="{% url 'update_monitor' %}" class="menu-link {% if request.resolver_match.url_name == 'update_monitor' %}active{% endif %}">
                             <i class="fas fa-sync-alt"></i>
                             <span>更新监控</span>

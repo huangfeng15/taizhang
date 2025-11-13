@@ -1,0 +1,846 @@
+{% extends "base.html" %}
+{% load static %}
+{% load monitor_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .view-mode-selector {
+        display: inline-flex;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .view-mode-btn {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .view-mode-btn:hover {
+        background: #f8f9fa;
+    }
+    .view-mode-btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s;
+        height: 100%;
+    }
+    .stats-card .card-body { padding: 0.75rem 1rem; }
+    .stats-card h2, .stats-card h3 { margin: 0.25rem 0; }
+    .stats-card h6 { margin-bottom: 0.25rem; }
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    .stats-card.procurement {
+        border-left-color: #0d6efd;
+    }
+    .stats-card.contract {
+        border-left-color: #198754;
+    }
+    .stats-card.overall {
+        border-left-color: #6c757d;
+    }
+    .equal-col { display: flex; }
+    .equal-col .card { height: 100%; width: 100%; }
+    .progress { height: 20px; }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    .filter-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        margin-bottom: 1rem;
+    }
+    .filter-section label {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    .excluded-notice {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- 页面标题和视图切换 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ page_title }}</h2>
+        <div class="view-mode-selector">
+            <button type="button" class="view-mode-btn {% if view_mode == 'project' %}active{% endif %}" data-mode="project">
+                <i class="fas fa-project-diagram"></i> 项目视图
+            </button>
+            <button type="button" class="view-mode-btn {% if view_mode == 'person' %}active{% endif %}" data-mode="person">
+                <i class="fas fa-user"></i> 个人视图
+            </button>
+        </div>
+    </div>
+
+    <!-- 当前筛选状态 -->
+    <div class="alert alert-info">
+        <i class="fas fa-filter"></i>
+        当前筛选：{{ filter_config.display_year|default:"全部年度" }}
+        {% if filter_config.selected_project_value %} · {{ filter_config.selected_project_value }}{% else %} · 全部项目{% endif %}
+    </div>
+
+    <!-- 采购方式筛选器 -->
+    <div class="filter-section">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label for="procurementMethodSelect">采购方式筛选</label>
+                <select id="procurementMethodSelect" class="form-select">
+                    {% for choice in procurement_method_choices %}
+                    <option value="{{ choice.value }}" {% if procurement_method == choice.value %}selected{% endif %}>
+                        {{ choice.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-8">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    选择采购方式后，将按照该方式的规定周期进行统计。不同采购方式的规定周期不同。
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排除数据提示 -->
+    {% if overview_data.summary.excluded_procurement_count > 0 %}
+    <div class="excluded-notice">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>数据说明：</strong>
+        当前有 <strong>{{ overview_data.summary.excluded_procurement_count }}</strong> 条采购记录因缺少结果公示时间而未纳入采购周期统计。
+        这些记录不影响合同周期统计。
+    </div>
+    {% endif %}
+
+    <!-- 汇总统计卡片 -->
+    {% if overview_data %}
+    <div class="row mb-4">
+        <div class="col-md-3 equal-col">
+            <div class="card text-center stats-card overall h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">{% if view_mode == 'project' %}项目总数{% else %}经办人数{% endif %}</h6>
+                    <h2 class="text-primary">
+                        {% if view_mode == 'project' %}
+                            {{ overview_data.summary.project_count }}
+                        {% else %}
+                            {{ overview_data.summary.person_count }}
+                        {% endif %}
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 equal-col">
+            <div class="card text-center stats-card procurement h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">采购周期情况</h6>
+                    <h3>{{ overview_data.summary.procurement_completed }}/{{ overview_data.summary.procurement_total }}</h3>
+                    <small class="text-muted">已完成/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 equal-col">
+            <div class="card text-center stats-card contract h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">合同周期情况</h6>
+                    <h3>{{ overview_data.summary.contract_completed }}/{{ overview_data.summary.contract_total }}</h3>
+                    <small class="text-muted">已完成/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 equal-col">
+            <div class="card text-center stats-card overall h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">综合完成率</h6>
+                    <h2 class="text-success">{{ overview_data.summary.overall_completion_rate }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 主页面趋势图展示 -->
+    {% if view_mode == 'project' %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-line"></i>
+                {% if filter_config.selected_project_value %}
+                    本项目经办人工作周期趋势（多经办人）
+                {% else %}
+                    所有项目工作周期趋势（多项目）
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="pm-proc-tab" data-bs-toggle="tab" data-bs-target="#pm-proc" type="button" role="tab">采购周期</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pm-cont-tab" data-bs-toggle="tab" data-bs-target="#pm-cont" type="button" role="tab">合同周期</button>
+                </li>
+            </ul>
+            <div class="tab-content border border-top-0 p-3">
+                <div class="tab-pane fade show active" id="pm-proc" role="tabpanel">
+                    <div id="projMultiChartProc" style="height: 400px;"></div>
+                </div>
+                <div class="tab-pane fade" id="pm-cont" role="tabpanel">
+                    <div id="projMultiChartCont" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if view_mode == 'person' %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-line"></i> 所有经办人工作周期趋势（多个人）
+            </h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="mt-proc-tab" data-bs-toggle="tab" data-bs-target="#mt-proc" type="button" role="tab">采购周期</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="mt-cont-tab" data-bs-toggle="tab" data-bs-target="#mt-cont" type="button" role="tab">合同周期</button>
+                </li>
+            </ul>
+            <div class="tab-content border border-top-0 p-3">
+                <div class="tab-pane fade show active" id="mt-proc" role="tabpanel">
+                    <div id="multiTrendChartProc" style="height: 400px;"></div>
+                </div>
+                <div class="tab-pane fade" id="mt-cont" role="tabpanel">
+                    <div id="multiTrendChartCont" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 数据列表表格 -->
+    {% if overview_data %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                {% if view_mode == 'project' %}项目工作周期统计明细{% else %}经办人工作周期统计明细{% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>{% if view_mode == 'project' %}项目名称{% else %}经办人{% endif %}</th>
+                        <th>采购数量</th>
+                        <th>采购周期</th>
+                        <th>合同数量</th>
+                        <th>合同周期</th>
+                        <th>综合完成率</th>
+                        {% if view_mode == 'person' %}<th>负责项目</th>{% endif %}
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if view_mode == 'project' %}
+                        {% for project in overview_data.projects %}
+                        <tr>
+                            <td><strong>{{ project.project_code }}</strong><br><small>{{ project.project_name }}</small></td>
+                            <td>{{ project.procurement_completed }}/{{ project.procurement_count }}</td>
+                            <td>{{ project.procurement_avg_cycle }}天<br><small class="text-muted">(及时率{{ project.procurement_on_time_rate }}%)</small></td>
+                            <td>{{ project.contract_completed }}/{{ project.contract_count }}</td>
+                            <td>{{ project.contract_avg_cycle }}天<br><small class="text-muted">(及时率{{ project.contract_on_time_rate }}%)</small></td>
+                            <td>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style="width: {{ project.overall_completion_rate }}%" 
+                                         aria-valuenow="{{ project.overall_completion_rate }}" aria-valuemin="0" aria-valuemax="100">
+                                        {{ project.overall_completion_rate }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-primary view-detail-btn" data-target="{{ project.project_code }}">
+                                    <i class="fas fa-eye"></i> 查看详情
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        {% for person in overview_data.persons %}
+                        <tr>
+                            <td><strong>{{ person.handler_name }}</strong></td>
+                            <td>{{ person.procurement_completed }}/{{ person.procurement_count }}</td>
+                            <td>{{ person.procurement_avg_cycle }}天<br><small class="text-muted">(及时率{{ person.procurement_on_time_rate }}%)</small></td>
+                            <td>{{ person.contract_completed }}/{{ person.contract_count }}</td>
+                            <td>{{ person.contract_avg_cycle }}天<br><small class="text-muted">(及时率{{ person.contract_on_time_rate }}%)</small></td>
+                            <td>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style="width: {{ person.overall_completion_rate }}%"
+                                         aria-valuenow="{{ person.overall_completion_rate }}" aria-valuemin="0" aria-valuemax="100">
+                                        {{ person.overall_completion_rate }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ person.project_count }}个</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-primary view-detail-btn" data-target="{{ person.handler_name }}">
+                                    <i class="fas fa-eye"></i> 查看详情
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 详情模态框 -->
+    {% if target_code %}
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">{% if view_mode == 'project' %}项目详情{% else %}经办人详情{% endif %} - {{ target_code }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+          </div>
+          <div class="modal-body">
+            <!-- 详情概要 -->
+            {% if detail_data and detail_data.summary %}
+            <div class="row mb-4">
+                <div class="col-12 col-md-4 equal-col">
+                    <div class="card text-center stats-card overall h-100 w-100">
+                        <div class="card-body">
+                            <h6 class="text-muted">综合完成率</h6>
+                            <h2 class="text-success">{{ detail_data.summary.overall_completion_rate }}%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 equal-col">
+                    <div class="card text-center stats-card procurement h-100 w-100">
+                        <div class="card-body">
+                            <h6 class="text-muted">采购（已完成/总数）</h6>
+                            <h4>{{ detail_data.summary.procurement.count_completed }}/{{ detail_data.summary.procurement.count_total }}</h4>
+                            <small class="text-muted">平均{{ detail_data.summary.procurement.avg_cycle }}天 · 及时率 {{ detail_data.summary.procurement.on_time_rate }}%</small>
+                            {% if detail_data.summary.procurement.excluded_count > 0 %}
+                            <br><small class="text-warning">排除{{ detail_data.summary.procurement.excluded_count }}条</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 equal-col">
+                    <div class="card text-center stats-card contract h-100 w-100">
+                        <div class="card-body">
+                            <h6 class="text-muted">合同（已完成/总数）</h6>
+                            <h4>{{ detail_data.summary.contract.count_completed }}/{{ detail_data.summary.contract.count_total }}</h4>
+                            <small class="text-muted">平均{{ detail_data.summary.contract.avg_cycle }}天 · 及时率 {{ detail_data.summary.contract.on_time_rate }}%</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 趋势图 -->
+            <h6>工作周期趋势</h6>
+            <div id="trendChart" class="mb-4" style="height: 400px;"></div>
+
+            <!-- 工作周期记录明细 -->
+            {% if detail_data and detail_data.records %}
+            <h6 class="mt-4">工作周期记录明细</h6>
+            <div class="row">
+                <div class="col-md-12">
+                    <ul class="nav nav-tabs" id="recordTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="proc-tab" data-bs-toggle="tab" data-bs-target="#proc-panel" type="button" role="tab">采购记录</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="cont-tab" data-bs-toggle="tab" data-bs-target="#cont-panel" type="button" role="tab">合同记录</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content border border-top-0 p-3">
+                        <div class="tab-pane fade show active" id="proc-panel" role="tabpanel">
+                            {% if detail_data.records.procurements %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>编号</th>
+                                            <th>名称</th>
+                                            <th>采购方式</th>
+                                            <th>经办人</th>
+                                            <th>开始日期</th>
+                                            <th>完成日期</th>
+                                            <th>规定周期</th>
+                                            <th>实际周期</th>
+                                            <th>超期天数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for r in detail_data.records.procurements %}
+                                        <tr>
+                                            <td>{{ r.code }}</td>
+                                            <td>{{ r.name }}</td>
+                                            <td>{{ r.procurement_method }}</td>
+                                            <td>{{ r.responsible_person }}</td>
+                                            <td>{{ r.start_date|date:"Y-m-d" }}</td>
+                                            <td>{% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}<span class="text-muted">未完成</span>{% endif %}</td>
+                                            <td>{{ r.deadline_days }}天</td>
+                                            <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}天{% else %}-{% endif %}</td>
+                                            <td>{% if r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}天</span>{% else %}-{% endif %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-secondary">暂无采购记录</div>
+                            {% endif %}
+                        </div>
+                        <div class="tab-pane fade" id="cont-panel" role="tabpanel">
+                            {% if detail_data.records.contracts %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>合同序号</th>
+                                            <th>名称</th>
+                                            <th>经办人</th>
+                                            <th>开始日期</th>
+                                            <th>完成日期</th>
+                                            <th>规定周期</th>
+                                            <th>实际周期</th>
+                                            <th>超期天数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for r in detail_data.records.contracts %}
+                                        <tr>
+                                            <td>{{ r.contract_sequence|default:r.code }}</td>
+                                            <td>{{ r.name }}</td>
+                                            <td>{{ r.responsible_person }}</td>
+                                            <td>{{ r.start_date|date:"Y-m-d" }}</td>
+                                            <td>{% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}<span class="text-muted">未完成</span>{% endif %}</td>
+                                            <td>{{ r.deadline_days }}天</td>
+                                            <td>{% if r.cycle_days is not None %}{{ r.cycle_days }}天{% else %}-{% endif %}</td>
+                                            <td>{% if r.overdue_days > 0 %}<span class="text-danger fw-bold">{{ r.overdue_days }}天</span>{% else %}-{% endif %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-secondary">暂无合同记录</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/trend-chart.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 视图模式切换
+    document.querySelectorAll('.view-mode-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const mode = this.dataset.mode;
+            const url = new URL(window.location.href);
+            url.searchParams.set('view_mode', mode);
+            url.searchParams.delete('target_code');
+            window.location.href = url.toString();
+        });
+    });
+
+    // 采购方式筛选
+    document.getElementById('procurementMethodSelect').addEventListener('change', function() {
+        const url = new URL(window.location.href);
+        if (this.value) {
+            url.searchParams.set('procurement_method', this.value);
+        } else {
+            url.searchParams.delete('procurement_method');
+        }
+        url.searchParams.delete('target_code');
+        window.location.href = url.toString();
+    });
+
+    // 查看详情按钮
+    document.querySelectorAll('.view-detail-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetCode = this.dataset.target;
+            const url = new URL(window.location.href);
+            url.searchParams.set('target_code', targetCode);
+            window.location.href = url.toString();
+        });
+    });
+
+    // 详情模态框：自动弹出与URL清理
+    {% if target_code %}
+    const detailModalEl = document.getElementById('detailModal');
+    if (detailModalEl && window.bootstrap) {
+        const detailModal = new bootstrap.Modal(detailModalEl);
+        detailModal.show();
+        detailModalEl.addEventListener('hidden.bs.modal', function() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('target_code');
+            url.searchParams.delete('show_all');
+            history.replaceState({}, '', url.toString());
+        });
+    }
+    {% endif %}
+
+    // 渲染趋势图（详情区域）
+    {% if target_code and detail_data %}
+    const trendData = {{ trend_data_json|safe }};
+    
+    function renderDetailTrend() {
+        if (!(trendData && trendData.procurement && trendData.contract)) {
+            const el = document.getElementById('trendChart');
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            }
+            return;
+        }
+        
+        // 构建标签列表
+        const labelSet = new Set();
+        trendData.procurement.forEach(item => {
+            if (item.count > 0) {
+                labelSet.add(item.period);
+            }
+        });
+        trendData.contract.forEach(item => {
+            if (item.count > 0) {
+                labelSet.add(item.period);
+            }
+        });
+        
+        // 判断维度并排序标签
+        const dimension = trendData.procurement.some(d => d.month) ? 'month' : 'year';
+        let labels;
+        if (dimension === 'month') {
+            labels = Array.from(labelSet).sort((a, b) => {
+                const aMonth = parseInt(a.replace('月', ''));
+                const bMonth = parseInt(b.replace('月', ''));
+                return aMonth - bMonth;
+            });
+        } else {
+            labels = Array.from(labelSet).sort((a, b) => {
+                const getKey = (lbl) => {
+                    if (lbl.includes('上半年')) {
+                        return [parseInt(lbl.split('上半年')[0]), 1];
+                    }
+                    if (lbl.includes('下半年')) {
+                        return [parseInt(lbl.split('下半年')[0]), 2];
+                    }
+                    return [9999, 9];
+                };
+                const [aYear, aHalf] = getKey(a);
+                const [bYear, bHalf] = getKey(b);
+                if (aYear !== bYear) return aYear - bYear;
+                return aHalf - bHalf;
+            });
+        }
+        
+        if (labels.length === 0) {
+            const el = document.getElementById('trendChart');
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            }
+            return;
+        }
+        
+        // 构建采购和合同数据系列
+        const procurementSeries = {
+            name: '采购周期',
+            data: labels.map(label => {
+                const item = trendData.procurement.find(d => d.period === label);
+                return item && item.count > 0 ? item.avg_cycle : null;
+            }),
+            color: '#0d6efd'
+        };
+        
+        const contractSeries = {
+            name: '合同周期',
+            data: labels.map(label => {
+                const item = trendData.contract.find(d => d.period === label);
+                return item && item.count > 0 ? item.avg_cycle : null;
+            }),
+            color: '#198754'
+        };
+        
+        // 基准线（根据采购方式动态设置）
+        const baselines = [
+            { name: '合同规定周期（15天）', value: 15, color: '#198754' }
+        ];
+        
+        // 构建完整的系列数组
+        const chartSeries = [procurementSeries, contractSeries];
+        baselines.forEach(baseline => {
+            chartSeries.push({
+                name: baseline.name,
+                data: Array(labels.length).fill(baseline.value),
+                color: baseline.color
+            });
+        });
+        
+        // 使用ApexCharts配置
+        const options = {
+            chart: {
+                type: 'line',
+                height: 400,
+                toolbar: { show: true }
+            },
+            series: chartSeries,
+            xaxis: {
+                categories: labels,
+                title: { text: '时间周期' }
+            },
+            yaxis: {
+                title: { text: '平均工作周期（天）' },
+                labels: {
+                    formatter: function(value) {
+                        return value ? Math.round(value) : '';
+                    }
+                }
+            },
+            title: {
+                text: '工作周期趋势',
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: chartSeries.map((_, idx) => idx >= 2 ? 2 : 3),
+                dashArray: chartSeries.map((_, idx) => idx >= 2 ? 5 : 0)
+            },
+            markers: {
+                size: chartSeries.map((_, idx) => idx >= 2 ? 0 : 5)
+            },
+            dataLabels: {
+                enabled: false
+            },
+            legend: {
+                show: true,
+                position: 'top',
+                horizontalAlign: 'right'
+            },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function(value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    }
+                }
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: {
+                borderColor: '#e7e7e7',
+                strokeDashArray: 4
+            }
+        };
+        
+        const el = document.getElementById('trendChart');
+        if (el) {
+            el.innerHTML = '';
+            const chart = new ApexCharts(el, options);
+            chart.render();
+        }
+    }
+    
+    // 确保在模态框显示时渲染趋势图
+    if (detailModalEl) {
+        detailModalEl.addEventListener('shown.bs.modal', function() {
+            renderDetailTrend();
+        });
+    }
+    {% endif %}
+
+    // 多序列趋势图（人员/项目）- 工作周期版本
+    const multiData = {{ multi_trend_json|safe }};
+    const colorPalette = ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
+    
+    function renderMultiSeriesChart(elementId, labels, seriesArray, title, isProcurement) {
+        if (!labels || !seriesArray || seriesArray.length === 0) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无数据</div>';
+            }
+            return;
+        }
+        
+        // 检查是否所有系列的数据都为空或null
+        const hasValidData = seriesArray.some(series =>
+            series.data && series.data.some(val => val !== null && val !== undefined && val !== 0)
+        );
+        
+        if (!hasValidData) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.innerHTML = '<div class="alert alert-info text-center">暂无有效数据</div>';
+            }
+            return;
+        }
+        
+        // 根据采购方式确定基准线
+        const procurementMethod = '{{ procurement_method }}';
+        let procBaseline = 40; // 默认40天
+        if (procurementMethod === '公开招标') procBaseline = 45;
+        else if (procurementMethod === '单一来源采购') procBaseline = 20;
+        else if (procurementMethod === '公开询价') procBaseline = 15;
+        else if (procurementMethod === '直接采购') procBaseline = 15;
+        else if (procurementMethod === '公开竞价') procBaseline = 15;
+        else if (procurementMethod === '战采结果应用') procBaseline = 15;
+        
+        const baselines = isProcurement
+            ? [{ name: `采购规定周期（${procBaseline}天）`, value: procBaseline, color: '#0d6efd' }]
+            : [{ name: '合同规定周期（15天）', value: 15, color: '#198754' }];
+        
+        // 准备ApexCharts格式的系列数据
+        const chartSeries = seriesArray.map((s, idx) => ({
+            name: s.name,
+            data: s.data.map(v => v === null || v === undefined ? null : v),
+            color: colorPalette[idx % colorPalette.length]
+        }));
+        
+        // 添加基准线
+        baselines.forEach(baseline => {
+            chartSeries.push({
+                name: baseline.name,
+                data: Array(labels.length).fill(baseline.value),
+                color: baseline.color
+            });
+        });
+        
+        const options = {
+            chart: {
+                type: 'line',
+                height: 400,
+                toolbar: { show: true }
+            },
+            series: chartSeries,
+            xaxis: {
+                categories: labels,
+                title: { text: '时间周期' }
+            },
+            yaxis: {
+                title: { text: '平均工作周期（天）' },
+                labels: {
+                    formatter: function(value) {
+                        return value ? Math.round(value) : '';
+                    }
+                }
+            },
+            title: {
+                text: title,
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: chartSeries.map((_, idx) => idx >= seriesArray.length ? 2 : 3),
+                dashArray: chartSeries.map((_, idx) => idx >= seriesArray.length ? 5 : 0)
+            },
+            markers: {
+                size: chartSeries.map((_, idx) => idx >= seriesArray.length ? 0 : 5)
+            },
+            dataLabels: {
+                enabled: false
+            },
+            legend: {
+                show: true,
+                position: 'top',
+                horizontalAlign: 'right'
+            },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function(value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    }
+                }
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: {
+                borderColor: '#e7e7e7',
+                strokeDashArray: 4
+            }
+        };
+        
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.innerHTML = '';
+            const chart = new ApexCharts(el, options);
+            chart.render();
+        }
+    }
+    
+    // 等待 ApexCharts 加载完成后再渲染图表
+    function waitForApexCharts(callback, maxWait = 5000) {
+        const startTime = Date.now();
+        const checkInterval = setInterval(function() {
+            if (typeof ApexCharts !== 'undefined') {
+                clearInterval(checkInterval);
+                callback();
+            } else if (Date.now() - startTime > maxWait) {
+                clearInterval(checkInterval);
+                console.error('ApexCharts 加载超时');
+            }
+        }, 100);
+    }
+    
+    if (multiData && multiData.labels) {
+        waitForApexCharts(function() {
+            // 个人视图
+            {% if view_mode == 'person' %}
+            renderMultiSeriesChart('multiTrendChartProc', multiData.labels, multiData.procurement, '所有经办人采购周期趋势', true);
+            renderMultiSeriesChart('multiTrendChartCont', multiData.labels, multiData.contract, '所有经办人合同周期趋势', false);
+            {% endif %}
+            
+            // 项目视图
+            {% if view_mode == 'project' %}
+            {% if filter_config.selected_project_value %}
+            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '本项目经办人采购周期趋势', true);
+            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '本项目经办人合同周期趋势', false);
+            {% else %}
+            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '所有项目采购周期趋势', true);
+            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '所有项目合同周期趋势', false);
+            {% endif %}
+            {% endif %}
+        });
+    }
+});
+</script>
+{% endblock %}

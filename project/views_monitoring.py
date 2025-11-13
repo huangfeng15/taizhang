@@ -381,3 +381,111 @@ def update_completeness_field_config(request):
         return JsonResponse({'success': False, 'message': f'更新失败: {str(e)}'}, status=400)
 
 
+
+
+def cycle_monitor(request):
+    """工作周期监控（项目/个人视图）。"""
+    from project.services.monitors.cycle_statistics import CycleStatisticsService
+    from project.services.monitors.config import SEVERITY_CONFIG, CYCLE_RULES
+
+    global_filters = _extract_monitoring_filters(request)[0]
+    global_filters = _resolve_global_filters(request)
+    view_mode = request.GET.get('view_mode', 'project')
+    target_code = request.GET.get('target_code', '')
+    show_all = request.GET.get('show_all', '') == 'true'
+    procurement_method = request.GET.get('procurement_method', '')
+
+    stats_service = CycleStatisticsService()
+
+    if view_mode == 'project':
+        overview_data = stats_service.get_projects_cycle_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            procurement_method=procurement_method if procurement_method else None
+        )
+    else:
+        overview_data = stats_service.get_persons_cycle_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            procurement_method=procurement_method if procurement_method else None
+        )
+
+    detail_data = None
+    if target_code:
+        if view_mode == 'project':
+            detail_data = stats_service.get_project_trend_and_problems(
+                project_code=target_code,
+                year_filter=global_filters['year_value'],
+                procurement_method=procurement_method if procurement_method else None,
+                show_all=show_all,
+            )
+        else:
+            detail_data = stats_service.get_person_trend_and_problems(
+                person_name=target_code,
+                year_filter=global_filters['year_value'],
+                project_filter=global_filters['project'],
+                procurement_method=procurement_method if procurement_method else None,
+                show_all=show_all,
+            )
+
+    # 获取多序列趋势数据
+    multi_trend = None
+    if view_mode == 'person':
+        multi_trend = stats_service.get_persons_multi_trend(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            procurement_method=procurement_method if procurement_method else None,
+            top_n=10
+        )
+    else:
+        if global_filters['project']:
+            multi_trend = stats_service.get_project_officers_multi_trend(
+                project_code=global_filters['project'],
+                year_filter=global_filters['year_value'],
+                procurement_method=procurement_method if procurement_method else None,
+                top_n=10
+            )
+        else:
+            multi_trend = stats_service.get_projects_multi_trend(
+                year_filter=global_filters['year_value'],
+                procurement_method=procurement_method if procurement_method else None,
+                top_n=10
+            )
+
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
+    trend_data_json = {}
+    if detail_data is not None:
+        trend_data_json = {
+            'procurement': detail_data.get('procurement_trend', []),
+            'contract': detail_data.get('contract_trend', []),
+        }
+
+    multi_trend_json = json.dumps(multi_trend or {}, ensure_ascii=False)
+
+    # 获取采购方式选项
+    from project.enums import ProcurementMethod
+    procurement_method_choices = [
+        {'value': '', 'label': '全部采购方式'},
+    ]
+    for method in ProcurementMethod:
+        procurement_method_choices.append({
+            'value': method.value,
+            'label': method.label
+        })
+
+    context = {
+        'page_title': '工作周期监控',
+        'view_mode': view_mode,
+        'target_code': target_code,
+        'overview_data': overview_data,
+        'detail_data': detail_data,
+        'show_all': show_all,
+        'procurement_method': procurement_method,
+        'procurement_method_choices': procurement_method_choices,
+        'trend_data_json': json.dumps(trend_data_json, ensure_ascii=False),
+        'multi_trend_json': multi_trend_json,
+        'severity_config': SEVERITY_CONFIG,
+        'filter_config': filter_config,
+        'cycle_rules': CYCLE_RULES,
+    }
+    return render(request, 'monitoring/cycle.html', context)

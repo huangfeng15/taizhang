@@ -36,6 +36,7 @@ urlpatterns = [
     # 监控与报表路由
     path('monitoring/cockpit/', views.monitoring_cockpit, name='monitoring_cockpit'),
     path('monitoring/archive/', views.archive_monitor, name='archive_monitor'),
+    path('monitoring/cycle/', views.cycle_monitor, name='cycle_monitor'),
     path('monitoring/update/', views.update_monitor, name='update_monitor'),
     path('monitoring/completeness/', views.completeness_check, name='completeness_check'),
     path('monitoring/statistics/', views.statistics_view, name='statistics_view'),
