@@ -176,13 +176,14 @@
     const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'settlement_archive_date', 'operations'];
 
     document.addEventListener('DOMContentLoaded', function() {
-        {% if payments %}
-        BatchOperations.init('#paymentTable', 'data-id');
-        
-        // 初始化字段选择器
-        ColumnSelector.init(availableColumns, defaultColumns, 'payment_list_columns');
-        ColumnSelector.loadColumnSettings();
-        {% endif %}
+        var hasPayments = {{ payments|yesno:"true,false" }};
+        if (hasPayments) {
+            BatchOperations.init('#paymentTable', 'data-id');
+            
+            // 初始化字段选择器
+            ColumnSelector.init(availableColumns, defaultColumns, 'payment_list_columns');
+            ColumnSelector.loadColumnSettings();
+        }
     });
     
     // 显示字段选择器

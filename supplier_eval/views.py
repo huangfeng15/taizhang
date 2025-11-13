@@ -247,6 +247,19 @@ def supplier_evaluation_detail(request, supplier_name):
     # 转换为JSON字符串供模板使用
     trend_chart_json = json.dumps(trend_chart_data)
     
+    # 获取来源页面的筛选参数，用于返回按钮
+    return_params = {}
+    if request.GET.get('from_year'):
+        return_params['global_year'] = request.GET.get('from_year')
+    if request.GET.get('from_project'):
+        return_params['global_project'] = request.GET.get('from_project')
+    if request.GET.get('from_q'):
+        return_params['q'] = request.GET.get('from_q')
+    if request.GET.get('from_score_level'):
+        return_params['score_level'] = request.GET.get('from_score_level')
+    if request.GET.get('from_page'):
+        return_params['page'] = request.GET.get('from_page')
+    
     context = {
         'page_title': f'供应商履约评价详情 - {supplier_name}',
         'supplier_name': supplier_name,
@@ -256,6 +269,7 @@ def supplier_evaluation_detail(request, supplier_name):
         'stats': evaluation_stats,
         'trend_chart_json': trend_chart_json,
         'total_evaluations': len(all_evaluations),
+        'return_params': return_params,
     }
     return render(request, 'supplier/evaluation_detail.html', context)
 

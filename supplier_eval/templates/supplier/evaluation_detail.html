@@ -74,7 +74,7 @@
             <i class="fas fa-building"></i>
             供应商概况 - {{ supplier_name }}
         </h2>
-        <a href="{% url 'supplier_eval:supplier_evaluation_list' %}" class="btn btn-secondary">
+        <a href="{% url 'supplier_eval:supplier_evaluation_list' %}{% if return_params %}?{% for key, value in return_params.items %}{{ key }}={{ value }}{% if not forloop.last %}&{% endif %}{% endfor %}{% endif %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i>
             返回列表
         </a>
@@ -271,14 +271,16 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if trend_chart_json %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 // 评分趋势图表
-const trendData = {{ trend_chart_json|safe }};
-const ctx = document.getElementById('trendChart').getContext('2d');
+var trendDataJson = '{{ trend_chart_json|escapejs }}';
+var trendData = trendDataJson ? JSON.parse(trendDataJson) : [];
 
-new Chart(ctx, {
+if (trendData.length > 0) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+
+    new Chart(ctx, {
     type: 'line',
     data: {
         labels: trendData.map(item => item.year + '年'),
@@ -330,8 +332,7 @@ new Chart(ctx, {
                 }
             }
         }
-    }
-});
+    });
+}
 </script>
-{% endif %}
 {% endblock %}

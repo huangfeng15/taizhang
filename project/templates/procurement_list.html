@@ -267,13 +267,14 @@
     const defaultColumns = ['row_number', 'procurement_code', 'project_name', 'project', 'procurement_unit', 'procurement_category', 'procurement_method', 'winning_bidder', 'budget_amount', 'winning_amount', 'result_publicity_release_date', 'operations'];
 
     document.addEventListener('DOMContentLoaded', function() {
-        {% if procurements %}
-        BatchOperations.init('#procurementTable', 'data-id');
-        
-        // 初始化字段选择器
-        ColumnSelector.init(availableColumns, defaultColumns, 'procurement_list_columns');
-        ColumnSelector.loadColumnSettings();
-        {% endif %}
+        var hasProcurements = {{ procurements|yesno:"true,false" }};
+        if (hasProcurements) {
+            BatchOperations.init('#procurementTable', 'data-id');
+            
+            // 初始化字段选择器
+            ColumnSelector.init(availableColumns, defaultColumns, 'procurement_list_columns');
+            ColumnSelector.loadColumnSettings();
+        }
     });
     
     // 显示字段选择器

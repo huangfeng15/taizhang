@@ -209,9 +209,9 @@
         {% if contract.contract_amount %}
         <div style="margin-top: 20px;">
             <div style="background-color: #f0f0f0; height: 30px; border-radius: 15px; overflow: hidden; position: relative;">
-                <div style="background: linear-gradient(90deg, var(--success-color), var(--primary-color)); height: 100%; width: {{ payment_progress }}%; transition: width 0.3s;">
+                <div id="progressBar" style="background: linear-gradient(90deg, var(--success-color), var(--primary-color)); height: 100%; transition: width 0.3s;">
                 </div>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: {% if payment_progress < 50 %}#333{% else %}#fff{% endif %};">
+                <div id="progressText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold;">
                     {{ payment_progress|floatformat:1 }}%
                 </div>
             </div>
@@ -300,4 +300,17 @@
 
 {% block extra_js %}
 {# edit-modal.js 已在 base.html 中全局引入 #}
+{% if contract.contract_amount %}
+<script>
+    (function() {
+        var progress = parseFloat('{{ payment_progress|floatformat:2 }}');
+        var progressBar = document.getElementById('progressBar');
+        var progressText = document.getElementById('progressText');
+        if (progressBar && progressText) {
+            progressBar.style.width = progress + '%';
+            progressText.style.color = progress < 50 ? '#333' : '#fff';
+        }
+    })();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,4 +1,11 @@
-{# VSCode 语法检查提示：此文件包含 Django 模板语法，CSS/JS 检查器的错误可以忽略 #}
+{#
+  VSCode 语法检查说明：
+  本文件包含 Django 模板语法（{{ }} 和 {% %}），会导致 CSS/JS 语法检查器报错。
+  这些错误可以安全忽略，它们不影响实际运行。
+  要禁用这些警告，可以在 VSCode 设置中添加：
+  "html.validate.styles": false,
+  "html.validate.scripts": false
+#}
 {% extends 'base.html' %}
 {% load static %}
 
@@ -170,7 +177,7 @@
                                 {% with bar_color="#52c41a" text_color="var(--success-color)" %}
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio|floatformat:1 }}%; background: {{ bar_color }};"></div>
                                         </div>
                                         <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
                                     </div>
@@ -179,7 +186,7 @@
                                 {% with bar_color="#faad14" text_color="var(--warning-color)" %}
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio|floatformat:1 }}%; background: {{ bar_color }};"></div>
                                         </div>
                                         <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
                                     </div>
@@ -188,7 +195,7 @@
                                 {% with bar_color="#1890ff" text_color="var(--primary-color)" %}
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <div style="flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                                            <div style="height: 100%; width: {{ contract_info.payment_ratio }}%; background: {{ bar_color }};"></div>
+                                            <div style="height: 100%; width: {{ contract_info.payment_ratio|floatformat:1 }}%; background: {{ bar_color }};"></div>
                                         </div>
                                         <span style="font-weight: bold; color: {{ text_color }};">{{ contract_info.payment_ratio|floatformat:1 }}%</span>
                                     </div>
@@ -303,13 +310,13 @@
 
     // 初始化批量操作
     document.addEventListener('DOMContentLoaded', function() {
-        {% if contracts %}
+        // {% if contracts %}
         BatchOperations.init('#contractTable', 'data-id');
         
         // 初始化字段选择器
         ColumnSelector.init(availableColumns, defaultColumns, 'contract_list_columns');
         ColumnSelector.loadColumnSettings();
-        {% endif %}
+        // {% endif %}
     });
     
     // 显示字段选择器
