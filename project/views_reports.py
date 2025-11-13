@@ -237,12 +237,16 @@ def report_export(request):
 @require_http_methods(['GET', 'POST'])
 def generate_professional_report(request):
     """专业报告生成与导出（Word）。"""
-    from project.services.report_generator_unified import (
+    from project.services.report_generator import (
         WeeklyReportGenerator,
         MonthlyReportGenerator,
         QuarterlyReportGenerator,
         AnnualReportGenerator,
+    )
+    from project.services.export_service import (
         export_to_word_professional,
+        export_to_word,
+        export_to_excel,
     )
     if request.method == 'GET':
         current_year = get_current_year()
@@ -317,4 +321,3 @@ def generate_professional_report(request):
     except Exception as e:
         messages.error(request, f'生成报告失败: {str(e)}')
         return redirect('generate_professional_report')
-

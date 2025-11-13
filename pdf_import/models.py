@@ -4,11 +4,12 @@ PDF导入数据模型
 import uuid
 from datetime import timedelta
 from django.db import models
+from project.models_base import AuditBaseModel
 from django.contrib.auth.models import User
 from django.utils import timezone
 
 
-class PDFImportSession(models.Model):
+class PDFImportSession(AuditBaseModel):
     """
     PDF导入会话模型
     用于临时存储PDF导入过程中的数据，支持草稿保存和恢复
@@ -46,9 +47,7 @@ class PDFImportSession(models.Model):
         related_name='pdf_import_sessions'
     )
     
-    # 时间戳
-    created_at = models.DateTimeField('创建时间', auto_now_add=True)
-    updated_at = models.DateTimeField('更新时间', auto_now=True)
+    # 审计字段由 AuditBaseModel 提供：created_at / updated_at
     
     # PDF文件信息（JSON存储）
     # 格式：[{

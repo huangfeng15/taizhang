@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import Sum, Count, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse, HttpResponse
@@ -238,8 +239,8 @@ def statistics_detail_api(request, module):
         else:
             return JsonResponse({'success': False, 'message': '不支持的统计模块'}, status=400)
 
-        paginator = Paginator(details, page_size)
-        page_obj = paginator.get_page(page)
+        page_obj = apply_pagination(details, request, page_size=page_size)
+        paginator = page_obj.paginator
 
         response_data = {
             'success': True,
@@ -311,8 +312,8 @@ def statistics_detail_page(request, module):
             messages.error(request, '不支持的统计模块')
             return redirect('statistics_view')
 
-        paginator = Paginator(details, page_size)
-        page_obj = paginator.get_page(page)
+        page_obj = apply_pagination(details, request, page_size=page_size)
+        paginator = page_obj.paginator
 
         context = {
             'page_title': page_title,
@@ -467,4 +468,3 @@ def statistics_detail_export(request, module):
     except Exception as e:
         messages.error(request, f'导出失败: {str(e)}')
         return redirect('statistics_view')
-

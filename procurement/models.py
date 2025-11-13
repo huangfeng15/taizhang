@@ -10,43 +10,34 @@ from project.enums import (
 )
 
 
-class BaseModel(models.Model):
+from project.models_base import AuditBaseModel
+
+class BaseModel(AuditBaseModel):
     """
     抽象基类 - 所有业务模型继承此类
-    包含通用的审计字段
+    包含通用的审计字段（由 AuditBaseModel 提供）与操作用户字段
     """
-    created_at = models.DateTimeField(
-        '创建时间',
-        auto_now_add=True,
-        help_text='记录创建时自动设置'
-    )
-    
-    updated_at = models.DateTimeField(
-        '更新时间',
-        auto_now=True,
-        help_text='每次更新时自动更新'
-    )
-    
+
     created_by = models.CharField(
         '创建人',
         max_length=50,
         blank=True,
         help_text='创建该记录的用户'
     )
-    
+
     updated_by = models.CharField(
         '更新人',
         max_length=50,
         blank=True,
         help_text='最后更新该记录的用户'
     )
-    
+
     class Meta:
         abstract = True
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        """保存前统一执行完整验证"""
+        """保存前统一执行完整校验"""
         self.full_clean()
         super().save(*args, **kwargs)
 

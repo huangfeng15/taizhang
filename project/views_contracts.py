@@ -2,6 +2,7 @@ from typing import Optional
 from decimal import Decimal, InvalidOperation
 
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import (
     Count,
     Sum,
@@ -258,8 +259,7 @@ def contract_list(request):
     if max_ratio is not None:
         contracts = contracts.filter(payment_ratio__lte=max_ratio)
 
-    paginator = Paginator(contracts, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(contracts, request, page_size=page_size)
 
     contract_data = []
     for contract in page_obj.object_list:

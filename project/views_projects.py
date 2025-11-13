@@ -1,6 +1,7 @@
 from typing import Any
 
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import (
     Count,
     Sum,
@@ -87,8 +88,7 @@ def project_list(request):
     ).order_by('-created_at')
 
     # 分页
-    paginator = Paginator(projects, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(projects, request, page_size=page_size)
 
     context = {
         'projects': page_obj,
@@ -277,4 +277,3 @@ def project_edit(request, project_code):
         'submit_url': f'/projects/{project_code}/edit/',
         'module_type': 'project',
     })
-

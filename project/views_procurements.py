@@ -1,4 +1,5 @@
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import Sum, Q
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -131,8 +132,7 @@ def procurement_list(request):
 
     procurements = procurements.order_by('-result_publicity_release_date', '-bid_opening_date', '-created_at')
 
-    paginator = Paginator(procurements, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(procurements, request, page_size=page_size)
 
     filter_config = get_procurement_filter_config(request)
 
@@ -292,4 +292,3 @@ def procurement_edit(request, procurement_code):
         'module_type': 'procurement',
         'initial_display': initial_display,
     })
-

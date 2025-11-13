@@ -1,4 +1,5 @@
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import Q
 from django.http import JsonResponse
 
@@ -17,8 +18,8 @@ def api_projects_list(request):
     if search:
         projects = projects.filter(Q(project_code__icontains=search) | Q(project_name__icontains=search))
 
-    paginator = Paginator(projects, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(projects, request, page_size=page_size)
+    paginator = page_obj.paginator
     data = [
         {
             'id': project.project_code,
@@ -56,8 +57,8 @@ def api_procurements_list(request):
     if search:
         procurements = procurements.filter(Q(procurement_code__icontains=search) | Q(project_name__icontains=search))
 
-    paginator = Paginator(procurements, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(procurements, request, page_size=page_size)
+    paginator = page_obj.paginator
     data = [
         {
             'id': procurement.procurement_code,
@@ -106,8 +107,8 @@ def api_contracts_list(request):
             | Q(contract_sequence__icontains=search)
         )
 
-    paginator = Paginator(contracts, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(contracts, request, page_size=page_size)
+    paginator = page_obj.paginator
     data = [
         {
             'id': contract.contract_code,
@@ -135,4 +136,3 @@ def api_contracts_list(request):
             },
         }
     )
-

@@ -288,156 +288,34 @@ class ArchiveStatisticsService:
         return trend_data
 
     def _group_by_month(self, queryset):
-        """按月分组统计 - 只返回有数据的月份"""
-        trend_data = []
-
-        for month in range(1, 13):
-            month_data = queryset.filter(business_month=month)
-            count = month_data.count()
-
-            if count > 0:
-                avg_cycle_timedelta = month_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                avg_cycle = round(avg_cycle_timedelta.days, 1) if avg_cycle_timedelta else 0
-                
-                trend_data.append({
-                    'month': month,
-                    'period': f'{month}月',
-                    'avg_cycle': avg_cycle,
-                    'count': count
-                })
-
-        return trend_data
+        """委托公共实现，保持对外行为不变（DRY）。"""
+        from .utils.time_grouping import group_by_month
+        return group_by_month(queryset, cycle_field='archive_cycle')
 
     def _group_by_half_year(self, queryset):
-        """按半年分组统计 - 只返回有数据的半年"""
-        trend_data = []
-
-        # 获取数据的年份范围
-        years = queryset.values_list('business_year', flat=True).distinct().order_by('business_year')
-
-        for year in years:
-            # 上半年（1-6月）
-            h1_data = queryset.filter(business_year=year, business_month__lte=6)
-            h1_count = h1_data.count()
-
-            if h1_count > 0:
-                h1_avg_timedelta = h1_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                h1_avg_cycle = round(h1_avg_timedelta.days, 1) if h1_avg_timedelta else 0
-                
-                trend_data.append({
-                    'year': year,
-                    'half': 1,
-                    'period': f'{year}上半年',
-                    'avg_cycle': h1_avg_cycle,
-                    'count': h1_count
-                })
-
-            # 下半年（7-12月）
-            h2_data = queryset.filter(business_year=year, business_month__gt=6)
-            h2_count = h2_data.count()
-
-            if h2_count > 0:
-                h2_avg_timedelta = h2_data.aggregate(avg=Avg('archive_cycle'))['avg']
-                h2_avg_cycle = round(h2_avg_timedelta.days, 1) if h2_avg_timedelta else 0
-                
-                trend_data.append({
-                    'year': year,
-                    'half': 2,
-                    'period': f'{year}下半年',
-                    'avg_cycle': h2_avg_cycle,
-                    'count': h2_count
-                })
-
-        return trend_data
+        """委托公共实现，保持对外行为不变（DRY）。"""
+        from .utils.time_grouping import group_by_half_year
+        return group_by_half_year(queryset, cycle_field='archive_cycle')
 
     def get_person_list(self, year_filter=None, global_project=None):
         """
-        获取经办人列表（用于下拉选择器）
-
-        Returns:
-            list: [{'name': '张三', 'count': 10}, ...]
+        获取经办人列表（用于下拉选择器），委托公共实现，行为不变。
         """
-        # 采购经办人
-        procurement_officers = Procurement.objects.values('procurement_officer').annotate(
-            count=Count('procurement_code')
-        ).filter(procurement_officer__isnull=False)
-
-        # 合同经办人
-        contract_officers = Contract.objects.values('contract_officer').annotate(
-            count=Count('contract_code')
-        ).filter(contract_officer__isnull=False)
-
-        # 应用筛选
-        if year_filter and year_filter != 'all':
-            procurement_officers = procurement_officers.filter(
-                result_publicity_release_date__year=int(year_filter)
-            )
-            contract_officers = contract_officers.filter(
-                signing_date__year=int(year_filter)
-            )
-
-        if global_project:
-            procurement_officers = procurement_officers.filter(project_id=global_project)
-            contract_officers = contract_officers.filter(project_id=global_project)
-
-        # 合并去重
-        person_dict = {}
-
-        for item in procurement_officers:
-            name = item['procurement_officer']
-            person_dict[name] = person_dict.get(name, 0) + item['count']
-
-        for item in contract_officers:
-            name = item['contract_officer']
-            person_dict[name] = person_dict.get(name, 0) + item['count']
-
-        # 转换为列表并排序
-        person_list = [
-            {'name': name, 'count': count}
-            for name, count in person_dict.items()
-        ]
-        person_list.sort(key=lambda x: x['count'], reverse=True)
-
-        return person_list
+        from .utils.persons import get_person_list as _get_persons
+        return _get_persons(year_filter=year_filter, global_project=global_project)
 
     # ===== 多序列趋势（多人/多项目/项目内经办人） =====
     def _sort_halfyear_labels(self, labels):
-        """排序半年标签（只包含提供的标签，不补全）"""
-        def key(lbl):
-            # 支持 '2024-H1'/'2024-H2' 与 '2024上半年'/'2024下半年'
-            try:
-                if '-H' in lbl:
-                    year_str, half = lbl.split('-H')
-                    return (int(year_str), int(half))
-                else:
-                    # 中文格式
-                    if '上半年' in lbl:
-                        year_str = lbl.split('上半年')[0]
-                        return (int(year_str), 1)
-                    if '下半年' in lbl:
-                        year_str = lbl.split('下半年')[0]
-                        return (int(year_str), 2)
-            except Exception:
-                pass
-            return (9999, 9)
-        return sorted(set(labels), key=key)
+        from .utils.time_grouping import sort_halfyear_labels
+        return sort_halfyear_labels(labels)
     
     def _sort_month_labels(self, labels):
-        """排序月份标签（只包含提供的标签，不补全）"""
-        def key(lbl):
-            try:
-                if '月' in lbl:
-                    month_str = lbl.replace('月', '')
-                    return int(month_str)
-            except Exception:
-                pass
-            return 99
-        return sorted(set(labels), key=key)
+        from .utils.time_grouping import sort_month_labels
+        return sort_month_labels(labels)
 
     def _align_series(self, trend_list, labels):
-        """将趋势数据对齐到统一的标签列表，无数据的位置返回None"""
-        mapping = {item['period']: item.get('avg_cycle') for item in trend_list}
-        return [mapping.get(lbl, None) for lbl in labels]
+        from .utils.time_grouping import align_series
+        return align_series(trend_list, labels)
 
     def get_persons_multi_trend(self, year_filter=None, project_filter=None, top_n=10):
         """

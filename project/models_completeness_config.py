@@ -3,9 +3,10 @@
 用于管理采购和合同完整率统计的字段配置
 """
 from django.db import models
+from project.models_base import AuditBaseModel
 
 
-class CompletenessFieldConfig(models.Model):
+class CompletenessFieldConfig(AuditBaseModel):
     """完整率字段配置"""
 
     MODEL_CHOICES = [
@@ -44,8 +45,7 @@ class CompletenessFieldConfig(models.Model):
         help_text='显示顺序，数字越小越靠前'
     )
 
-    created_at = models.DateTimeField('创建时间', auto_now_add=True)
-    updated_at = models.DateTimeField('更新时间', auto_now=True)
+    # 审计字段由 AuditBaseModel 提供：created_at / updated_at
 
     class Meta:
         verbose_name = '完整率字段配置'

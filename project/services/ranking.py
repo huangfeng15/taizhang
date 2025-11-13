@@ -11,6 +11,7 @@ from contract.models import Contract
 from settlement.models import Settlement
 from payment.models import Payment
 from project.models import Project
+from project.services.shared.utils import percent as _percent
 
 
 def get_medal(rank):
@@ -104,7 +105,7 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
             
             total = item['total_count']
             on_time = item['on_time_count']
-            on_time_rate = (on_time / total * 100) if total > 0 else 0
+            on_time_rate = _percent(on_time, total) if total > 0 else 0
             
             # 计算平均提前天数
             avg_days = item['avg_advance_days']
@@ -157,7 +158,7 @@ def get_procurement_on_time_ranking(rank_type='project', year=None):
         for idx, item in enumerate(rankings, 1):
             total = item['total_count']
             on_time = item['on_time_count']
-            on_time_rate = (on_time / total * 100) if total > 0 else 0
+            on_time_rate = _percent(on_time, total) if total > 0 else 0
             
             avg_days = item['avg_advance_days']
             if avg_days:

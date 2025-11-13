@@ -1,4 +1,5 @@
 from django.core.paginator import Paginator
+from project.utils.pagination import apply_pagination
 from django.db.models import Sum
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -69,8 +70,7 @@ def payment_list(request):
 
     payments = payments.order_by('-payment_date')
 
-    paginator = Paginator(payments, page_size)
-    page_obj = paginator.get_page(page)
+    page_obj = apply_pagination(payments, request, page_size=page_size)
 
     filter_config = get_payment_filter_config(request)
 
@@ -217,4 +217,3 @@ def payment_edit(request, payment_code):
         'module_type': 'payment',
         'initial_display': initial_display,
     })
-

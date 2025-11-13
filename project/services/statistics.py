@@ -630,85 +630,63 @@ def get_settlement_statistics(year=None, project_codes=None):
 
 def get_overview_statistics(year=None, project_codes=None):
     """
-    获取综合统计概览
-    
-    Args:
-        year: 统计年份，默认为当前年份
-        project_codes: 项目编码列表，None表示全部项目
-        
-    Returns:
-        dict: 综合统计数据
+    获取综合统计概览（精简实现，保持对外结构与含义不变）。
+    - year: 统计年度；None 时采用当前年
+    - project_codes: 项目代码列表；None 表示全量
+    返回值字段保持与原实现一致。
     """
     if year is None:
         year = get_current_year()
-    
-    procurement_stats = get_procurement_statistics(year, project_codes)
-    contract_stats = get_contract_statistics(year, project_codes)
-    payment_stats = get_payment_statistics(year, project_codes)
-    settlement_stats = get_settlement_statistics()
-    
+
     return {
         'year': year,
-        'procurement': procurement_stats,
-        'contract': contract_stats,
-        'payment': payment_stats,
-        'settlement': settlement_stats
+        'procurement': get_procurement_statistics(year, project_codes),
+        'contract': get_contract_statistics(year, project_codes),
+        'payment': get_payment_statistics(year, project_codes),
+        # 与原实现一致：settlement 不强制按年过滤
+        'settlement': get_settlement_statistics(),
     }
 
 
 def get_year_comparison(years, project_codes=None):
     """
-    多年度数据对比
-    
-    Args:
-        years: 年份列表，例如 [2023, 2024, 2025]
-        project_codes: 项目编码列表，None表示全部项目
-        
-    Returns:
-        dict: 多年度对比数据
+    多年度数据对比（精简实现，保持兼容）。
+    返回结构：{
+      'years': [...],
+      'procurement': [{'year', 'count', 'amount'}, ...],
+      'contract': [{'year', 'count', 'amount'}, ...],
+      'payment': [{'year', 'count', 'amount'}, ...],
+      'rows': [{ 集合行数据 }]
+    }
     """
-    comparison_data = {
+    data = {
         'years': years,
         'procurement': [],
         'contract': [],
         'payment': [],
-        'rows': []  # 新增：按行组织的数据，便于模板迭代
+        'rows': [],
     }
-    
-    for year in years:
-        proc_stats = get_procurement_statistics(year, project_codes)
-        comparison_data['procurement'].append({
-            'year': year,
-            'count': proc_stats['total_count'],
-            'amount': proc_stats['total_winning']  # 已在get_procurement_statistics中转换
+
+    for y in years:
+        p = get_procurement_statistics(y, project_codes)
+        c = get_contract_statistics(y, project_codes)
+        pay = get_payment_statistics(y, project_codes)
+
+        data['procurement'].append({'year': y, 'count': p['total_count'], 'amount': p['total_winning']})
+        data['contract'].append({'year': y, 'count': c['total_count'], 'amount': c['total_amount']})
+        data['payment'].append({'year': y, 'count': pay['total_count'], 'amount': pay['total_amount']})
+
+        data['rows'].append({
+            'year': y,
+            'procurement_count': p['total_count'],
+            'procurement_amount': p['total_winning'],
+            'contract_count': c['total_count'],
+            'contract_amount': c['total_amount'],
+            'payment_count': pay['total_count'],
+            'payment_amount': pay['total_amount'],
         })
-        
-        contract_stats = get_contract_statistics(year, project_codes)
-        comparison_data['contract'].append({
-            'year': year,
-            'count': contract_stats['total_count'],
-            'amount': contract_stats['total_amount']  # 已在get_contract_statistics中转换
-        })
-        
-        payment_stats = get_payment_statistics(year, project_codes)
-        comparison_data['payment'].append({
-            'year': year,
-            'count': payment_stats['total_count'],
-            'amount': payment_stats['total_amount']  # 已在get_payment_statistics中转换
-        })
-        
-        # 添加行数据，便于模板直接迭代
-        comparison_data['rows'].append({
-            'year': year,
-            'procurement_count': proc_stats['total_count'],
-            'procurement_amount': proc_stats['total_winning'],  # 已转换
-            'contract_count': contract_stats['total_count'],
-            'contract_amount': contract_stats['total_amount'],  # 已转换
-            'payment_count': payment_stats['total_count'],
-            'payment_amount': payment_stats['total_amount'],  # 已转换
-        })
-    
-    return comparison_data
+
+    return data
 
 
 # ==================== 详情查询函数 ====================

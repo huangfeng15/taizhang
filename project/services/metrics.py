@@ -16,20 +16,21 @@ DEFAULT_CACHE_TIMEOUT = 300  # 5 分钟
 
 
 def _normalize_year(year: Optional[int]) -> Optional[int]:
-    return int(year) if year not in (None, '', 'all') else None
+    # 统一委托 shared 工具，保持行为不变
+    from project.services.shared.utils import normalize_year
+    return normalize_year(year)
 
 
 def _normalize_project_codes(codes: Optional[Sequence[str]]) -> Tuple[str, ...]:
-    if not codes:
-        return tuple()
-    filtered = [code for code in codes if code]
-    return tuple(sorted(filtered))
+    # 统一委托 shared 工具，保持行为不变
+    from project.services.shared.utils import normalize_project_codes
+    return normalize_project_codes(codes)
 
 
 def _build_cache_key(prefix: str, year: Optional[int], project_codes: Tuple[str, ...]) -> str:
-    year_key = year if year is not None else 'all'
-    codes_key = ','.join(project_codes) if project_codes else 'all'
-    return f'metrics:{prefix}:{year_key}:{codes_key}'
+    # 使用 shared 工具构造相同格式的键：metrics:{prefix}:{year|all}:{codes|all}
+    from project.services.shared.utils import build_cache_key
+    return build_cache_key(prefix, year, project_codes, namespace='metrics')
 
 
 @lru_cache(maxsize=128)

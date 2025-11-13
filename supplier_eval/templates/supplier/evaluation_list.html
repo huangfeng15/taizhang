@@ -5,11 +5,10 @@
 
 {% block extra_head %}
 <!-- 引入全局筛选器组件 -->
-<link rel="stylesheet" href="{% static 'css/global-filter.css' %}">
+{# duplicated: global-filter.css moved to base.html #}
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
 <style>
     .score-badge {
         display: inline-block;
