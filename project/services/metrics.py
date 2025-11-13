@@ -5,12 +5,6 @@ from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 from django.core.cache import cache
 
-from project.services.statistics import (
-    get_procurement_statistics,
-    get_contract_statistics,
-    get_payment_statistics,
-    get_settlement_statistics,
-)
 
 DEFAULT_CACHE_TIMEOUT = 300  # 5 分钟
 

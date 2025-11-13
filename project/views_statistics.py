@@ -330,12 +330,12 @@ def statistics_detail_page(request, module):
         return redirect('statistics_view')
 
 
-@require_http_methods(['GET'])
 def statistics_detail_export(request, module):
-    """统计数据详情导出 - Excel。"""
+    """统计详情导出 - Excel。统一通过 ReportDataService 获取详情（SRP/DRY）。"""
     from project.utils.excel_beautifier import beautify_worksheet
     import pandas as pd
     from io import BytesIO
+    from datetime import datetime
 
     try:
         global_filters = _resolve_global_filters(request)
@@ -343,29 +343,31 @@ def statistics_detail_export(request, module):
         project_codes = global_filters['project_list']
         project_filter = project_codes if project_codes else None
 
+        # 统一统计入口
+        from project.services.report_data_service import ReportDataService
+        rds = ReportDataService(None, None, project_filter)
+
         if module == 'procurement':
-            from project.services.statistics import get_procurement_details
-            details = get_procurement_details(year_filter, project_filter)
+            details = rds.get_procurement_details()
             filename = f'采购统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
             columns = [
                 ('采购编号', 'procurement_code'),
                 ('项目名称', 'project_name'),
-                ('项目编码', 'project_code'),
+                ('项目编号', 'project_code'),
                 ('采购单位', 'procurement_unit'),
                 ('中标单位', 'winning_bidder'),
                 ('采购方式', 'procurement_method'),
                 ('采购类别', 'procurement_category'),
-                ('预算金额(元)', 'budget_amount'),
-                ('中标金额(元)', 'winning_amount'),
+                ('预算(元)', 'budget_amount'),
+                ('中标价(元)', 'winning_amount'),
                 ('控制价(元)', 'control_price'),
-                ('节约金额(元)', 'savings_amount'),
+                ('节约额(元)', 'savings_amount'),
                 ('节约率(%)', 'savings_rate'),
-                ('结果公示发布时间', 'result_publicity_release_date'),
+                ('结果公示日期', 'result_publicity_release_date'),
                 ('归档日期', 'archive_date'),
             ]
         elif module == 'contract':
-            from project.services.statistics import get_contract_details
-            details = get_contract_details(year_filter, project_filter)
+            details = rds.get_contract_details()
             filename = f'合同统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
             columns = [
                 ('合同编号', 'contract_code'),
@@ -375,47 +377,45 @@ def statistics_detail_export(request, module):
                 ('合同来源', 'contract_source'),
                 ('甲方', 'party_a'),
                 ('乙方', 'party_b'),
-                ('合同金额(元)', 'contract_amount'),
+                ('合同额(元)', 'contract_amount'),
                 ('签订日期', 'signing_date'),
-                ('累计付款(元)', 'total_paid'),
-                ('付款笔数', 'payment_count'),
-                ('付款比例(%)', 'payment_ratio'),
+                ('累计支付(元)', 'total_paid'),
+                ('支付次数', 'payment_count'),
+                ('支付比例(%)', 'payment_ratio'),
                 ('归档日期', 'archive_date'),
-                ('项目编码', 'project_code'),
+                ('项目编号', 'project_code'),
                 ('项目名称', 'project_name'),
             ]
         elif module == 'payment':
-            from project.services.statistics import get_payment_details
-            details = get_payment_details(year_filter, project_filter)
+            details = rds.get_payment_details()
             filename = f'付款统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
             columns = [
-                ('付款编号', 'payment_code'),
-                ('付款金额(元)', 'payment_amount'),
+                ('付款单号', 'payment_code'),
+                ('付款额(元)', 'payment_amount'),
                 ('付款日期', 'payment_date'),
                 ('是否结算', 'is_settled'),
-                ('结算价(元)', 'settlement_amount'),
-                ('关联合同编号', 'contract_code'),
-                ('关联合同序号', 'contract_sequence'),
+                ('结算金额(元)', 'settlement_amount'),
+                ('对应合同号', 'contract_code'),
+                ('对应合同序号', 'contract_sequence'),
                 ('合同名称', 'contract_name'),
                 ('乙方', 'party_b'),
-                ('项目编码', 'project_code'),
+                ('项目编号', 'project_code'),
                 ('项目名称', 'project_name'),
             ]
         elif module == 'settlement':
-            from project.services.statistics import get_settlement_details
-            details = get_settlement_details(year_filter, project_filter)
+            details = rds.get_settlement_details()
             filename = f'结算统计详情_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
             columns = [
                 ('合同编号', 'contract_code'),
                 ('合同名称', 'contract_name'),
                 ('乙方', 'party_b'),
                 ('签订日期', 'signing_date'),
-                ('合同金额(元)', 'contract_amount'),
-                ('结算金额(元)', 'settlement_amount'),
-                ('差异金额(元)', 'variance'),
+                ('合同额(元)', 'contract_amount'),
+                ('结算额(元)', 'settlement_amount'),
+                ('差异额(元)', 'variance'),
                 ('差异率(%)', 'variance_rate'),
-                ('结算日期', 'payment_date'),
-                ('项目编码', 'project_code'),
+                ('最后支付日期', 'payment_date'),
+                ('项目编号', 'project_code'),
                 ('项目名称', 'project_name'),
             ]
         else:
@@ -423,7 +423,7 @@ def statistics_detail_export(request, module):
             return redirect('statistics_view')
 
         if len(details) > 10000:
-            messages.warning(request, f'数据量较大({len(details)}条), 建议缩小范围后再导出')
+            messages.warning(request, f'数据量过大({len(details)}条), 请缩小范围后再导出')
             return redirect('statistics_view')
 
         data_for_export = []
@@ -438,31 +438,22 @@ def statistics_detail_export(request, module):
                 row[col_name] = value
             data_for_export.append(row)
 
-        import pandas as pd
-        from io import BytesIO
         df = pd.DataFrame(data_for_export)
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='详情数据', index=False)
-            money_cols = []
-            if module == 'procurement':
-                money_cols = [8, 9, 10, 11]
-            elif module == 'contract':
-                money_cols = [8, 10]
-            elif module == 'payment':
-                money_cols = [2, 5]
-            elif module == 'settlement':
-                money_cols = [5, 6, 7]
-            beautify_worksheet(writer.sheets['详情数据'], money_columns=money_cols)
+            df.to_excel(writer, sheet_name='统计详情', index=False)
+            # 可选：样式美化
+            try:
+                beautify_worksheet(writer.book.active)
+            except Exception:
+                pass
 
-        output.seek(0)
         response = HttpResponse(
             output.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
     except Exception as e:
-        messages.error(request, f'导出失败: {str(e)}')
-        return redirect('statistics_view')
+        return JsonResponse({'success': False, 'message': f'导出失败: {str(e)}'}, status=500)

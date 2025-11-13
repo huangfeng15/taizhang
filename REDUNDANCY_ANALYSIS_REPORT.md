@@ -11,12 +11,16 @@
 
 ---
 
+## 进度更新（2025-11-13）`r`n`r`n### 验收要点
+- 列表页首次进入自动弹窗“选择显示字段”，选择后刷新列显示正确，必选列不可取消。
+- 统计页/详情/API/导出数据一致；切换筛选条件时统计与详情同步变化。
+- PDF 抽取 YAML 解析通过，regex 模式锚点不改变字段 pattern 行为。
+- 管理后台标题与 ALLOWED_HOSTS 行为符合预期。`r`n- 统计实现收敛：其余调用点统一经 ReportDataService（小步替换与回归）。`r`n- 模板脚本归位：内联脚本迁移到 extra_js 或独立 JS。`r`n- BAT 脚本头部统一：保留方案但不改脚本，后续按需推进。`r`n`r`n- 统计封装：ReportDataService 新增 `get_*_details()`，视图统一通过 RDS 获取详情与统计，降低耦合。
+- PDF 提取方法去重：`field_mapping.yml` 引入 `_templates.extraction_regex` 锚点，统一 `method: "regex"`；解析验证通过（fields=33）。
+- 列显示选择：列表页首次访问自动弹窗；必选列不可取消；选择持久化（localStorage）。
+- 静态资源集中化：移除子模板 FontAwesome 重复；基础模板统一加载；清理空 script 标签。
+- PDF 模式优先级：pdf_patterns.yml 明确优先级说明并采用 1–10 范围（当前 1–4）。
 
-- 静态资源集中化：消除子模板 FontAwesome 重复；基础模板统一加载，减少重复与请求次数。
-
-后续计划：
-- 统计实现收敛：后续考虑将详情与统计完全经 `ReportDataService` 封装（保持对外接口稳定）。
-- 模板静态资源路径集中化：提取公共 CSS/JS 引入，减少模板硬编码。
 
 
 ## 🔥 严重问题汇总（P0级）
@@ -26,17 +30,24 @@
 | 问题 | 路径/文件 | 影响 | 严重性 |
 |---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
+
+
+---
+
+
+---
+
+
+---
+
 
 ### 2. **模型层严重冗余**
 
@@ -85,7 +96,9 @@ class Project(AuditBaseModel):
 
 ---
 
+
 ---
+
 
 ### 3. **服务层严重冗余**
 
@@ -118,9 +131,12 @@ mv project/services/report_generator_unified.py project/services/report_generato
 
 ---
 
----
 
 ---
+
+
+---
+
 
 ### 4. **视图层严重冗余**
 
@@ -159,6 +175,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 5. **静态资源严重冗余**
 
 #### 5.1 未使用的JavaScript文件 ❌
@@ -172,7 +189,9 @@ class BaseListViewMixin:
 
 ---
 
+
 ---
+
 
 ### 6. **PDF导入模块严重冗余**
 
@@ -184,7 +203,9 @@ class BaseListViewMixin:
 
 ---
 
+
 ---
+
 
 ## 配置冗余优化落实进展（对应 CONFIG_REDUNDANCY_ANALYSIS.md）
 
@@ -215,6 +236,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 7. **工具脚本冗余**
 
 #### 7.1 db_query.sh功能冗余 ❌
@@ -224,7 +246,9 @@ class BaseListViewMixin:
 
 ---
 
+
 ---
+
 
 ## ⚡ 中等问题汇总（P1级）
 
@@ -237,6 +261,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 2. **JavaScript模态框逻辑重复**
 **文件**：
 - edit-modal.js (300+行)
@@ -246,6 +271,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 3. **监控服务职责交叉**
 - archive_monitor.py包含统计和问题检测
 - yet拆分了archive_statistics.py和archive_problem_detector.py
@@ -254,12 +280,14 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 4. **PDF提取方法过多**
 **问题**：8种提取方法，其中4种功能重叠
 
 **修复方案**：精简到4-5种核心方法
 
 ---
+
 
 ## 📝 轻微问题汇总（P2级）
 
@@ -276,32 +304,45 @@ class BaseListViewMixin:
 
 ---
 
+
 ## 📊 冗余统计总览
 
 | 严重级别 | 问题数量 | 涉及文件数 | 冗余代码量 | 影响范围 |
 |---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
 
+
 ---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
 
 ## 🛠️ 优化实施计划
 
@@ -356,6 +397,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 阶段二：P1中等问题优化（1周）
 
 - [ ] **Day 11**: 模板结构统一
@@ -390,6 +432,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 阶段三：P2轻微问题改进（3天）
 
 - [ ] **Day 16**: 隐藏目录清理
@@ -410,6 +453,7 @@ class BaseListViewMixin:
 - 代码质量达到优秀水平
 
 ---
+
 
 ## 🎯 预期收益
 
@@ -437,6 +481,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ## ⚠️ 风险与缓解措施
 
 ### 主要风险
@@ -462,6 +507,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ## 📋 执行检查清单
 
 ### 重构前
@@ -485,6 +531,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ## 💡 持续改进建议
 
 ### 建立编码规范
@@ -504,6 +551,7 @@ class BaseListViewMixin:
 3. **代码重构实践**：定期重构练习
 
 ---
+
 
 ## 📞 结论与建议
 
@@ -530,7 +578,9 @@ class BaseListViewMixin:
 
 ---
 
+
 ---
+
 
 ## 🔍 二次深入审查补充报告
 
@@ -539,6 +589,7 @@ class BaseListViewMixin:
 经过全面的二次深入审查，验证了原有32个问题的准确性，同时**新发现15个冗余问题**，总计**47个具体问题**，涉及**80+文件**，总冗余代码量约**12,000行**，占总代码量**40%以上**。
 
 ---
+
 
 ### 新发现的严重问题（P0级）
 
@@ -563,11 +614,15 @@ class BaseListViewMixin:
 
 ---
 
----
 
 ---
 
+
 ---
+
+
+---
+
 
 ### 新发现的中等问题（P1级）
 
@@ -586,11 +641,15 @@ class BaseListViewMixin:
 
 ---
 
----
 
 ---
 
+
 ---
+
+
+---
+
 
 ### 新发现的轻微问题（P2级）
 
@@ -603,7 +662,9 @@ class BaseListViewMixin:
 
 ---
 
+
 ---
+
 
 ### 垃圾文件和缓存问题
 
@@ -618,30 +679,42 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 最终冗余统计汇总
 
 | 严重级别 | 问题数量 | 涉及文件数 | 冗余代码量 | 备注 |
 |---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
 
----
 
 ---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
 
 ### 调整后的修复优先级
 
@@ -665,6 +738,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 预期收益（最终版）
 
 **量化收益**：
@@ -681,6 +755,7 @@ class BaseListViewMixin:
 - ✅ **SOLID原则**：架构清晰可扩展
 
 ---
+
 
 ### 立即行动项（本周）
 
@@ -704,6 +779,7 @@ class BaseListViewMixin:
 
 ---
 
+
 ### 关键建议
 
 1. **测试优先**：无测试的重构风险极高，必须优先补充测试
@@ -712,3 +788,5 @@ class BaseListViewMixin:
 4. **持续测试**：每完成一小步立即测试验证
 
 ---
+
+

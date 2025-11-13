@@ -50,7 +50,7 @@ from project.enums import FilePositioning, PROCUREMENT_METHODS_COMMON_LABELS
 from project.services.archive_monitor import ArchiveMonitorService
 from project.services.update_monitor import UpdateMonitorService
 from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
-from project.services.statistics import get_procurement_statistics, get_contract_statistics, get_payment_statistics, get_settlement_statistics
+
 from project.services.metrics import get_combined_statistics
 from project.filter_config import get_monitoring_filter_config, resolve_monitoring_year
 from project.utils.filters import apply_text_filter, apply_multi_field_search
