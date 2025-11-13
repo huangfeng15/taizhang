@@ -1,6 +1,6 @@
 {#
   VSCode 语法检查说明：
-  本文件包含 Django 模板语法（{{ }} 和 {% %}），会导致 CSS/JS 语法检查器报错。
+  本文件包含 Django 模板语法（双大括号 和 百分号大括号），会导致 CSS/JS 语法检查器报错。
   这些错误可以安全忽略，它们不影响实际运行。
   要禁用这些警告，可以在 VSCode 设置中添加：
   "html.validate.styles": false,
@@ -11,9 +11,7 @@
 
 {% block title %}合同管理 - 项目采购与成本管理系统{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
-{% endblock %}
+{% block extra_css %}{% endblock %}
 
 {% block content %}
 <div class="content-header">
