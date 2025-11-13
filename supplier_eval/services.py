@@ -416,7 +416,7 @@ class SupplierAnalysisService:
         获取每个供应商在指定年度的最新履约评价
         
         Args:
-            year (int, optional): 年度，默认为当前年度
+            year (int, optional): 年度，如果为None则获取所有年度中每个供应商的最新评价
         
         Returns:
             list: 供应商最新评价列表，每项包含:
@@ -425,40 +425,46 @@ class SupplierAnalysisService:
                 - contract_name (str): 关联合同名称
                 - comprehensive_score (Decimal): 综合评分
                 - last_evaluation_score (Decimal): 末次评价得分
-                - evaluation_type (str): 评价类型
+                - evaluation_type (str): 评价类型（自动判断）
                 - evaluation_result (str): 综合评价结果（优秀/良好/合格/不合格）
         """
-        from django.utils import timezone
-        from django.db.models import Max
+        from django.db.models import Q
         
-        if year is None:
-            year = timezone.now().year
-        
-        # 获取指定年度的所有评价记录
+        # 基础查询
         evaluations = SupplierEvaluation.objects.filter(
-            created_at__year=year,
             comprehensive_score__isnull=False
         ).select_related('contract')
+        
+        # 如果指定年度，则筛选该年度；否则获取所有年度
+        if year is not None:
+            evaluations = evaluations.filter(created_at__year=year)
         
         # 按供应商分组，获取每个供应商的最新评价
         supplier_latest = {}
         for evaluation in evaluations:
             supplier = evaluation.supplier_name
+            # 自动判断评价类别
+            evaluation_type = SupplierAnalysisService._determine_evaluation_type(evaluation)
+            
             # 如果该供应商尚未记录，或当前评价更新
             if (supplier not in supplier_latest or
-                evaluation.created_at > supplier_latest[supplier].created_at):
-                supplier_latest[supplier] = evaluation
+                evaluation.created_at > supplier_latest[supplier]['evaluation'].created_at):
+                supplier_latest[supplier] = {
+                    'evaluation': evaluation,
+                    'evaluation_type': evaluation_type
+                }
         
         # 构建结果列表
         result = []
-        for supplier_name, evaluation in supplier_latest.items():
+        for supplier_name, data in supplier_latest.items():
+            evaluation = data['evaluation']
             result.append({
                 'supplier_name': supplier_name,
                 'evaluation': evaluation,
                 'contract_name': evaluation.contract.contract_name if evaluation.contract else '-',
                 'comprehensive_score': evaluation.comprehensive_score,
                 'last_evaluation_score': evaluation.last_evaluation_score,
-                'evaluation_type': evaluation.evaluation_type or '-',
+                'evaluation_type': data['evaluation_type'],
                 'evaluation_result': evaluation.get_score_level(),
             })
         
@@ -466,6 +472,48 @@ class SupplierAnalysisService:
         result.sort(key=lambda x: x['comprehensive_score'] or 0, reverse=True)
         
         return result
+    
+    @staticmethod
+    def _determine_evaluation_type(evaluation):
+        """
+        根据数据填写位置自动判断评价类别
+        
+        判断规则:
+        - 如果数据填写在"末次评价得分"列，则为"末次评价"
+        - 如果数据填写在"年度评价得分"列，则为"定期履约评价"
+        - 如果数据填写在"不定期履约评价"列，则为"不定期履约评价"
+        - 如果多处都有数据，优先级：末次评价 > 定期履约评价 > 不定期履约评价
+        
+        Args:
+            evaluation: SupplierEvaluation对象
+            
+        Returns:
+            str: 评价类别
+        """
+        # 检查末次评价得分（放宽条件，只要不为None即可）
+        if evaluation.last_evaluation_score is not None:
+            return '末次评价'
+        
+        # 检查年度评价得分
+        if evaluation.annual_scores:
+            # 确保是字典类型并且有值
+            if isinstance(evaluation.annual_scores, dict) and evaluation.annual_scores:
+                # 检查是否有任何非空的分数值
+                for score in evaluation.annual_scores.values():
+                    if score is not None:
+                        return '定期履约评价'
+        
+        # 检查不定期评价得分
+        if evaluation.irregular_scores:
+            # 确保是字典类型并且有值
+            if isinstance(evaluation.irregular_scores, dict) and evaluation.irregular_scores:
+                # 检查是否有任何非空的分数值
+                for score in evaluation.irregular_scores.values():
+                    if score is not None:
+                        return '不定期履约评价'
+        
+        # 兜底：如果都没有，返回模型中设置的值或默认值
+        return evaluation.evaluation_type if evaluation.evaluation_type else '未分类'
     
     @staticmethod
     def get_supplier_all_evaluations(supplier_name):
@@ -482,6 +530,7 @@ class SupplierAnalysisService:
                 - year (int): 评价年度
                 - comprehensive_score (Decimal): 综合评分
                 - evaluation_result (str): 评价结果
+                - evaluation_type (str): 评价类别（自动判断）
         """
         evaluations = SupplierEvaluation.objects.filter(
             supplier_name__icontains=supplier_name
@@ -489,13 +538,16 @@ class SupplierAnalysisService:
         
         result = []
         for evaluation in evaluations:
+            # 自动判断评价类别
+            evaluation_type = SupplierAnalysisService._determine_evaluation_type(evaluation)
+            
             result.append({
                 'evaluation': evaluation,
                 'contract': evaluation.contract,
                 'year': evaluation.created_at.year,
                 'comprehensive_score': evaluation.comprehensive_score,
                 'last_evaluation_score': evaluation.last_evaluation_score,
-                'evaluation_type': evaluation.evaluation_type or '-',
+                'evaluation_type': evaluation_type,
                 'evaluation_result': evaluation.get_score_level(),
                 'created_at': evaluation.created_at,
             })

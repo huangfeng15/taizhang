@@ -133,7 +133,7 @@ class SupplierEvaluation(BaseModel):
         return f"{self.evaluation_code} - {self.supplier_name}"
     
     def save(self, *args, **kwargs):
-        """保存时自动计算综合评分和生成评价编号（如果未提供）"""
+        """保存时自动计算综合评分、生成评价编号和判断评价类别"""
         # 自动获取供应商名称
         if self.contract and not self.supplier_name:
             self.supplier_name = self.contract.party_b
@@ -146,7 +146,36 @@ class SupplierEvaluation(BaseModel):
         if not self.comprehensive_score and self.last_evaluation_score:
             self.comprehensive_score = self.calculate_comprehensive_score()
         
+        # 自动判断评价类别（如果未设置或为空）
+        if not self.evaluation_type:
+            self.evaluation_type = self.determine_evaluation_type()
+        
         super().save(*args, **kwargs)
+    
+    def determine_evaluation_type(self):
+        """
+        根据数据填写位置自动判断评价类别
+        
+        Returns:
+            str: 评价类别
+        """
+        # 检查末次评价得分
+        if self.last_evaluation_score is not None:
+            return '末次评价'
+        
+        # 检查年度评价得分
+        if self.annual_scores and isinstance(self.annual_scores, dict):
+            for score in self.annual_scores.values():
+                if score is not None:
+                    return '定期履约评价'
+        
+        # 检查不定期评价得分
+        if self.irregular_scores and isinstance(self.irregular_scores, dict):
+            for score in self.irregular_scores.values():
+                if score is not None:
+                    return '不定期履约评价'
+        
+        return '未分类'
     
     def calculate_comprehensive_score(self):
         """

@@ -81,31 +81,39 @@ def supplier_evaluation_list(request):
     供应商履约评价列表页面（主列表）
     
     功能:
-    - 展示每个供应商在指定年度的最新履约评价
-    - 支持年度切换查看
+    - 受全局筛选器控制（年度和项目）
+    - 当全局选择特定年度时，展示该年度的履约评价数据
+    - 当全局选择"全部年度"时，展示每个供应商最新一次的履约评价记录
     - 支持按供应商名称搜索
     - 支持按评分等级筛选
     - 点击"详情"可查看供应商的历史所有评价记录
     """
-    from django.utils import timezone
     from project.constants import get_current_year
     
-    # 获取筛选参数
+    # 解析全局筛选参数
+    global_filters = _resolve_global_filters(request)
+    year_filter = global_filters['year_filter']  # int | None
+    year_value = global_filters['year_value']    # 'all' | '2024' 等
+    project_list = global_filters['project_list']
+    
+    # 获取页面筛选参数
     search_query = request.GET.get('q', '')
-    score_level_filter = request.GET.get('score_level', '')  # excellent/good/qualified/unqualified
-    year_filter = request.GET.get('year', '')
+    score_level_filter = request.GET.get('score_level', '')
     page = request.GET.get('page', 1)
     page_size = _get_page_size(request, default=20)
     
-    # 确定显示年度（默认当前年度）
-    current_year = get_current_year()
-    try:
-        display_year = int(year_filter) if year_filter else current_year
-    except (ValueError, TypeError):
-        display_year = current_year
+    # 根据全局年度筛选获取数据
+    # year_filter=None 表示"全部年度"，获取每个供应商的最新评价
+    # year_filter=具体年份 表示仅获取该年度的评价
+    latest_evaluations = SupplierAnalysisService.get_latest_evaluations_by_year(year_filter)
     
-    # 获取指定年度每个供应商的最新评价
-    latest_evaluations = SupplierAnalysisService.get_latest_evaluations_by_year(display_year)
+    # 项目筛选（如果指定了项目）
+    if project_list:
+        latest_evaluations = [
+            item for item in latest_evaluations
+            if item['evaluation'].contract and
+               item['evaluation'].contract.project_id in project_list
+        ]
     
     # 搜索过滤（供应商名称）
     if search_query:
@@ -128,15 +136,23 @@ def supplier_evaluation_list(request):
     paginator = Paginator(latest_evaluations, page_size)
     page_obj = paginator.get_page(page)
     
-    # 获取统计数据（基于当前年度）
-    year_evaluations = SupplierEvaluation.objects.filter(
-        created_at__year=display_year,
-        comprehensive_score__isnull=False
-    )
-    total = year_evaluations.count()
-    excellent = year_evaluations.filter(comprehensive_score__gte=90).count()
-    good = year_evaluations.filter(comprehensive_score__gte=80, comprehensive_score__lt=90).count()
-    unqualified = year_evaluations.filter(comprehensive_score__lt=70).count()
+    # 获取统计数据
+    if year_filter:
+        # 特定年度的统计
+        year_evaluations = SupplierEvaluation.objects.filter(
+            created_at__year=year_filter,
+            comprehensive_score__isnull=False
+        )
+    else:
+        # 全部年度的统计（基于当前结果集）
+        year_evaluations = SupplierEvaluation.objects.filter(
+            comprehensive_score__isnull=False
+        )
+    
+    total = len(latest_evaluations)
+    excellent = sum(1 for item in latest_evaluations if item['comprehensive_score'] and item['comprehensive_score'] >= 90)
+    good = sum(1 for item in latest_evaluations if item['comprehensive_score'] and 80 <= item['comprehensive_score'] < 90)
+    unqualified = sum(1 for item in latest_evaluations if item['comprehensive_score'] and item['comprehensive_score'] < 70)
     
     stats = {
         'total': total,
@@ -145,11 +161,11 @@ def supplier_evaluation_list(request):
         'unqualified': unqualified,
     }
     
-    # 获取可选年度列表（从评价记录中提取）
-    available_years = SupplierEvaluation.objects.dates('created_at', 'year', order='DESC')
-    year_choices = [year.year for year in available_years]
-    if not year_choices:
-        year_choices = [current_year]
+    # 确定页面标题
+    if year_filter:
+        page_title_suffix = f' - {year_filter}年度最新评价'
+    else:
+        page_title_suffix = ' - 最新评价'
     
     context = {
         'page_title': '供应商履约评价',
@@ -157,8 +173,10 @@ def supplier_evaluation_list(request):
         'page_obj': page_obj,
         'search_query': search_query,
         'score_level_filter': score_level_filter,
-        'display_year': display_year,
-        'year_choices': year_choices,
+        'year_filter': year_filter,
+        'year_value': year_value,
+        'is_all_years': year_filter is None,
+        'page_title_suffix': page_title_suffix,
         'stats': stats,
         'score_level_choices': [
             ('', '全部等级'),
@@ -198,6 +216,13 @@ def supplier_evaluation_detail(request, supplier_name):
     # 获取供应商汇总信息
     supplier_summary = SupplierAnalysisService.get_supplier_summary(supplier_name)
     summary = supplier_summary[0] if supplier_summary else None
+    
+    # 将合同总金额转换为万元
+    if summary and summary.get('total_amount'):
+        summary['total_amount_wan'] = round(float(summary['total_amount']) / 10000, 2)
+    else:
+        if summary:
+            summary['total_amount_wan'] = 0
     
     # 获取评价统计
     evaluation_stats = SupplierAnalysisService.get_evaluation_statistics(supplier_name)

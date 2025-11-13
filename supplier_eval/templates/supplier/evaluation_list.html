@@ -3,6 +3,11 @@
 
 {% block title %}供应商履约评价 - 项目采购与成本管理系统{% endblock %}
 
+{% block extra_head %}
+<!-- 引入全局筛选器组件 -->
+<link rel="stylesheet" href="{% static 'css/global-filter.css' %}">
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/edit-modal.css' %}">
 <style>
@@ -84,10 +89,18 @@
     </div>
 </div>
 
-<!-- 筛选和搜索 -->
+<!-- 页面筛选和搜索 -->
 <div class="card">
     <div class="card-body" style="padding: 20px;">
         <form method="get" action="">
+            <!-- 保持全局筛选参数 -->
+            {% if year_value %}
+            <input type="hidden" name="global_year" value="{{ year_value }}">
+            {% endif %}
+            {% for project_code in request.GET.getlist.global_project %}
+            <input type="hidden" name="global_project" value="{{ project_code }}">
+            {% endfor %}
+            
             <div class="filter-bar">
                 <div class="search-box">
                     <input type="text"
@@ -99,12 +112,6 @@
                     </button>
                 </div>
                 
-                <select name="year" class="filter-select" onchange="this.form.submit()" style="min-width: 120px;">
-                    {% for year in year_choices %}
-                    <option value="{{ year }}" {% if year == display_year %}selected{% endif %}>{{ year }}年度</option>
-                    {% endfor %}
-                </select>
-                
                 <select name="score_level" class="filter-select" onchange="this.form.submit()">
                     <option value="">全部评分</option>
                     <option value="excellent" {% if score_level_filter == 'excellent' %}selected{% endif %}>优秀 (≥90分)</option>
@@ -114,7 +121,7 @@
                 </select>
                 
                 {% if search_query or score_level_filter %}
-                <a href="{% url 'supplier_eval:supplier_evaluation_list' %}?year={{ display_year }}" class="filter-reset">
+                <a href="{% url 'supplier_eval:supplier_evaluation_list' %}{% if year_value %}?global_year={{ year_value }}{% endif %}" class="filter-reset">
                     <i class="fas fa-undo"></i>
                     重置筛选
                 </a>
@@ -129,7 +136,7 @@
     <div class="card-header">
         <h2 class="card-title">
             <i class="fas fa-list-alt"></i>
-            履约评价列表 - {{ display_year }}年度最新评价
+            履约评价列表{{ page_title_suffix }}
         </h2>
         <div style="display: flex; gap: 12px;">
             <button type="button" class="btn btn-primary"
@@ -202,7 +209,7 @@
                     </td>
                     <td data-column="evaluation_type">
                         <span style="color: var(--text-secondary);">
-                            {{ item.evaluation_type }}
+                            {{ item.evaluation_type|default:'-' }}
                         </span>
                     </td>
                     <td data-column="evaluation_result">
@@ -220,14 +227,9 @@
                     </td>
                     <td data-column="operations">
                         <a href="{% url 'supplier_eval:supplier_evaluation_detail' item.supplier_name %}"
-                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 4px;">
+                           class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">
                             <i class="fas fa-info-circle"></i>
                             详情
-                        </a>
-                        <a href="{% url 'supplier_eval:supplier_contract_list' %}?supplier={{ item.supplier_name|urlencode }}"
-                           class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">
-                            <i class="fas fa-building"></i>
-                            承接项目
                         </a>
                     </td>
                 </tr>
@@ -263,15 +265,15 @@
             共 {{ page_obj.paginator.count }} 条记录
         </span>
         {% if page_obj.has_previous %}
-        <a href="?page=1&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">首页</a>
-        <a href="?page={{ page_obj.previous_page_number }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">上一页</a>
+        <a href="?page=1{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">首页</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">上一页</a>
         {% endif %}
         
         <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
         
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">下一页</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}&year={{ display_year }}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">尾页</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">下一页</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">尾页</a>
         {% endif %}
     </div>
     {% endif %}
