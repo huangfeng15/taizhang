@@ -80,7 +80,7 @@ class SupplierEvaluation(BaseModel):
         null=True,
         blank=True,
         db_index=True,
-        help_text='可从CSV导入，或根据末次评价和过程评价自动计算（末次60% + 过程40%）'
+        help_text='可从CSV导入，或根据末次评价和过程评价自动计算（末次40% + 过程60%）；如果只有末次评价则综合评价=末次评价'
     )
     
     # CSV列：末次评价得分（权重60%）
@@ -91,7 +91,7 @@ class SupplierEvaluation(BaseModel):
         null=True,
         blank=True,
         db_index=True,
-        help_text='权重60%，用于计算综合评分'
+        help_text='权重40%，用于计算综合评分；如果只有末次评价则权重100%'
     )
     
     # CSV列：年度评价得分（动态支持任意年份）
@@ -180,8 +180,10 @@ class SupplierEvaluation(BaseModel):
     def calculate_comprehensive_score(self):
         """
         计算综合评分
-        公式：末次评价 × 60% + 过程评价平均 × 40%
-        过程评价包括：所有年度评价 + 所有不定期评价
+        公式：
+        - 有过程评价时：末次评价 × 40% + 过程评价平均 × 60%
+        - 只有末次评价时：综合评价 = 末次评价得分
+        过程评价包括：所有年度评价（定期履约评价） + 所有不定期评价
 
         Returns:
             Decimal: 综合评分（保留2位小数），如果无法计算则返回None
@@ -192,7 +194,7 @@ class SupplierEvaluation(BaseModel):
         # 收集过程评价得分
         process_scores = []
 
-        # 年度评价得分（从JSONField动态获取）
+        # 年度评价得分（从JSONField动态获取）- 定期履约评价
         if self.annual_scores:
             process_scores.extend([
                 float(score) for score in self.annual_scores.values()
@@ -206,17 +208,17 @@ class SupplierEvaluation(BaseModel):
                 if score is not None
             ])
 
-        # 如果没有过程评价，综合得分 = 末次评价
+        # 如果没有过程评价，综合得分 = 末次评价（权重100%）
         if not process_scores:
             return self.last_evaluation_score
 
         # 计算过程评价平均分
         process_avg = sum(process_scores) / len(process_scores)
 
-        # 综合得分 = 末次评价 × 0.6 + 过程评价平均 × 0.4
+        # 综合得分 = 末次评价 × 0.4 + 过程评价平均 × 0.6
         comprehensive = (
-            Decimal(str(self.last_evaluation_score)) * Decimal('0.6') +
-            Decimal(str(process_avg)) * Decimal('0.4')
+            Decimal(str(self.last_evaluation_score)) * Decimal('0.4') +
+            Decimal(str(process_avg)) * Decimal('0.6')
         )
 
         return round(comprehensive, 2)
