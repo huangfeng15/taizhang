@@ -6,14 +6,7 @@
 {% block extra_css %}{% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <h1 class="content-title">采购管理</h1>
-    <div class="breadcrumb">
-        <a href="{% url 'dashboard' %}">首页</a>
-        <span>/</span>
-        <span>采购管理</span>
-    </div>
-</div>
+{% include 'components/content_header_simple.html' with title='采购列表' section='采购管理' %}
 
 <!-- 使用新的筛选系统 -->
 {% include 'components/filter_system.html' with quick_filters=quick_filters advanced_filter_groups=advanced_filter_groups search_query=search_query search_placeholder="搜索招采编号、采购项目名称、中标单位..." %}

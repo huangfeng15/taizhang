@@ -53,7 +53,8 @@ staticfiles/
 media/
 
 # SSL证书 (自签名证书可以提交,但生产证书不要提交)
-# ssl_certs/*.key
+ssl_certs/*.key
+ssl_certs/*.crt
 
 # 测试覆盖率
 .coverage

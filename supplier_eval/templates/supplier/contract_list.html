@@ -48,16 +48,7 @@ e{% extends 'base.html' %}
 {% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <h1 class="content-title">供应商承接项目</h1>
-    <div class="breadcrumb">
-        <a href="{% url 'dashboard' %}">首页</a>
-        <span>/</span>
-        <span>供应商管理</span>
-        <span>/</span>
-        <span>承接项目查询</span>
-    </div>
-</div>
+{% include 'components/content_header_simple.html' with title='供应商承包项目' section='供应商管理' subsection='承包项目查询' %}
 
 <!-- 供应商统计概览 -->
 {% if supplier_info %}

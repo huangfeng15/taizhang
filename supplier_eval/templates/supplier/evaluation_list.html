@@ -37,16 +37,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <h1 class="content-title">供应商履约评价</h1>
-    <div class="breadcrumb">
-        <a href="{% url 'dashboard' %}">首页</a>
-        <span>/</span>
-        <span>供应商管理</span>
-        <span>/</span>
-        <span>履约评价</span>
-    </div>
-</div>
+{% include 'components/content_header_simple.html' with title='供应商履约评价' section='供应商管理' subsection='履约评价' %}
 
 <!-- 统计概览卡片 -->
 <div class="stats-grid">

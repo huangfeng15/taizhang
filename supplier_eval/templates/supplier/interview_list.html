@@ -57,16 +57,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <h1 class="content-title">供应商约谈记录</h1>
-    <div class="breadcrumb">
-        <a href="{% url 'dashboard' %}">首页</a>
-        <span>/</span>
-        <span>供应商管理</span>
-        <span>/</span>
-        <span>约谈记录</span>
-    </div>
-</div>
+{% include 'components/content_header_simple.html' with title='供应商访谈记录' section='供应商管理' subsection='访谈记录' %}
 
 <!-- 统计概览卡片 -->
 <div class="stats-grid">
