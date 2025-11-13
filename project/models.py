@@ -1,7 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from django.db import models
+from project.models_base import AuditBaseModel
 from project.validators import validate_code_field, validate_and_clean_code
+from project.enums import ProjectStatus
 from project.models_completeness_config import CompletenessFieldConfig
 
 if TYPE_CHECKING:
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
     from contract.models import Contract
 
 
-class Project(models.Model):
+class Project(AuditBaseModel):
     """项目管理 - 用于归类和组织多个采购、合同等业务数据"""
     
     # ===== 主键 =====
@@ -42,18 +44,11 @@ class Project(models.Model):
         blank=True,
         help_text='负责该项目的人员'
     )
-    
-    STATUS_CHOICES = [
-        ('进行中', '进行中'),
-        ('已完成', '已完成'),
-        ('已暂停', '已暂停'),
-        ('已取消', '已取消'),
-    ]
     status = models.CharField(
         '项目状态',
         max_length=20,
-        choices=STATUS_CHOICES,
-        default='进行中',
+        choices=ProjectStatus.choices,
+        default=ProjectStatus.IN_PROGRESS.value,
         help_text='项目当前状态'
     )
     
@@ -64,18 +59,7 @@ class Project(models.Model):
     )
     
     # ===== 审计字段 =====
-    created_at = models.DateTimeField(
-        '创建时间',
-        auto_now_add=True,
-        help_text='记录创建时自动设置'
-    )
-    
-    updated_at = models.DateTimeField(
-        '更新时间',
-        auto_now=True,
-        help_text='每次更新时自动更新'
-    )
-    
+    # 审计字段由 AuditBaseModel 提供（DRY）
     if TYPE_CHECKING:
         # 类型提示：Django 反向关联
         procurements: QuerySet[Procurement]

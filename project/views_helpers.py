@@ -95,3 +95,23 @@ def _get_page_size(request, default=20, max_size=200):
         return default
     return max(1, min(size, max_size))
 
+
+class BaseListViewMixin:
+    """通用列表视图Mixin：分页/搜索辅助（不影响现有逻辑，供后续替换使用）"""
+    def get_page_size(self, request):
+        # 复用已有的页面大小计算逻辑
+        from .views_helpers import _get_page_size
+        return _get_page_size(request)
+
+    def apply_pagination(self, queryset, request):
+        from django.core.paginator import Paginator
+        page = request.GET.get('page', 1)
+        page_size = self.get_page_size(request)
+        paginator = Paginator(queryset, page_size)
+        return paginator.get_page(page)
+
+    def apply_search(self, queryset, fields, request):
+        # 为避免引入行为变更，此处暂不实现具体搜索逻辑
+        # 后续可按现有各视图的搜索实现抽象为通用函数
+        return queryset
+

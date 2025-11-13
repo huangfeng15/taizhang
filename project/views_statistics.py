@@ -184,9 +184,8 @@ def ranking_view(request):
     return render(request, 'monitoring/ranking.html', context)
 
 
-@require_http_methods(['GET'])
 def statistics_detail_api(request, module):
-    """统计数据详情API，返回JSON格式分页数据。"""
+    """统计详情数据API，返回JSON格式的表格数据。"""
     try:
         global_filters = _resolve_global_filters(request)
         year_filter = global_filters['year_filter']
@@ -196,10 +195,13 @@ def statistics_detail_api(request, module):
         page = int(request.GET.get('page', 1))
         page_size = min(int(request.GET.get('page_size', 50)), 100)
 
+        # 统一统计入口：通过 ReportDataService 获取汇总统计与详情（SRP/DRY）
+        from project.services.report_data_service import ReportDataService
+        rds = ReportDataService(None, None, project_filter)
+
         if module == 'procurement':
-            from project.services.statistics import get_procurement_details, get_procurement_statistics
-            details = get_procurement_details(year_filter, project_filter)
-            stats = get_procurement_statistics(year_filter, project_filter)
+            details = rds.get_procurement_details()
+            stats = rds.get_procurement_statistics()
             summary = {
                 'total_count': stats['total_count'],
                 'total_budget': stats['total_budget'],
@@ -207,9 +209,8 @@ def statistics_detail_api(request, module):
                 'savings_rate': stats['savings_rate'],
             }
         elif module == 'contract':
-            from project.services.statistics import get_contract_details, get_contract_statistics
-            details = get_contract_details(year_filter, project_filter)
-            stats = get_contract_statistics(year_filter, project_filter)
+            details = rds.get_contract_details()
+            stats = rds.get_contract_statistics()
             summary = {
                 'total_count': stats['total_count'],
                 'total_amount': stats['total_amount'],
@@ -217,9 +218,8 @@ def statistics_detail_api(request, module):
                 'supplement_count': stats['supplement_count'],
             }
         elif module == 'payment':
-            from project.services.statistics import get_payment_details, get_payment_statistics
-            details = get_payment_details(year_filter, project_filter)
-            stats = get_payment_statistics(year_filter, project_filter)
+            details = rds.get_payment_details()
+            stats = rds.get_payment_statistics()
             summary = {
                 'total_count': stats['total_count'],
                 'total_amount': stats['total_amount'],
@@ -227,9 +227,8 @@ def statistics_detail_api(request, module):
                 'estimated_remaining': stats['estimated_remaining'],
             }
         elif module == 'settlement':
-            from project.services.statistics import get_settlement_details, get_settlement_statistics
-            details = get_settlement_details(year_filter, project_filter)
-            stats = get_settlement_statistics(year_filter, project_filter)
+            details = rds.get_settlement_details()
+            stats = rds.get_settlement_statistics()
             summary = {
                 'total_count': stats['total_count'],
                 'total_amount': stats['total_amount'],
@@ -267,9 +266,8 @@ def statistics_detail_api(request, module):
         return JsonResponse({'success': False, 'message': f'获取数据失败: {str(e)}'}, status=500)
 
 
-@require_http_methods(['GET'])
 def statistics_detail_page(request, module):
-    """统计数据详情页面 - 完整的列表页。"""
+    """统计详情列表页（HTML）。"""
     try:
         global_filters = _resolve_global_filters(request)
         year_filter = global_filters['year_filter']
@@ -284,28 +282,28 @@ def statistics_detail_page(request, module):
         year_context['year_filter'] = year_filter
         filter_config = get_monitoring_filter_config(request, year_context=year_context)
 
+        # 统一统计入口：通过 ReportDataService 获取汇总统计与详情（SRP/DRY）
+        from project.services.report_data_service import ReportDataService
+        rds = ReportDataService(None, None, project_filter)
+
         if module == 'procurement':
-            from project.services.statistics import get_procurement_details, get_procurement_statistics
-            details = get_procurement_details(year_filter, project_filter)
-            stats = get_procurement_statistics(year_filter, project_filter)
+            details = rds.get_procurement_details()
+            stats = rds.get_procurement_statistics()
             page_title = '采购统计详情'
             template_name = 'monitoring/statistics_procurement_details.html'
         elif module == 'contract':
-            from project.services.statistics import get_contract_details, get_contract_statistics
-            details = get_contract_details(year_filter, project_filter)
-            stats = get_contract_statistics(year_filter, project_filter)
+            details = rds.get_contract_details()
+            stats = rds.get_contract_statistics()
             page_title = '合同统计详情'
             template_name = 'monitoring/statistics_contract_details.html'
         elif module == 'payment':
-            from project.services.statistics import get_payment_details, get_payment_statistics
-            details = get_payment_details(year_filter, project_filter)
-            stats = get_payment_statistics(year_filter, project_filter)
+            details = rds.get_payment_details()
+            stats = rds.get_payment_statistics()
             page_title = '付款统计详情'
             template_name = 'monitoring/statistics_payment_details.html'
         elif module == 'settlement':
-            from project.services.statistics import get_settlement_details, get_settlement_statistics
-            details = get_settlement_details(year_filter, project_filter)
-            stats = get_settlement_statistics(year_filter, project_filter)
+            details = rds.get_settlement_details()
+            stats = rds.get_settlement_statistics()
             page_title = '结算统计详情'
             template_name = 'monitoring/statistics_settlement_details.html'
         else:
@@ -328,7 +326,7 @@ def statistics_detail_page(request, module):
         return render(request, template_name, context)
 
     except Exception as e:
-        messages.error(request, f'加载详情页面失败: {str(e)}')
+        messages.error(request, f'加载详情页失败: {str(e)}')
         return redirect('statistics_view')
 
 

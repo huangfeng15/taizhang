@@ -1,6 +1,10 @@
 # PDF字段提取配置
 # 版本: 2.0 - 100%提取率验证版
 # 说明: 基于实际PDF文本优化，已验证100%提取成功
+# 去重计划（说明性注释，不改变解析结果）：
+# - 梳理重复 extraction.pattern 与 choices/aliases 段落，设计单一数据源；
+# - 以“不改变字段名/匹配正则/优先级”的前提，逐条替换为统一引用；
+# - 在完成每一小步替换后，以样例PDF回归验证字段值一致性；
 
 version: "2.0"
 description: "采购信息PDF智能提取配置 - 严格遵循单一数据源原则"
@@ -11,8 +15,12 @@ strategy:
   validation_strict: true
 
 # 字段映射配置
+_templates:
+  choice_common: &choice_common
+    required: false
+    data_type: "choice"
 fields:
-  # ========== 1. 主键字段 ==========
+# ========== 1. 主键字段 ==========
   procurement_code:
     label: "招采编号"
     required: true
@@ -52,8 +60,7 @@ fields:
   
   procurement_category:
     label: "采购类别"
-    required: false
-    data_type: "choice"
+    <<: *choice_common
     choices:
       - "工程"
       - "工程货物"
@@ -91,8 +98,7 @@ fields:
   
   procurement_method:
     label: "采购方式"
-    required: false
-    data_type: "choice"
+    <<: *choice_common
     choices:
       - "公开招标"
       - "邀请招标"
@@ -123,8 +129,7 @@ fields:
   
   qualification_review_method:
     label: "资格审查方式"
-    required: false
-    data_type: "choice"
+    <<: *choice_common
     choices:
       - "资格预审"
       - "资格后审"
@@ -139,8 +144,7 @@ fields:
   
   bid_evaluation_method:
     label: "评标谈判方式"
-    required: false
-    data_type: "choice"
+    <<: *choice_common
     choices:
       - "综合评分法"
       - "竞争性谈判"
@@ -161,8 +165,7 @@ fields:
   
   bid_awarding_method:
     label: "定标方法"
-    required: false
-    data_type: "choice"
+    <<: *choice_common
     choices:
       - "竞争定标法"
       - "票决定标法"

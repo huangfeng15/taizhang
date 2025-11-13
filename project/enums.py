@@ -370,3 +370,9 @@ def replace_hardcoded_values(text, enum_class):
             result = result.replace(old_value, new_value)
     
     return result
+class ProjectStatus(models.TextChoices):
+    """项目状态枚举"""
+    IN_PROGRESS = '进行中', '进行中'
+    COMPLETED = '已完成', '已完成'
+    PAUSED = '已暂停', '已暂停'
+    CANCELED = '已取消', '已取消'

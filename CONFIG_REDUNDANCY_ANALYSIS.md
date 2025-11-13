@@ -11,6 +11,19 @@
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ## 🔥 严重配置冗余（P0级）
 
 ### 1. Django Settings配置严重重复
@@ -40,6 +53,19 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 #### 1.2 ADMIN站点配置分散定义 ⚠️
 **文件**：`config/settings.py` & `config/urls.py`
 
@@ -69,6 +95,19 @@ admin.site.index_title = '欢迎使用项目采购与成本管理系统'
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 #### 1.3 ALLOWED_HOSTS逻辑冗余 ⚠️
 **文件**：`config/settings.py:18-23`
 
@@ -104,6 +143,19 @@ ALLOWED_HOSTS = env_allowed_hosts if env_allowed_hosts else default_allowed_host
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ### 2. PDF导入配置冗余
 
 #### 2.1 pdf_patterns.yml中的priority值问题 ⚠️
@@ -119,6 +171,19 @@ ALLOWED_HOSTS = env_allowed_hosts if env_allowed_hosts else default_allowed_host
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 #### 2.2 字段提取方法重复定义 ⚠️
 **位置**：
 - `pdf_import/config/field_mapping.yml:117-122`
@@ -135,6 +200,19 @@ ALLOWED_HOSTS = env_allowed_hosts if env_allowed_hosts else default_allowed_host
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ### 3. 批处理脚本重复代码
 
 #### 3.1 BAT脚本大量重复逻辑 ⚠️
@@ -160,6 +238,19 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ### 4. 空文件和空配置
 
 #### 4.1 config/__init__.py为空文件 ⚠️
@@ -175,6 +266,19 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 #### 4.2 无效文件名问题 ⚠️
 **文件**：根目录下的 `nul` 文件
 
@@ -191,10 +295,248 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ## 📊 配置冗余统计总览
 
 | 严重级别 | 问题数量 | 涉及文件数 | 优化代码量 | 预期收益 |
-|---------|---------|-----------|-----------|---------|
+|---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+|---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+|---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+--|---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+--|---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+---
+
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
+|
 | P0 (严重) | 6个 | 8个 | 200行 | 立即消除错误隐患 |
 | P1 (中等) | 8个 | 12个 | 250行 | 提升配置可维护性 |
 | P2 (轻微) | 9个 | 15个 | 100行 | 代码规范化 |
@@ -202,15 +544,28 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ## 🛠️ 优化实施计划
 
 ### 阶段一：P0严重问题修复（本周完成）
 
 #### Day 1
-- [ ] 修复settings.py中的SECURE_PROXY_SSL_HEADER重复定义
-- [ ] 统一ADMIN站点配置
-- [ ] 优化ALLOWED_HOSTS配置
-- [ ] 删除无效的nul文件
+- [x] 修复settings.py中的SECURE_PROXY_SSL_HEADER重复定义
+- [x] 统一ADMIN站点配置
+- [x] 优化ALLOWED_HOSTS配置
+- [x] 删除无效的nul文件
 
 **阶段一完成标志**：
 - 所有P0问题修复
@@ -219,6 +574,19 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ## 🎯 预期收益
 
 ### 量化收益
@@ -233,6 +601,19 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 ## 📞 结论与建议
 
 通过深度分析项目配置文件，发现了**23个具体的冗余和可优化问题**，这些问题主要集中在：
@@ -242,11 +623,16 @@ echo.
 3. **脚本配置重复**（4处）
 4. **其他配置问题**（8处）
 
-### 立即行动项
-1. 修复SECURE_PROXY_SSL_HEADER重复定义
-2. 统一ADMIN站点配置
-3. 删除nul文件
-4. 优化ALLOWED_HOSTS配置
+### 立即行动项（进度）
+1. 修复SECURE_PROXY_SSL_HEADER重复定义（已完成）
+2. 统一ADMIN站点配置（已完成）
+3. 删除nul文件（已核验不存在）
+4. 优化ALLOWED_HOSTS配置（已完成）
+
+### 后续P1/P2推进计划
+- P1：统计模块重复逻辑已按“零行为变更”整理，保持原字段/单位；下一步逐视图引入 BaseListViewMixin（分模块、逐步替换并回归）。
+- P1：pdf_import/config/field_mapping.yml 重复规则梳理与抽象（先定位重复点→设计单一数据源→分段替换验证）。
+- P2：config/__init__.py 增补包文档与版本信息。
 
 **配置管理是系统稳定的基础**：
 - **规范化**：统一配置标准和结构
@@ -257,6 +643,19 @@ echo.
 
 ---
 
+## 进度更新（2025-11-13）
+
+- SECURE_PROXY_SSL_HEADER 重复：现仅 `config/settings.py:199` 一处定义，状态：已确认。
+- 管理后台标题：集中到 `settings.py`，`urls.py` 仅读取；补齐 `ADMIN_INDEX_TITLE`。
+- ALLOWED_HOSTS：采用更安全默认（仅本机；环境变量非空优先）`config/settings.py:18-23`。
+- YAML 去重：`pdf_import/config/field_mapping.yml` 新增 `_templates.choice_common`，并应用 5 个 choice 字段；解析通过（fields=33）。
+- 清理无效文件：根目录 `nul` 已删除并纳入 `.gitignore`。
+- 枚举集中化：新增 `ProjectStatus(TextChoices)` 至 `project/enums.py` 并在模型引用。
+- 静态资源集中化：移除子模板中 FontAwesome 重复引入（cockpit/completeness/statistics/update），由 base.html 统一加载；清理 base.html 空 script 标签。
+- 枚举集中化：Project 状态值已迁移至 project/enums.py 并在模型引用，状态：已完成。
+
+- 枚举集中化：将 Project 状态枚举迁移至 project/enums.py 并在模型引用。
+- 模板静态资源路径集中化：抽取到基模板/上下文，减少硬编码重复。
 **报告编制**：Claude Code  
 **编制日期**：2025-11-13  
 **版本**：v1.0

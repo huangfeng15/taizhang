@@ -12,15 +12,230 @@ from project.constants import get_current_year
 
 
 def get_procurement_statistics(year=None, project_codes=None):
-    """采购统计（代理至 report_data_service，保持对外行为不变）"""
-    from .report_data_service import get_procurement_statistics as _impl
-    return _impl(year=year, project_codes=project_codes)
+    """采购统计
+    按项目名称去重统计：相同项目名称只统计一次；
+    预算金额/中标金额/控制价取该名称下的最大值；
+    返回同时包含万元单位展示值和以元为单位的原始值（*_amount）。
+    保持现有对外结构与键名不变。
+    """
+    from decimal import Decimal
+    from django.db.models import Count, Sum
+    from django.db.models.functions import TruncMonth
+    from procurement.models import Procurement
+
+    # 基础查询（最小必要字段）
+    queryset = Procurement.objects.select_related('project').only(
+        'project_name', 'procurement_method',
+        'budget_amount', 'winning_amount', 'control_price',
+        'archive_date', 'result_publicity_release_date',
+        'project__project_code', 'project__project_name'
+    )
+
+    # 年份过滤（按结果公示发布时间）
+    if year is not None:
+        queryset = queryset.filter(result_publicity_release_date__year=year)
+
+    # 项目过滤
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
+
+    # 去重后的最大值聚合（按项目名称）
+    project_name_max = {}
+    for proc in queryset:
+        name = proc.project_name
+        if not name:
+            continue
+        if name not in project_name_max:
+            project_name_max[name] = {
+                'budget_amount': proc.budget_amount or Decimal('0'),
+                'winning_amount': proc.winning_amount or Decimal('0'),
+                'control_price': proc.control_price or Decimal('0'),
+                'procurement_method': proc.procurement_method,
+                'archive_date': proc.archive_date,
+            }
+        else:
+            cur = project_name_max[name]
+            # 取最大值
+            cur['budget_amount'] = max(cur['budget_amount'], proc.budget_amount or Decimal('0'))
+            cur['winning_amount'] = max(cur['winning_amount'], proc.winning_amount or Decimal('0'))
+            cur['control_price'] = max(cur['control_price'], proc.control_price or Decimal('0'))
+            # 归档日期取最新的非空值
+            if proc.archive_date and (not cur['archive_date'] or proc.archive_date > cur['archive_date']):
+                cur['archive_date'] = proc.archive_date
+
+    # 基本汇总
+    total_count = len(project_name_max)
+    total_budget_amount = sum(v['budget_amount'] for v in project_name_max.values())
+    total_winning_amount = sum(v['winning_amount'] for v in project_name_max.values())
+
+    # 节约率（以元为单位计算百分比）
+    savings_rate = 0.0
+    if total_budget_amount > 0:
+        savings_rate = float((total_budget_amount - total_winning_amount) / total_budget_amount * 100)
+
+    # 采购方式分布（基于去重后数据）
+    method_distribution = []
+    method_stats = {}
+    for v in project_name_max.values():
+        method = v['procurement_method']
+        if not method:
+            continue
+        if method not in method_stats:
+            method_stats[method] = {'count': 0, 'amount': Decimal('0')}
+        method_stats[method]['count'] += 1
+        # 使用中标金额累计（若无中标金额则为0）
+        method_stats[method]['amount'] += (v['winning_amount'] or Decimal('0'))
+    for method, agg in method_stats.items():
+        method_distribution.append({
+            'method': method,
+            'count': agg['count'],
+            'amount': float(agg['amount']) / 10000.0,  # 万元
+        })
+
+    # 月度趋势（按结果公示发布时间聚合）
+    monthly_trend_qs = queryset.annotate(
+        month=TruncMonth('result_publicity_release_date')
+    ).values('month').annotate(
+        count=Count('procurement_code'),
+        amount=Sum('winning_amount')
+    ).order_by('month')
+
+    monthly_trend = []
+    for item in monthly_trend_qs:
+        if item['month']:
+            monthly_trend.append({
+                'month': item['month'].strftime('%Y-%m'),
+                'count': item['count'] or 0,
+                'amount': float(item['amount'] or 0) / 10000.0,  # 万元
+            })
+
+    return {
+        'year': year if year is not None else '全部',
+        'total_count': total_count,
+        # 展示用（万元）
+        'total_budget': float(total_budget_amount) / 10000.0,
+        'total_winning': float(total_winning_amount) / 10000.0,
+        'savings_rate': round(savings_rate, 2),
+        'method_distribution': method_distribution,
+        'monthly_trend': monthly_trend,
+        # 原始值（元）供财务分析使用
+        'total_budget_amount': float(total_budget_amount),
+        'total_winning_amount': float(total_winning_amount),
+    }
 
 
 def get_contract_statistics(year=None, project_codes=None):
-    """合同统计（代理至 report_data_service，保持对外行为不变）"""
-    from .report_data_service import get_contract_statistics as _impl
-    return _impl(year=year, project_codes=project_codes)
+    """合同统计（保持既有结构与键名）"""
+    from decimal import Decimal
+    from django.db.models import Count, Sum
+    from django.db.models.functions import TruncMonth
+    from contract.models import Contract, FilePositioning
+
+    # 基础查询
+    queryset = Contract.objects.select_related('project').only(
+        'contract_code', 'contract_name', 'file_positioning',
+        'contract_source', 'contract_amount', 'signing_date',
+        'archive_date', 'project__project_code', 'project__project_name'
+    )
+
+    # 年份过滤（按签订日期）
+    if year is not None:
+        queryset = queryset.filter(signing_date__year=year)
+
+    # 项目过滤
+    if project_codes:
+        queryset = queryset.filter(project__project_code__in=project_codes)
+
+    # 基本统计
+    total_count = queryset.count()
+    total_amount = queryset.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+
+    # 合同类型分布
+    type_stats = queryset.values('file_positioning').annotate(
+        count=Count('contract_code'),
+        amount=Sum('contract_amount')
+    ).order_by('-count')
+    type_distribution = []
+    for item in type_stats:
+        if item['file_positioning']:
+            type_distribution.append({
+                'type': item['file_positioning'],
+                'count': item['count'],
+                'amount': float(item['amount'] or 0) / 10000.0,  # 万元
+                'percentage': round(item['count'] / total_count * 100, 2) if total_count > 0 else 0
+            })
+
+    # 合同来源分布
+    source_stats = queryset.values('contract_source').annotate(
+        count=Count('contract_code'),
+        amount=Sum('contract_amount')
+    ).order_by('-count')
+    source_distribution = []
+    for item in source_stats:
+        if item['contract_source']:
+            source_distribution.append({
+                'source': item['contract_source'],
+                'count': item['count'],
+                'amount': float(item['amount'] or 0) / 10000.0,  # 万元
+                'percentage': round(item['count'] / total_count * 100, 2) if total_count > 0 else 0
+            })
+
+    # 主合同/补充协议/解除/框架 统计
+    main_contracts = queryset.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
+    main_count = main_contracts.count()
+    main_amount = main_contracts.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+
+    supplements = queryset.filter(file_positioning=FilePositioning.SUPPLEMENT.value)
+    supplement_count = supplements.count()
+    supplement_amount = supplements.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+
+    terminations = queryset.filter(file_positioning=FilePositioning.TERMINATION.value)
+    termination_count = terminations.count()
+    termination_amount = terminations.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+
+    frameworks = queryset.filter(file_positioning=FilePositioning.FRAMEWORK.value)
+    framework_count = frameworks.count()
+    framework_amount = frameworks.aggregate(total=Sum('contract_amount'))['total'] or Decimal('0')
+
+    # 归档情况
+    archived_count = queryset.filter(archive_date__isnull=False).count()
+    archive_rate = round(archived_count / total_count * 100, 2) if total_count > 0 else 0
+
+    # 月度趋势（按签订日期）
+    monthly_trend_qs = queryset.annotate(
+        month=TruncMonth('signing_date')
+    ).values('month').annotate(
+        count=Count('contract_code'),
+        amount=Sum('contract_amount')
+    ).order_by('month')
+
+    monthly_trend = []
+    for item in monthly_trend_qs:
+        if item['month']:
+            monthly_trend.append({
+                'month': item['month'].strftime('%Y-%m'),
+                'count': item['count'],
+                'amount': float(item['amount'] or 0) / 10000.0,  # 万元
+            })
+
+    return {
+        'year': year if year is not None else '全部',
+        'total_count': total_count,
+        'total_amount': float(total_amount) / 10000.0,  # 万元
+        'main_count': main_count,
+        'main_amount': float(main_amount) / 10000.0,  # 万元
+        'supplement_count': supplement_count,
+        'supplement_amount': float(supplement_amount) / 10000.0,  # 万元
+        'termination_count': termination_count,
+        'termination_amount': float(termination_amount) / 10000.0,  # 万元
+        'framework_count': framework_count,
+        'framework_amount': float(framework_amount) / 10000.0,  # 万元
+        'type_distribution': type_distribution,
+        'source_distribution': source_distribution,
+        'archived_count': archived_count,
+        'archive_rate': archive_rate,
+        'monthly_trend': monthly_trend,
+    }
 
 
 def get_payment_statistics(year=None, project_codes=None):

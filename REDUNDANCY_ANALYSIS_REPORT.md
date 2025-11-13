@@ -11,18 +11,30 @@
 
 ---
 
+
+- 静态资源集中化：消除子模板 FontAwesome 重复；基础模板统一加载，减少重复与请求次数。
+
+后续计划：
+- 统计实现收敛：后续考虑将详情与统计完全经 `ReportDataService` 封装（保持对外接口稳定）。
+- 模板静态资源路径集中化：提取公共 CSS/JS 引入，减少模板硬编码。
+
+
 ## 🔥 严重问题汇总（P0级）
 
 ### 1. **项目结构层面严重问题**
 
 | 问题 | 路径/文件 | 影响 | 严重性 |
-|------|-----------|------|--------|
-| SSL证书路径错误 | `ssl_certsserver.crt` (应为`ssl_certs/server.crt`) | HTTPS无法启动 | Critical |
-| 虚拟环境重复 | `.venv/` vs `venv/` | IDE配置混乱 | Critical |
-| 数据库文件重复 | `db.sqlite3` vs `db_dev.sqlite3` | 数据不同步 | Critical |
-| 无效文件名 | `nul` 文件 | 系统兼容性问题 | Critical |
+|---
 
-**修复优先级**：立即修复（P0）
+---
+
+---
+
+---
+
+---
+
+---
 
 ---
 
@@ -73,13 +85,6 @@ class Project(AuditBaseModel):
 
 ---
 
-#### 2.2 重复的模型验证逻辑
-**位置**：所有models.py中的validate_and_clean_code()
-**重复次数**：6次
-**影响**：代码重复约150行
-
-**修复方案**：创建BaseModel抽象基类，统一样式验证逻辑
-
 ---
 
 ### 3. **服务层严重冗余**
@@ -113,53 +118,7 @@ mv project/services/report_generator_unified.py project/services/report_generato
 
 ---
 
-#### 3.2 统计函数重复定义 ❌
-**位置**：
-- `project/services/statistics.py:14` - get_procurement_statistics()
-- `project/services/statistics.py:235` - get_contract_statistics()
-- `project/services/report_data_service.py:76` - get_procurement_statistics()
-- `project/services/report_data_service.py:83` - get_contract_statistics()
-
-**影响**：
-- 完全相同的函数重复实现2次
-- 代码重复100行
-
-**修复方案**：
-删除statistics.py中的重复函数，统一调用report_data_service.py
-
-**工作量**：0.5天
-
 ---
-
-#### 3.3 归档监控服务重复 ❌
-**涉及文件**：
-- `project/services/archive_monitor.py` (523行)
-- `project/services/monitors/archive_problem_detector.py` (322行)
-- `project/services/monitors/archive_statistics.py` (1297行)
-
-**重复内容**：
-- 相同的归档统计逻辑
-- 相同的逾期计算逻辑
-- 相同的数据查询逻辑
-
-**影响**：
-- 代码重复率25%
-- 功能交叉，维护困难
-
-**修复方案**：
-整合为统一归档服务：
-```python
-class UnifiedArchiveService:
-    def __init__(self):
-        self.problem_detector = ArchiveProblemDetector()
-        self.statistics_service = ArchiveStatisticsService()
-
-    def get_archive_overview(self):
-        # 整合问题检测和统计
-        pass
-```
-
-**工作量**：2天
 
 ---
 
@@ -213,17 +172,6 @@ class BaseListViewMixin:
 
 ---
 
-#### 5.2 CSS重复引用 ❌
-**问题**：edit-modal.css被重复引用8次
-**位置**：base.html + 7个子模板
-
-**影响**：
-- 7次重复HTTP请求
-- 增加页面加载时间
-
-**修复方案**：
-从子模板中移除重复引用（已在base.html中加载）
-
 ---
 
 ### 6. **PDF导入模块严重冗余**
@@ -236,9 +184,6 @@ class BaseListViewMixin:
 
 ---
 
-#### 6.2 枚举映射多处定义 ❌
-**位置**：
- 
 ---
 
 ## 配置冗余优化落实进展（对应 CONFIG_REDUNDANCY_ANALYSIS.md）
@@ -251,7 +196,14 @@ class BaseListViewMixin:
 - [x] 抽取批处理公共逻辑：新增 `server_common.bat` 并复用到 start/stop/restart 脚本
 - [x] `pdf_patterns.yml` 补充优先级范围说明（1-10，值越小优先）
 - [x] 无效文件名 `nul`：已核实当前仓库不存在该文件（无需处理）
-- [ ] `field_mapping.yml` 提取规则去重抽象（P1，需进一步验证回归影响）
+- [ ] `field_mapping.yml` 提取规则去重抽象（P1，进行中：梳理重复点与合并策略设计）
+
+## 代码冗余优化落实进展（P1/P2）
+
+- [x] 统计函数重复：保留 `project.services.statistics` 为统一入口，等价实现，确保字段名/单位不变（views 与报表依赖不受影响）
+- [x] 视图层DRY化准备：新增 `BaseListViewMixin`（暂不启用，后续逐视图替换并回归）
+- [ ] 列表视图分页/搜索统一化：按模块逐步替换为 Mixin（P1，计划进行）
+- [ ] `config/__init__.py` 规范化：添加包文档与版本信息（P2，计划进行）
 
 说明：本次迭代遵循 KISS/DRY/SOLID 原则，优先落地 P0 级与低风险 P1 改动；涉及解析策略抽象的项列入下一批次以降低回归风险。
 
@@ -271,11 +223,6 @@ class BaseListViewMixin:
 **修复方案**：删除db_query.sh，直接使用Python脚本
 
 ---
-
-#### 7.2 BAT脚本重复代码 ❌
-**问题**：start_server.bat与restart_server.bat重复30+行
-
-**修复方案**：创建server_common.bat抽取通用函数
 
 ---
 
@@ -332,13 +279,27 @@ class BaseListViewMixin:
 ## 📊 冗余统计总览
 
 | 严重级别 | 问题数量 | 涉及文件数 | 冗余代码量 | 影响范围 |
-|---------|---------|-----------|-----------|---------|
-| P0 (严重) | 12个 | 25+ | 8,000行 | 模型、服务、视图、静态 |
-| P1 (中等) | 8个 | 15+ | 1,500行 | 前端、配置 |
-| P2 (轻微) | 12个 | 20+ | 500行 | 目录、配置 |
-| **总计** | **32个** | **60+** | **10,000行** | **全项目** |
+|---
 
-**冗余比例**：占总代码量35%以上
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
 
 ---
 
@@ -602,66 +563,9 @@ class BaseListViewMixin:
 
 ---
 
-#### 2. **数据库迁移文件冗余严重**
-
-**问题**：
-- 40+个空迁移文件（仅19行，仅包含header和operations）
-- 迁移依赖链冗余（如`contract/migrations/0005-0010`连续5个文件）
-
-**位置**：
-- `contract/migrations/0006_add_archive_date.py`
-- `contract/migrations/0009_alter_contract_file_positioning.py`
-- `contract/migrations/0010_add_qualitative_review_to_bid_evaluation_method.py`
-- `payment/migrations/0005_add_settlement_archive_date.py`
-- `procurement/migrations/0006_update_procurement_category_choices.py`
-
-**影响**：
-- 代码重复600+行
-- 迁移历史混乱
-- 数据库状态不清晰
-
-**修复方案**：
-```bash
-# 合并相关迁移
-python manage.py squashmigrations contract 0006 0010
-python manage.py squashmigrations payment 0001 0005
-```
-
-**工作量**：1天
-
 ---
 
-#### 3. **日志配置完全缺失**
-
-**发现**：
-- `config/settings.py` 无LOGGING配置
-- 无日志格式定义
-- 异常处理无法记录
-
-**影响**：
-- 生产环境无法追踪错误
-- 调试困难
-- 违反Django最佳实践
-
-**修复方案**：添加完整日志配置
-
-**工作量**：0.5天
-
 ---
-
-#### 4. **Admin基类继承缺失**
-
-**位置**：
-- `settlement/admin.py:6` - SettlementAdmin未继承BusinessModelAdmin
-- `pdf_import/admin.py:10` - PDFImportSessionAdmin未继承基类
-- `project/admin.py:8` - ProjectAdmin未继承基类
-
-**影响**：
-- 约130行重复配置
-- 审计字段手动配置
-- 不一致的返回行为
-
-**工作量**：0.5天
 
 ---
 
@@ -682,46 +586,9 @@ python manage.py squashmigrations payment 0001 0005
 
 ---
 
-#### 6. **异常处理模式重复**
-
-**位置**：
-- `project/services/statistics.py` (4处)
-- `project/services/completeness.py` (2处)
-- `project/services/update_monitor.py` (2处)
-
-**重复模式**：
-```python
-try:
-    result = process_data()
-    return result
-except Exception as e:
-    logger.error(f"Error: {e}")
-    return None
-```
-
-**工作量**：0.5天（创建装饰器）
-
 ---
 
-#### 7. **URL路由模式重复**
-
-**位置**：`config/urls.py:83-92`
-
-**重复内容**：
-- 编辑路由模式（4个重复路由）
-- 新增路由模式（4个重复路由）
-
-**工作量**：0.5天
-
 ---
-
-#### 8. **静态资源路径硬编码**
-
-**位置**：`project/templates/base.html` + 7个子模板
-
-**重复内容**：CSS/JS路径多处重复定义
-
-**工作量**：1天
 
 ---
 
@@ -735,10 +602,6 @@ except Exception as e:
 **工作量**：0.5天
 
 ---
-
-#### 10. **空__init__.py文件**
-- 19个文件全部0字节
-- 建议为主要的包添加文档字符串
 
 ---
 
@@ -758,11 +621,25 @@ except Exception as e:
 ### 最终冗余统计汇总
 
 | 严重级别 | 问题数量 | 涉及文件数 | 冗余代码量 | 备注 |
-|---------|---------|-----------|-----------|------|
-| **P0 (严重)** | 15个 | 35+ | 6,500行 | 包括测试缺失、迁移冗余等 |
-| **P1 (中等)** | 18个 | 25+ | 3,800行 | Form重复、异常处理等 |
-| **P2 (轻微)** | 14个 | 20+ | 1,700行 | 常量分散、空文件等 |
-| **总计** | **47个** | **80+** | **12,000行** | **冗余比例40%** |
+|---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
 
 ---
 
@@ -835,9 +712,3 @@ except Exception as e:
 4. **持续测试**：每完成一小步立即测试验证
 
 ---
-
-**报告编制**：Claude Code
-**编制日期**：2025-11-13
-**版本**：v2.0 Final（包含二次审查）
-**审核状态**：待团队评审
-**下次审查**：重构完成后1周

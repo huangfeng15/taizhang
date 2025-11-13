@@ -4,12 +4,16 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Q
+from project.admin_base import BusinessModelAdmin
 from .models import SupplierEvaluation, SupplierInterview
 
 
 @admin.register(SupplierEvaluation)
-class SupplierEvaluationAdmin(admin.ModelAdmin):
+class SupplierEvaluationAdmin(BusinessModelAdmin):
     """供应商履约评价Admin配置"""
+    
+    # 返回前端列表页配置（暂时禁用，因为没有前端列表页）
+    return_to_frontend_list = False
     
     # 列表页显示字段
     list_display = [

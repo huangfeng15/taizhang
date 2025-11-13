@@ -307,6 +307,7 @@
         // 初始化字段选择器
         ColumnSelector.init(availableColumns, defaultColumns, 'contract_list_columns');
         ColumnSelector.loadColumnSettings();
+        if (!localStorage.getItem('contract_list_columns')) { ColumnSelector.showColumnSelector(); }
         // {% endif %}
     });
     

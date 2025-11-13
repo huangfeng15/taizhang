@@ -178,6 +178,26 @@ class ReportDataService:
             ),
         }
 
+    def get_procurement_details(self) -> list:
+        """获取采购详情列表（封装自 statistics 模块，保持对外接口稳定）"""
+        from project.services.statistics import get_procurement_details
+        return get_procurement_details(self.year, self.project_codes if self.project_codes else None)
+
+    def get_contract_details(self) -> list:
+        """获取合同详情列表"""
+        from project.services.statistics import get_contract_details
+        return get_contract_details(self.year, self.project_codes if self.project_codes else None)
+
+    def get_payment_details(self) -> list:
+        """获取付款详情列表"""
+        from project.services.statistics import get_payment_details
+        return get_payment_details(self.year, self.project_codes if self.project_codes else None)
+
+    def get_settlement_details(self) -> list:
+        """获取结算详情列表"""
+        from project.services.statistics import get_settlement_details
+        return get_settlement_details(self.year, self.project_codes if self.project_codes else None)
+
     def get_executive_summary(self) -> Dict[str, Any]:
         """获取执行摘要数据"""
         stats = self.get_all_statistics()

@@ -35,12 +35,20 @@ def _build_cache_key(prefix: str, year: Optional[int], project_codes: Tuple[str,
 
 @lru_cache(maxsize=128)
 def _compute_combined_statistics(year: Optional[int], project_codes: Tuple[str, ...]) -> Dict[str, Dict]:
+    # 统一通过 ReportDataService 聚合统计，避免直接散落调用（SRP/DRY）
+    from datetime import date
+    from project.services.report_data_service import ReportDataService
+
     codes_list: Optional[Sequence[str]] = list(project_codes) if project_codes else None
+    start = date(year, 1, 1) if year is not None else None
+    end = date(year, 12, 31) if year is not None else None
+    rds = ReportDataService(start, end, codes_list)
+
     return {
-        'procurement': get_procurement_statistics(year, codes_list),
-        'contract': get_contract_statistics(year, codes_list),
-        'payment': get_payment_statistics(year, codes_list),
-        'settlement': get_settlement_statistics(year, codes_list),
+        'procurement': rds.get_procurement_statistics(),
+        'contract': rds.get_contract_statistics(),
+        'payment': rds.get_payment_statistics(),
+        'settlement': rds.get_settlement_statistics(),
     }
 
 

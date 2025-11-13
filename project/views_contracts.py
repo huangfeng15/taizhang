@@ -364,7 +364,9 @@ def contract_detail(request, contract_code):
     if contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
         supplements = getattr(contract, 'supplements', Contract.objects.none()).all().order_by('signing_date')
 
-    evaluations = getattr(contract, 'evaluations', Contract.objects.none()).all() if hasattr(contract, 'evaluations') else []
+    # 获取履约评价记录
+    from supplier_eval.models import SupplierEvaluation
+    evaluations = SupplierEvaluation.objects.filter(contract=contract).order_by('-created_at')
 
     context = {
         'contract': contract,
