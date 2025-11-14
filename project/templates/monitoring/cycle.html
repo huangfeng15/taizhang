@@ -468,6 +468,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="{% static 'js/scatter-chart-optimizer.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 视图模式切换
@@ -777,220 +779,96 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 多序列趋势图（人员/项目）- 散点图版本（无趋势线）
     const multiData = {{ multi_trend_json|safe }};
-    const colorPalette = ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
     
     function renderMultiSeriesChart(elementId, seriesArray, title, isProcurement) {
-        if (!seriesArray || seriesArray.length === 0) {
-            const el = document.getElementById(elementId);
-            if (el) {
-                el.innerHTML = '<div class="alert alert-info text-center">暂无数据</div>';
-            }
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        
+        if (!seriesArray?.length || !seriesArray.some(s => s.points?.length)) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无数据</div>';
             return;
         }
         
-        // 检查是否有有效数据
-        const hasValidData = seriesArray.some(series =>
-            series.points && series.points.length > 0
-        );
-        
-        if (!hasValidData) {
-            const el = document.getElementById(elementId);
-            if (el) {
-                el.innerHTML = '<div class="alert alert-info text-center">暂无有效数据</div>';
-            }
-            return;
-        }
-        
-        // 根据采购方式确定基准线（使用正确的配置）
+        // 根据采购方式确定基准线
         const procurementMethod = '{{ procurement_method }}';
         const procBaseline = procurementMethod ? (PROCUREMENT_DEADLINES[procurementMethod] || DEFAULT_PROCUREMENT_DEADLINE) : DEFAULT_PROCUREMENT_DEADLINE;
+        const baselineValue = isProcurement ? procBaseline : CONTRACT_DEADLINE;
+        const baselineName = isProcurement ? `采购规定周期（${procBaseline}天）` : `合同规定周期（${CONTRACT_DEADLINE}天）`;
+        const baselineColor = isProcurement ? '#ff6b6b' : '#51cf66';
         
-        // 构建系列数据
+        // 使用优化器颜色
+        const colors = window.ScatterChartOptimizer.getOptimizedColors(seriesArray.length);
+        
+        // 构建散点数据
         const chartSeries = [];
         const allPoints = [];
-        
         seriesArray.forEach((series, idx) => {
-            if (!series.points || series.points.length === 0) return;
-            
-            const color = colorPalette[idx % colorPalette.length];
-            
-            // 散点数据
-            const scatterData = series.points.map(p => ({
-                x: new Date(p.date).getTime(),
-                y: p.cycle_days,
-                code: p.code,
-                name: p.name,
-                person: p.person
+            if (!series.points?.length) return;
+            const data = series.points.map(p => ({
+                x: new Date(p.date).getTime(), y: p.cycle_days,
+                code: p.code, name: p.name, person: p.person
             }));
-            
-            chartSeries.push({
-                name: series.name,
-                type: 'scatter',
-                data: scatterData,
-                color: color
-            });
-            
-            allPoints.push(...scatterData);
+            chartSeries.push({name: series.name, type: 'scatter', data, color: colors[idx]});
+            allPoints.push(...data);
         });
         
-        // 计算Y轴最大值用于区域标注
-        const allY = allPoints.map(p => p.y);
-        const baselineValue = isProcurement ? procBaseline : CONTRACT_DEADLINE;
-        const yMax = Math.max(...allY, baselineValue) * 1.2;
-
-        // 根据全局年度筛选，固定X轴刻度（全部年度=半年；单一年度=按月）
-        const xaxis = {
-            type: 'datetime',
-            title: { text: '完成时间' },
-            labels: {
-                format: 'yyyy年MM月'
+        // 计算X轴范围
+        const allX = allPoints.map(p => p.x);
+        let axisMin = Math.min(...allX), axisMax = Math.max(...allX);
+        const globalYearValue = '{{ filter_config.selected_year_value }}';
+        const isAllYears = !globalYearValue || globalYearValue === 'all';
+        
+        if (isAllYears) {
+            const startYear = new Date(axisMin).getFullYear(), endYear = new Date(axisMax).getFullYear();
+            axisMin = new Date(startYear, 0, 1).getTime();
+            axisMax = new Date(endYear, 11, 31).getTime();
+        } else {
+            const year = parseInt(globalYearValue, 10);
+            if (!isNaN(year)) {
+                axisMin = new Date(year, 0, 1).getTime();
+                axisMax = new Date(year, 11, 31).getTime();
             }
-        };
-        if (allPoints.length > 0) {
-            const allX = allPoints.map(p => p.x);
-            const minDate = new Date(Math.min(...allX));
-            const maxDate = new Date(Math.max(...allX));
-            const globalYearValue = '{{ filter_config.selected_year_value }}';
-            const isAllYears = !globalYearValue || globalYearValue === 'all';
-            // 默认使用数据范围作为基准线起止
-            let axisMin = Math.min(...allX);
-            let axisMax = Math.max(...allX);
-
-            if (isAllYears) {
-                const startYear = minDate.getFullYear();
-                const endYear = maxDate.getFullYear();
-                axisMin = new Date(startYear, 0, 1).getTime();
-                axisMax = new Date(endYear, 11, 31).getTime();
-                const yearSpan = endYear - startYear + 1;
-                xaxis.min = axisMin;
-                xaxis.max = axisMax;
-                xaxis.tickAmount = yearSpan * 2 + 1;  // 半年一个刻度
-            } else {
-                const yearInt = parseInt(globalYearValue, 10);
-                if (!isNaN(yearInt)) {
-                    axisMin = new Date(yearInt, 0, 1).getTime();
-                    axisMax = new Date(yearInt, 11, 31).getTime();
-                    xaxis.min = axisMin;
-                    xaxis.max = axisMax;
-                    xaxis.tickAmount = 12;  // 按月刻度
-                }
-            }
-
-            // 基准线：起止补满整个横轴范围
-            const baselineName = isProcurement ? `采购规定周期（${procBaseline}天）` : `合同规定周期（${CONTRACT_DEADLINE}天）`;
-            const baselineColor = isProcurement ? '#ff6b6b' : '#51cf66';
-            
-            chartSeries.push({
-                name: baselineName,
-                type: 'line',
-                data: [{ x: axisMin, y: baselineValue }, { x: axisMax, y: baselineValue }],
-                color: baselineColor
-            });
         }
-
-        const options = {
-            chart: {
-                type: 'line',
-                height: 400,
-                toolbar: { show: true },
-                zoom: { enabled: true }
-            },
-            series: chartSeries,
-            xaxis: xaxis,
-            yaxis: {
-                title: { text: '工作周期（天）' },
-                max: yMax,
-                labels: {
-                    formatter: function(value) {
-                        return value ? Math.round(value) : '';
-                    }
-                }
-            },
-            title: {
-                text: title,
-                align: 'left',
-                style: { fontSize: '16px', fontWeight: 600 }
-            },
-            stroke: {
-                width: chartSeries.map(s => s.type === 'line' ? 3 : 0),
-                dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)
-            },
-            markers: {
-                size: chartSeries.map(s => s.type === 'scatter' ? 5 : 0)
-            },
-            dataLabels: {
-                enabled: false
-            },
-            annotations: {
-                yaxis: [
-                    {
-                        y: 0,
-                        y2: baselineValue,
-                        fillColor: '#d4edda',
-                        opacity: 0.2,
-                        label: {
-                            text: '低于基准时间',
-                            style: {
-                                color: '#155724',
-                                background: '#d4edda'
-                            }
-                        }
-                    },
-                    {
-                        y: baselineValue,
-                        y2: yMax,
-                        fillColor: '#f8d7da',
-                        opacity: 0.2,
-                        label: {
-                            text: '超出基准时间',
-                            style: {
-                                color: '#721c24',
-                                background: '#f8d7da'
-                            }
-                        }
-                    }
-                ]
-            },
-            legend: {
-                show: true,
-                position: 'top',
-                horizontalAlign: 'right',
-                markers: {
-                    width: 12,
-                    height: 12
-                }
-            },
-            tooltip: {
-                enabled: true,
-                shared: false,
-                intersect: true,
-                x: {
-                    format: 'yyyy年MM月dd日'
-                },
-                y: {
-                    formatter: function(value, { seriesIndex, dataPointIndex, w }) {
-                        const series = w.config.series[seriesIndex];
-                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
-                            const point = series.data[dataPointIndex];
-                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person || ''}`;
-                        }
-                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
-                    }
-                }
-            },
-            colors: chartSeries.map(s => s.color),
-            grid: {
-                borderColor: '#e7e7e7',
-                strokeDashArray: 4
-            }
+        
+        // 添加基准线
+        chartSeries.push({
+            name: baselineName, type: 'line',
+            data: [{x: axisMin, y: baselineValue}, {x: axisMax, y: baselineValue}],
+            color: baselineColor
+        });
+        
+        // 使用优化器生成配置
+        const options = window.ScatterChartOptimizer.generateOptimizedScatterConfig({
+            seriesData: chartSeries, title, yAxisTitle: '工作周期（天）',
+            baselineValue, baselineName, containerWidth: el.offsetWidth, enableInteraction: true
+        });
+        
+        // 覆盖X轴配置
+        options.xaxis = {
+            type: 'datetime', title: {text: '完成时间'}, labels: {format: 'yyyy年MM月'},
+            min: axisMin, max: axisMax,
+            tickAmount: isAllYears ? (new Date(axisMax).getFullYear() - new Date(axisMin).getFullYear() + 1) * 2 + 1 : 12
         };
         
-        const el = document.getElementById(elementId);
-        if (el) {
-            el.innerHTML = '';
-            const chart = new ApexCharts(el, options);
-            chart.render();
-        }
+        // 添加区域标注
+        const yMax = Math.max(...allPoints.map(p => p.y), baselineValue) * 1.2;
+        options.annotations = {
+            yaxis: [
+                {y: 0, y2: baselineValue, fillColor: '#d4edda', opacity: 0.2},
+                {y: baselineValue, y2: yMax, fillColor: '#f8d7da', opacity: 0.2}
+            ]
+        };
+        
+        // 渲染图表
+        el.innerHTML = '';
+        const chart = new ApexCharts(el, options);
+        chart.render();
+        
+        // 启用响应式
+        window.ScatterChartOptimizer.makeChartResponsive(chart, {
+            seriesData: chartSeries, title, yAxisTitle: '工作周期（天）',
+            baselineValue, baselineName
+        });
     }
     
     // 等待 ApexCharts 加载完成后再渲染图表

@@ -91,6 +91,14 @@ def generate_report(request):
         else:
             report_data = generator.generate_data(report_type='standard')
 
+        # 补齐顶层通用字段，便于模板和文件名使用
+        if isinstance(report_data, dict):
+            meta = report_data.get('meta', {}) or {}
+            summary = report_data.get('summary', {}) or {}
+            report_data.setdefault('title', meta.get('report_title', '工作报告'))
+            report_data.setdefault('period_start', meta.get('period_start') or summary.get('period_start'))
+            report_data.setdefault('period_end', meta.get('period_end') or summary.get('period_end'))
+
         if export_format == 'word':
             try:
                 from project.services.report_generator import export_to_word
