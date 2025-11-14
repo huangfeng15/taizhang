@@ -445,13 +445,14 @@ def cycle_monitor(request):
     """工作周期监控（项目/个人视图）。"""
     from project.services.monitors.cycle_statistics import CycleStatisticsService
     from project.services.monitors.config import SEVERITY_CONFIG, CYCLE_RULES
+    from project.enums import ProcurementMethod
 
     global_filters = _extract_monitoring_filters(request)[0]
     global_filters = _resolve_global_filters(request)
     view_mode = request.GET.get('view_mode', 'project')
     target_code = request.GET.get('target_code', '')
     show_all = request.GET.get('show_all', '') == 'true'
-    procurement_method = request.GET.get('procurement_method', '')
+    procurement_method = request.GET.get('procurement_method', ProcurementMethod.PUBLIC_INQUIRY.value)
 
     stats_service = CycleStatisticsService()
 
