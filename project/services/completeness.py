@@ -149,6 +149,7 @@ def check_procurement_field_completeness(year=None, project_codes=None):
             incomplete_records.append({
                 'code': procurement.procurement_code,
                 'name': procurement.project_name,
+                'project_code': procurement.project.project_code if procurement.project else '',
                 'completeness': round(completeness, 2),
                 'filled_count': filled_fields,
                 'total_fields': len(required_fields),
@@ -254,6 +255,7 @@ def check_contract_field_completeness(year=None, project_codes=None):
             incomplete_records.append({
                 'code': contract.contract_code,
                 'name': contract.contract_name,
+                'project_code': contract.project.project_code if contract.project else '',
                 'completeness': round(completeness, 2),
                 'filled_count': filled_fields,
                 'total_fields': len(required_fields),

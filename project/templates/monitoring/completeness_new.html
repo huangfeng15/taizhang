@@ -1,0 +1,797 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
+<style>
+:root {
+    --primary-color: #1890ff;
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-primary: #262626;
+    --text-secondary: #595959;
+    --border-color: #e8e8e8;
+    --success-color: #52c41a;
+    --error-color: #ff4d4f;
+    --warning-color: #faad14;
+    --info-color: #1890ff;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+/* 视图切换器 */
+.view-switcher {
+    display: inline-flex;
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: var(--shadow);
+}
+
+.view-switcher-btn {
+    padding: 8px 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.view-switcher-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.view-switcher-btn:hover:not(.active) {
+    background: #f5f5f5;
+}
+
+/* KPI卡片 */
+.kpi-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.kpi-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--primary-color);
+}
+
+.kpi-card.is-success {
+    border-top-color: var(--success-color);
+}
+
+.kpi-card-title {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.kpi-card-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.kpi-card-value .unit {
+    font-size: 20px;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+.kpi-card-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+/* 主内容卡片 */
+.main-content-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+
+.card-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #40a9ff 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    margin: -24px -24px 24px -24px;
+}
+
+.card-header-custom h5 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* 概览表格 */
+.overview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.overview-table thead {
+    background: #fafafa;
+}
+
+.overview-table th,
+.overview-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.overview-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.overview-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.overview-table a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.overview-table a:hover {
+    text-decoration: underline;
+}
+
+/* 进度条 */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-bar-wrapper {
+    flex: 1;
+    height: 10px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+.progress-bar-fill.excellent {
+    background: linear-gradient(90deg, var(--success-color), #73d13d);
+}
+
+.progress-bar-fill.good {
+    background: linear-gradient(90deg, var(--warning-color), #ffc53d);
+}
+
+.progress-bar-fill.poor {
+    background: linear-gradient(90deg, var(--error-color), #ff7875);
+}
+
+.progress-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 50px;
+}
+
+/* 状态徽章 */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status-badge.excellent {
+    background: rgba(82, 196, 26, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.good {
+    background: rgba(250, 173, 20, 0.1);
+    color: var(--warning-color);
+}
+
+.status-badge.poor {
+    background: rgba(255, 77, 79, 0.1);
+    color: var(--error-color);
+}
+
+/* 详情按钮 */
+.btn-detail {
+    padding: 6px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-detail:hover {
+    background: #40a9ff;
+    transform: translateY(-2px);
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 16px;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    
+    .kpi-overview {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+        <div>
+            <h1 class="page-title"><i class="fas fa-check-double"></i> {{ page_title }}</h1>
+            <div class="breadcrumb" style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">
+                <a href="{% url 'dashboard' %}" style="color: var(--primary-color);">首页</a>
+                <span> / </span>
+                <span>齐全性检查</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <!-- 视图切换器 -->
+            <div class="view-switcher">
+                <button class="view-switcher-btn {% if view_mode == 'project' %}active{% endif %}" 
+                        onclick="switchView('project')">
+                    <i class="fas fa-project-diagram"></i> 项目视图
+                </button>
+                <button class="view-switcher-btn {% if view_mode == 'person' %}active{% endif %}" 
+                        onclick="switchView('person')">
+                    <i class="fas fa-user"></i> 个人视图
+                </button>
+            </div>
+            
+            <!-- 字段配置按钮 -->
+            <a href="{% url 'completeness_field_config' %}" class="btn btn-outline-primary">
+                <i class="fas fa-cog"></i> 字段配置
+            </a>
+        </div>
+    </header>
+
+    <!-- KPI总览 -->
+    <section class="kpi-overview">
+        <div class="kpi-card is-success">
+            <div class="kpi-card-title">
+                <i class="fas fa-shopping-cart"></i> 采购齐全率
+            </div>
+            <div class="kpi-card-value">
+                {{ overview.procurement_field_check.completeness_rate }}<span class="unit">%</span>
+            </div>
+            <div class="kpi-card-subtitle">
+                {{ overview.procurement_field_check.field_count }}个字段
+            </div>
+        </div>
+        
+        <div class="kpi-card is-success">
+            <div class="kpi-card-title">
+                <i class="fas fa-file-contract"></i> 合同齐全率
+            </div>
+            <div class="kpi-card-value">
+                {{ overview.contract_field_check.completeness_rate }}<span class="unit">%</span>
+            </div>
+            <div class="kpi-card-subtitle">
+                {{ overview.contract_field_check.field_count }}个字段
+            </div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-card-title">
+                <i class="fas fa-database"></i> {% if view_mode == 'project' %}项目总数{% else %}经办人总数{% endif %}
+            </div>
+            <div class="kpi-card-value">
+                {% if view_mode == 'project' %}
+                    {{ overview_data.summary.project_count }}
+                {% else %}
+                    {{ overview_data.summary.person_count }}
+                {% endif %}
+            </div>
+            <div class="kpi-card-subtitle">
+                个{% if view_mode == 'project' %}项目{% else %}经办人{% endif %}
+            </div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-card-title">
+                <i class="fas fa-chart-line"></i> 综合齐全率
+            </div>
+            <div class="kpi-card-value">
+                {{ overview_data.summary.overall_rate }}<span class="unit">%</span>
+            </div>
+            <div class="kpi-card-subtitle">
+                采购+合同综合
+            </div>
+        </div>
+    </section>
+
+    <!-- 概览统计表格 -->
+    <div class="main-content-card">
+        <div class="card-header-custom">
+            <h5>
+                <i class="fas fa-list"></i> 
+                {% if view_mode == 'project' %}项目齐全性统计明细{% else %}经办人齐全性统计明细{% endif %}
+            </h5>
+        </div>
+
+        {% if view_mode == 'project' %}
+            <!-- 项目视图表格 -->
+            {% if overview_data.projects %}
+            <div class="table-responsive">
+                <table class="overview-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">项目编码</th>
+                            <th style="width: 20%;">项目名称</th>
+                            <th style="width: 10%;">采购记录</th>
+                            <th style="width: 15%;">采购齐全率</th>
+                            <th style="width: 10%;">合同记录</th>
+                            <th style="width: 15%;">合同齐全率</th>
+                            <th style="width: 10%;">综合齐全率</th>
+                            <th style="width: 5%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in overview_data.projects %}
+                        <tr>
+                            <td>{{ item.project_code }}</td>
+                            <td>
+                                <a href="{% url 'project_detail' item.project_code %}">
+                                    {{ item.project_name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span title="总记录数">{{ item.procurement_count }}</span>
+                            </td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill {% if item.procurement_rate >= 90 %}excellent{% elif item.procurement_rate >= 70 %}good{% else %}poor{% endif %}"
+                                             style="width: {{ item.procurement_rate }}%"></div>
+                                    </div>
+                                    <span class="progress-text">{{ item.procurement_rate }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span title="总记录数">{{ item.contract_count }}</span>
+                            </td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill {% if item.contract_rate >= 90 %}excellent{% elif item.contract_rate >= 70 %}good{% else %}poor{% endif %}"
+                                             style="width: {{ item.contract_rate }}%"></div>
+                                    </div>
+                                    <span class="progress-text">{{ item.contract_rate }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if item.overall_rate >= 90 %}excellent{% elif item.overall_rate >= 70 %}good{% else %}poor{% endif %}">
+                                    <strong>{{ item.overall_rate }}%</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn-detail" onclick="viewDetail('{{ item.project_code }}')">
+                                    详情
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>暂无项目数据</p>
+            </div>
+            {% endif %}
+        {% else %}
+            <!-- 个人视图表格 -->
+            {% if overview_data.persons %}
+            <div class="table-responsive">
+                <table class="overview-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">姓名</th>
+                            <th style="width: 8%;">项目数</th>
+                            <th style="width: 10%;">采购记录</th>
+                            <th style="width: 15%;">采购齐全率</th>
+                            <th style="width: 10%;">合同记录</th>
+                            <th style="width: 15%;">合同齐全率</th>
+                            <th style="width: 10%;">综合齐全率</th>
+                            <th style="width: 5%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in overview_data.persons %}
+                        <tr>
+                            <td><strong>{{ item.handler_name }}</strong></td>
+                            <td>{{ item.project_count }}个</td>
+                            <td>
+                                <span title="总记录数">{{ item.procurement_count }}</span>
+                            </td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill {% if item.procurement_rate >= 90 %}excellent{% elif item.procurement_rate >= 70 %}good{% else %}poor{% endif %}"
+                                             style="width: {{ item.procurement_rate }}%"></div>
+                                    </div>
+                                    <span class="progress-text">{{ item.procurement_rate }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span title="总记录数">{{ item.contract_count }}</span>
+                            </td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill {% if item.contract_rate >= 90 %}excellent{% elif item.contract_rate >= 70 %}good{% else %}poor{% endif %}"
+                                             style="width: {{ item.contract_rate }}%"></div>
+                                    </div>
+                                    <span class="progress-text">{{ item.contract_rate }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if item.overall_rate >= 90 %}excellent{% elif item.overall_rate >= 70 %}good{% else %}poor{% endif %}">
+                                    <strong>{{ item.overall_rate }}%</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn-detail" onclick="viewDetail('{{ item.handler_name }}')">
+                                    详情
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>暂无经办人数据</p>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- 操作提示 -->
+    <div class="main-content-card" style="background: linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%); border: 1px solid var(--border-color);">
+        <h6 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+            <i class="fas fa-lightbulb"></i> 使用说明
+        </h6>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>视图切换</strong>：点击顶部按钮在项目视图和个人视图之间切换</li>
+            <li><strong>齐全率计算</strong>：齐全率 = 已填写字段数 / 总字段数（所有记录的平均值）</li>
+            <li><strong>记录数量</strong>：显示该项目/经办人的采购和合同记录总数</li>
+            <li><strong>字段配置</strong>：点击"字段配置"按钮可自定义哪些字段纳入齐全性统计</li>
+            <li><strong>查看详情</strong>：点击"详情"按钮查看具体的字段填写情况和不完整记录</li>
+            <li><strong>评级标准</strong>：优秀 ≥ 90%，良好 70%-90%，待改进 < 70%</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 详情模态框（选择了target_code时显示） -->
+{% if target_code and detail_data %}
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    {% if view_mode == 'project' %}项目详情{% else %}经办人详情{% endif %} - {{ target_code }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 详情概要 -->
+                {% if detail_data.summary %}
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-center" style="border-left: 4px solid #6c757d;">
+                            <div class="card-body">
+                                <h6 class="text-muted">综合齐全率</h6>
+                                <h2 class="text-success">{{ detail_data.summary.overall_rate }}%</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center" style="border-left: 4px solid #0d6efd;">
+                            <div class="card-body">
+                                <h6 class="text-muted">采购齐全率</h6>
+                                <h4>{{ detail_data.summary.procurement.completeness_rate }}%</h4>
+                                <small class="text-muted">{{ detail_data.summary.procurement.field_count }}个字段</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center" style="border-left: 4px solid #198754;">
+                            <div class="card-body">
+                                <h6 class="text-muted">合同齐全率</h6>
+                                <h4>{{ detail_data.summary.contract.completeness_rate }}%</h4>
+                                <small class="text-muted">{{ detail_data.summary.contract.field_count }}个字段</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 字段统计 -->
+                <h6 class="mt-4">字段填写统计</h6>
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="proc-fields-tab" data-bs-toggle="tab"
+                                data-bs-target="#proc-fields" type="button" role="tab">采购字段</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cont-fields-tab" data-bs-toggle="tab"
+                                data-bs-target="#cont-fields" type="button" role="tab">合同字段</button>
+                    </li>
+                </ul>
+                <div class="tab-content border border-top-0 p-3">
+                    <div class="tab-pane fade show active" id="proc-fields" role="tabpanel">
+                        {% if detail_data.procurement_field_stats %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>字段名称</th>
+                                    <th>填写数量</th>
+                                    <th>填写率</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for field in detail_data.procurement_field_stats %}
+                                <tr>
+                                    <td>{{ field.field_label }}</td>
+                                    <td>{{ field.filled_count }}/{{ detail_data.summary.procurement.total_count }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" style="width: {{ field.fill_rate }}%">
+                                                {{ field.fill_rate }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-info">暂无采购字段数据</div>
+                        {% endif %}
+                    </div>
+                    <div class="tab-pane fade" id="cont-fields" role="tabpanel">
+                        {% if detail_data.contract_field_stats %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>字段名称</th>
+                                    <th>填写数量</th>
+                                    <th>填写率</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for field in detail_data.contract_field_stats %}
+                                <tr>
+                                    <td>{{ field.field_label }}</td>
+                                    <td>{{ field.filled_count }}/{{ detail_data.summary.contract.total_count }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" style="width: {{ field.fill_rate }}%">
+                                                {{ field.fill_rate }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-info">暂无合同字段数据</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 不完整记录 -->
+                <h6 class="mt-4">不完整记录</h6>
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="proc-incomplete-tab" data-bs-toggle="tab"
+                                data-bs-target="#proc-incomplete" type="button" role="tab">
+                            采购不完整记录 ({{ detail_data.procurement_incomplete|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cont-incomplete-tab" data-bs-toggle="tab"
+                                data-bs-target="#cont-incomplete" type="button" role="tab">
+                            合同不完整记录 ({{ detail_data.contract_incomplete|length }})
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content border border-top-0 p-3">
+                    <div class="tab-pane fade show active" id="proc-incomplete" role="tabpanel">
+                        {% if detail_data.procurement_incomplete %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>编号</th>
+                                    <th>名称</th>
+                                    <th>齐全率</th>
+                                    <th>缺失字段</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in detail_data.procurement_incomplete %}
+                                <tr>
+                                    <td>{{ record.code }}</td>
+                                    <td>{{ record.name }}</td>
+                                    <td>{{ record.completeness }}%</td>
+                                    <td>
+                                        <small>{{ record.missing_fields|join:", " }}
+                                        {% if record.missing_count > 5 %}等{{ record.missing_count }}个{% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-success">所有采购记录都已完整填写</div>
+                        {% endif %}
+                    </div>
+                    <div class="tab-pane fade" id="cont-incomplete" role="tabpanel">
+                        {% if detail_data.contract_incomplete %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>编号</th>
+                                    <th>名称</th>
+                                    <th>齐全率</th>
+                                    <th>缺失字段</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in detail_data.contract_incomplete %}
+                                <tr>
+                                    <td>{{ record.code }}</td>
+                                    <td>{{ record.name }}</td>
+                                    <td>{{ record.completeness }}%</td>
+                                    <td>
+                                        <small>{{ record.missing_fields|join:", " }}
+                                        {% if record.missing_count > 5 %}等{{ record.missing_count }}个{% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-success">所有合同记录都已完整填写</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 视图切换功能
+    function switchView(mode) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('view_mode', mode);
+        url.searchParams.delete('target_code');
+        window.location.href = url.toString();
+    }
+    
+    // 将函数暴露到全局作用域
+    window.switchView = switchView;
+
+    // 查看详情
+    function viewDetail(targetCode) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('target_code', targetCode);
+        window.location.href = url.toString();
+    }
+    
+    // 将函数暴露到全局作用域
+    window.viewDetail = viewDetail;
+
+    // 详情模态框：自动弹出与URL清理
+    {% if target_code %}
+    const detailModalEl = document.getElementById('detailModal');
+    if (detailModalEl && window.bootstrap) {
+        const detailModal = new bootstrap.Modal(detailModalEl);
+        detailModal.show();
+        detailModalEl.addEventListener('hidden.bs.modal', function() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('target_code');
+            history.replaceState({}, '', url.toString());
+        });
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}

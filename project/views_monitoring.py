@@ -15,6 +15,93 @@ from project.constants import BASE_YEAR
 from .models import Project
 
 
+# 更新监控使用到的业务模块键名，保持与统计服务中的配置一致
+UPDATE_MODULE_KEYS = ("procurement", "contract", "payment", "settlement")
+
+
+def _normalize_module_filter(raw):
+    """
+    标准化更新监控页面的业务类型筛选值。
+
+    未提供或不合法时统一返回 'all'。
+    """
+    if not raw:
+        return "all"
+    value = str(raw).strip()
+    return value if value in UPDATE_MODULE_KEYS else "all"
+
+
+def _filter_update_overview_by_module(overview_data, module_filter, view_mode):
+    """
+    在列表层面对更新监控概览数据做业务类型过滤。
+
+    仅过滤 projects/persons 列表，保留 summary 原始汇总，避免重复统计开销。
+    """
+    if not overview_data or module_filter == "all":
+        return overview_data
+
+    key_name = "projects" if view_mode == "project" else "persons"
+    items = overview_data.get(key_name)
+    if not items:
+        return overview_data
+
+    field_map = {
+        "procurement": "procurement_count",
+        "contract": "contract_count",
+        "payment": "payment_count",
+        "settlement": "settlement_count",
+    }
+    count_field = field_map.get(module_filter)
+    if not count_field:
+        return overview_data
+
+    filtered_items = [
+        item
+        for item in items
+        if (item.get(count_field) or 0) > 0
+    ]
+
+    # 如果筛选结果为空，为避免页面完全空白，回退到原始数据
+    if not filtered_items:
+        return overview_data
+
+    new_data = overview_data.copy()
+    new_data[key_name] = filtered_items
+    return new_data
+
+
+def _filter_update_problems_by_module(data, module_filter):
+    """
+    按业务类型过滤 UpdateStatisticsService 返回的数据中的 problems 字段。
+
+    data 形如:
+        {
+            'problems': {
+                'upcoming': [...],
+                'delayed': [...],
+                'completed': [...],
+            },
+            ...
+        }
+    """
+    if not data or module_filter == "all":
+        return data
+
+    problems = data.get("problems")
+    if not problems:
+        return data
+
+    filtered = {}
+    for severity, items in problems.items():
+        filtered_items = [item for item in items if item.get("module") == module_filter]
+        if filtered_items:
+            filtered[severity] = filtered_items
+
+    new_data = data.copy()
+    new_data["problems"] = filtered
+    return new_data
+
+
 def monitoring_cockpit(request):
     """综合监控驾驶舱。"""
     year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
@@ -258,28 +345,32 @@ def update_monitor(request):
 
     # 1. 解析全局筛选参数（与归档监控完全一致）
     global_filters = _resolve_global_filters(request)
-    view_mode = request.GET.get('view_mode', 'project')
-    target_code = request.GET.get('target_code', '')
-    show_all = request.GET.get('show_all', '') == 'true'
-    
-    # 解析起始日期参数
+    view_mode = request.GET.get("view_mode", "project")
+    target_code = request.GET.get("target_code", "")
+    show_all = request.GET.get("show_all", "") == "true"
+    module_filter = _normalize_module_filter(request.GET.get("module"))
+
+    # 解析起始日期参数，默认为2025-10-01
     start_date = None
-    start_date_str = request.GET.get('start_date', '')
+    start_date_str = request.GET.get("start_date", "2025-10-01")
     if start_date_str:
         try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         except ValueError:
             start_date = None
 
-    # 2. 初始化统计门面（简洁的接口调用）
-    facade = UpdateStatisticsFacade(start_date=start_date)
+    # 2. 初始化统计门面（简洁的接口调用），携带业务类型筛选
+    facade = UpdateStatisticsFacade(start_date=start_date, module_filter=module_filter)
 
     # 3. 获取概览数据（项目视图或个人视图）
     overview_data = facade.get_overview(
         view_mode=view_mode,
-        year_filter=global_filters['year_value'],
-        project_filter=global_filters['project'],
-        start_date=start_date
+        year_filter=global_filters["year_value"],
+        project_filter=global_filters["project"],
+        start_date=start_date,
+    )
+    overview_data = _filter_update_overview_by_module(
+        overview_data, module_filter, view_mode
     )
 
     # 4. 获取详情数据（如果有目标）
@@ -288,91 +379,164 @@ def update_monitor(request):
         detail_data = facade.get_detail(
             view_mode=view_mode,
             target_code=target_code,
-            year_filter=global_filters['year_value'],
-            project_filter=global_filters['project'],
-            show_all=show_all
+            year_filter=global_filters["year_value"],
+            project_filter=global_filters["project"],
+            show_all=show_all,
         )
 
     # 5. 获取主页面的趋势和问题数据
     trend_and_problems = facade.get_trend_and_problems(
         view_mode=view_mode,
-        year_filter=global_filters['year_value'],
-        project_filter=global_filters['project'],
-        show_all=show_all
+        year_filter=global_filters["year_value"],
+        project_filter=global_filters["project"],
+        show_all=show_all,
+    )
+    trend_and_problems = _filter_update_problems_by_module(
+        trend_and_problems, module_filter
     )
 
     # 6. 构建上下文（与归档监控保持一致的结构）
-    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
-    
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(
+        request
+    )
+
     # 准备趋势图数据（JSON格式）
     trend_data_json = {}
+    detail_scatter_json = {}
     if detail_data:
         trend_data_json = {
-            'procurement': detail_data.get('procurement_trend', []),
-            'contract': detail_data.get('contract_trend', []),
-            'payment': detail_data.get('payment_trend', []),
-            'settlement': detail_data.get('settlement_trend', []),
+            "procurement": detail_data.get("procurement_trend", []),
+            "contract": detail_data.get("contract_trend", []),
+            "payment": detail_data.get("payment_trend", []),
+            "settlement": detail_data.get("settlement_trend", []),
         }
+        detail_scatter_json = detail_data.get("scatter", {})
 
     # 准备主页面趋势数据
     main_trend_json = {}
     if trend_and_problems:
         main_trend_json = {
-            'procurement': trend_and_problems.get('procurement_trend', []),
-            'contract': trend_and_problems.get('contract_trend', []),
-            'payment': trend_and_problems.get('payment_trend', []),
-            'settlement': trend_and_problems.get('settlement_trend', []),
+            "procurement": trend_and_problems.get("procurement_trend", []),
+            "contract": trend_and_problems.get("contract_trend", []),
+            "payment": trend_and_problems.get("payment_trend", []),
+            "settlement": trend_and_problems.get("settlement_trend", []),
         }
 
     context = {
-        'page_title': '更新监控',
+        "page_title": "更新监控",
+        "view_mode": view_mode,
+        "target_code": target_code,
+        "overview_data": overview_data,
+        "detail_data": detail_data,
+        "trend_and_problems": trend_and_problems,
+        "show_all": show_all,
+        "start_date": start_date_str,
+        "trend_data_json": json.dumps(trend_data_json, ensure_ascii=False),
+        "detail_scatter_json": json.dumps(detail_scatter_json, ensure_ascii=False),
+        "main_trend_json": json.dumps(main_trend_json, ensure_ascii=False),
+        "filter_config": filter_config,
+        "module_filter": module_filter,
+    }
+    return render(request, "monitoring/update.html", context)
+
+
+def completeness_check(request):
+    """
+    齐全性检查监控 - 双视图模式（项目视图/个人视图）
+    参照归档监控的成功设计模式
+    """
+    from project.services.monitors.completeness_statistics import CompletenessStatisticsService
+    from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
+    from django.core.paginator import Paginator
+
+    # 1. 解析全局筛选参数（与归档监控完全一致）
+    global_filters = _resolve_global_filters(request)
+    view_mode = request.GET.get('view_mode', 'project')
+    target_code = request.GET.get('target_code', '')
+    
+    # 2. 初始化统计服务
+    stats_service = CompletenessStatisticsService()
+
+    # 3. 获取概览数据（项目视图或个人视图）
+    if view_mode == 'project':
+        overview_data = stats_service.get_projects_completeness_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project']
+        )
+    else:
+        overview_data = stats_service.get_persons_completeness_overview(
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project']
+        )
+
+    # 4. 获取详情数据（如果有目标）
+    detail_data = None
+    if target_code:
+        if view_mode == 'project':
+            detail_data = stats_service.get_project_completeness_detail(
+                project_code=target_code,
+                year_filter=global_filters['year_value']
+            )
+        else:
+            detail_data = stats_service.get_person_completeness_detail(
+                person_name=target_code,
+                year_filter=global_filters['year_value'],
+                project_filter=global_filters['project']
+            )
+
+    # 5. 获取整体齐全性概览（用于KPI卡片）
+    completeness_overview = get_completeness_overview(
+        year=int(global_filters['year_value']) if global_filters['year_value'] and global_filters['year_value'] != 'all' else None,
+        project_codes=[global_filters['project']] if global_filters['project'] else None
+    )
+
+    # 6. 获取项目排行榜数据（用于排行榜展示）
+    ranking_data = get_project_completeness_ranking(
+        year=int(global_filters['year_value']) if global_filters['year_value'] and global_filters['year_value'] != 'all' else None,
+        project_codes=[global_filters['project']] if global_filters['project'] else None
+    )
+
+    # 7. 分页处理
+    # 排行榜分页
+    ranking_page = request.GET.get('ranking_page', 1)
+    ranking_paginator = Paginator(ranking_data, 20)
+    ranking_page_obj = ranking_paginator.get_page(ranking_page)
+    
+    # 采购字段分页
+    procurement_page = request.GET.get('procurement_page', 1)
+    procurement_paginator = Paginator(completeness_overview['procurement_field_check']['field_stats'], 10)
+    procurement_page_obj = procurement_paginator.get_page(procurement_page)
+    
+    # 合同字段分页
+    contract_page = request.GET.get('contract_page', 1)
+    contract_paginator = Paginator(completeness_overview['contract_field_check']['field_stats'], 10)
+    contract_page_obj = contract_paginator.get_page(contract_page)
+
+    # 8. 构建分页查询字符串
+    from project.views_helpers import _build_pagination_querystring
+    ranking_pagination_query = _build_pagination_querystring(request, excluded_keys=['ranking_page'])
+    procurement_pagination_query = _build_pagination_querystring(request, excluded_keys=['procurement_page'])
+    contract_pagination_query = _build_pagination_querystring(request, excluded_keys=['contract_page'])
+
+    # 9. 构建上下文
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
+    
+    context = {
+        'page_title': '齐全性检查',
         'view_mode': view_mode,
         'target_code': target_code,
         'overview_data': overview_data,
         'detail_data': detail_data,
-        'trend_and_problems': trend_and_problems,
-        'show_all': show_all,
-        'start_date': start_date_str,
-        'trend_data_json': json.dumps(trend_data_json, ensure_ascii=False),
-        'main_trend_json': json.dumps(main_trend_json, ensure_ascii=False),
+        'overview': completeness_overview,
+        'ranking_page_obj': ranking_page_obj,
+        'procurement_page_obj': procurement_page_obj,
+        'contract_page_obj': contract_page_obj,
+        'ranking_pagination_query': ranking_pagination_query,
+        'procurement_pagination_query': procurement_pagination_query,
+        'contract_pagination_query': contract_pagination_query,
         'filter_config': filter_config,
     }
-    return render(request, 'monitoring/update.html', context)
-
-
-def completeness_check(request):
-    """齐全性校验 - 问题列表视图。"""
-    from project.services.monitors.completeness_checker import CompletenessChecker
-
-    global_filters = _resolve_global_filters(request)
-    responsible_person = request.GET.get('responsible_person', '')
-    show_all = request.GET.get('show_all', '') == 'true'
-
-    filters = {}
-    if global_filters['year_filter']:
-        filters['year_filter'] = global_filters['year_filter']
-    if global_filters['project']:
-        filters['project'] = global_filters['project']
-    if responsible_person:
-        filters['responsible_person'] = responsible_person
-
-    return_url = request.get_full_path()
-
-    checker = CompletenessChecker()
-    problems = checker.check_problems(filters, return_url=return_url, show_all=show_all)
-    statistics = checker.get_statistics(problems, filters)
-
-    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
-    context = {
-        'problems': problems,
-        'statistics': statistics,
-        'selected_project': global_filters['project'],
-        'selected_person': responsible_person,
-        'show_all': show_all,
-        'page_title': '齐全性校验',
-        'filter_config': filter_config,
-    }
-    return render(request, 'monitoring/completeness_problems.html', context)
+    return render(request, 'monitoring/completeness_new.html', context)
 
 
 @staff_member_required

@@ -8,54 +8,201 @@
 <style>
     .view-mode-selector {
         display: inline-flex;
-        border-radius: 0.375rem;
+        border-radius: 0.5rem;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        background: white;
     }
     .view-mode-btn {
-        padding: 0.5rem 1.5rem;
+        padding: 0.625rem 1.75rem;
         border: none;
         background: white;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.3s ease;
         font-weight: 500;
+        font-size: 0.95rem;
+        position: relative;
+    }
+    .view-mode-btn:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 60%;
+        width: 1px;
+        background: #e0e0e0;
     }
     .view-mode-btn:hover {
         background: #f8f9fa;
     }
     .view-mode-btn.active {
-        background: #0d6efd;
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
         color: white;
     }
+    .view-mode-btn.active::after {
+        display: none;
+    }
+    
+    /* 筛选卡片优化 */
+    .filter-card {
+        border: none;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border-radius: 0.75rem;
+        margin-bottom: 1.75rem;
+    }
+    .filter-card .card-body {
+        padding: 1.75rem 2rem;
+    }
+    .filter-card .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    .filter-card .form-control,
+    .filter-card .form-select {
+        border-radius: 0.5rem;
+        border: 1px solid #dee2e6;
+        padding: 0.625rem 0.875rem;
+        transition: all 0.2s;
+    }
+    .filter-card .form-control:focus,
+    .filter-card .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13,110,253,0.15);
+    }
+    .filter-card .btn {
+        border-radius: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .filter-card .alert-info {
+        background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+        border: 1px solid #b6d4fe;
+        border-radius: 0.5rem;
+        color: #084298;
+        font-size: 0.9rem;
+    }
+    
+    /* 汇总卡片全新设计 */
     .stats-card {
-        border-left: 4px solid;
-        transition: transform 0.2s;
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
         height: 100%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+        position: relative;
     }
-    .stats-card .card-body { padding: 0.75rem 1rem; }
-    .stats-card h2, .stats-card h3 { margin: 0.25rem 0; }
-    .stats-card h6 { margin-bottom: 0.25rem; }
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--card-color) 0%, var(--card-color-light) 100%);
+    }
     .stats-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
-    .stats-card.procurement {
-        border-left-color: #0d6efd;
+    .stats-card .card-body {
+        padding: 1rem 1.25rem;
+        position: relative;
     }
-    .stats-card.contract {
-        border-left-color: #198754;
+    .stats-card h6 {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.75rem;
     }
-    .stats-card.payment {
-        border-left-color: #ffc107;
+    .stats-card h2, .stats-card h3 {
+        font-weight: 700;
+        margin: 0.5rem 0;
+        line-height: 1.2;
     }
-    .stats-card.settlement {
-        border-left-color: #6f42c1;
+    .stats-card h2 {
+        font-size: 2rem;
     }
+    .stats-card h3 {
+        font-size: 1.5rem;
+    }
+    .stats-card small {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    /* 各业务类型配色 */
     .stats-card.overall {
-        border-left-color: #6c757d;
+        --card-color: #6c757d;
+        --card-color-light: #adb5bd;
     }
+    .stats-card.overall h2 {
+        color: #495057;
+    }
+    
+    .stats-card.procurement {
+        --card-color: #0d6efd;
+        --card-color-light: #6ea8fe;
+    }
+    .stats-card.procurement h3 {
+        color: #0d6efd;
+    }
+    
+    .stats-card.contract {
+        --card-color: #198754;
+        --card-color-light: #75b798;
+    }
+    .stats-card.contract h3 {
+        color: #198754;
+    }
+    
+    .stats-card.payment {
+        --card-color: #fd7e14;
+        --card-color-light: #feb272;
+    }
+    .stats-card.payment h3 {
+        color: #fd7e14;
+    }
+    
+    .stats-card.settlement {
+        --card-color: #6f42c1;
+        --card-color-light: #a98eda;
+    }
+    .stats-card.settlement h3 {
+        color: #6f42c1;
+    }
+    
     /* Equal height helpers for cards */
-    .equal-col { display: flex; }
-    .equal-col .card { height: 100%; width: 100%; }
+    .equal-col {
+        display: flex;
+        margin-bottom: 1rem;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .equal-col .card {
+        height: 100%;
+        width: 100%;
+    }
+    
+    /* 让卡片容器自适应分布 */
+    .stats-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stats-row > .equal-col {
+        flex: 1 1 calc(16.666% - 1rem); /* 默认6列布局 */
+        min-width: 180px;
+    }
+    
     .progress { height: 20px; }
     .table-hover tbody tr:hover {
         background-color: #f8f9fa;
@@ -98,9 +245,9 @@
     </div>
 
     <!-- 筛选条件 -->
-    <div class="card mb-3">
+    <div class="card filter-card">
         <div class="card-body">
-            <form method="get" class="row g-3 align-items-end">
+            <form method="get" class="row g-4 align-items-end">
                 <!-- 保留现有参数 -->
                 <input type="hidden" name="view_mode" value="{{ view_mode }}">
                 {% if filter_config.selected_year_value %}
@@ -113,31 +260,51 @@
                 <!-- 起始日期选择器 -->
                 <div class="col-md-3">
                     <label for="start_date" class="form-label">
-                        <i class="fas fa-calendar-alt"></i> 业务起始日期
+                        <i class="fas fa-calendar-alt me-1"></i> 业务起始日期
                     </label>
                     <input type="date" class="form-control" id="start_date" name="start_date"
-                           value="{{ start_date|default:'' }}"
+                           value="{{ start_date|default:'2025-10-01' }}"
                            title="只统计该日期之后的业务数据">
                 </div>
-                
+
+                <!-- 业务类型筛选 -->
+                <div class="col-md-3">
+                    <label for="module" class="form-label">
+                        <i class="fas fa-layer-group me-1"></i> 业务类型
+                    </label>
+                    <select id="module" name="module" class="form-select">
+                        <option value="all"{% if module_filter == 'all' or not module_filter %} selected{% endif %}>全部业务</option>
+                        <option value="procurement"{% if module_filter == 'procurement' %} selected{% endif %}>采购</option>
+                        <option value="contract"{% if module_filter == 'contract' %} selected{% endif %}>合同</option>
+                        <option value="payment"{% if module_filter == 'payment' %} selected{% endif %}>付款</option>
+                        <option value="settlement"{% if module_filter == 'settlement' %} selected{% endif %}>结算</option>
+                    </select>
+                </div>
+
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i> 应用筛选
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-1"></i> 应用筛选
                     </button>
                     {% if start_date %}
                     <a href="?view_mode={{ view_mode }}{% if filter_config.selected_year_value %}&year={{ filter_config.selected_year_value }}{% endif %}{% if filter_config.selected_project_value %}&project={{ filter_config.selected_project_value }}{% endif %}"
-                       class="btn btn-secondary">
-                        <i class="fas fa-times"></i> 清除
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-redo me-1"></i> 重置
                     </a>
                     {% endif %}
                 </div>
-                
-                <div class="col-md-7">
+
+                <div class="col-md-4">
                     <div class="alert alert-info mb-0">
                         <i class="fas fa-info-circle"></i>
                         当前筛选：{{ filter_config.display_year|default:"全部年度" }}
                         {% if filter_config.selected_project_value %} · {{ filter_config.selected_project_value }}{% else %} · 全部项目{% endif %}
                         {% if start_date %} · 起始日期：{{ start_date }}{% endif %}
+                        {% if module_filter and module_filter != 'all' %}
+                            · 业务类型：
+                            {% if module_filter == 'procurement' %}采购{% elif module_filter == 'contract' %}合同{% elif module_filter == 'payment' %}付款{% elif module_filter == 'settlement' %}结算{% endif %}
+                        {% else %}
+                            · 所有业务
+                        {% endif %}
                         <span class="ms-3">准时规则：业务发生次月月底前更新</span>
                     </div>
                 </div>
@@ -145,14 +312,14 @@
         </div>
     </div>
 
-    <!-- 汇总统计卡片（6张） -->
+    <!-- 汇总统计卡片 -->
     {% if overview_data %}
-    <div class="row mb-4">
-        <div class="col-md-2 equal-col">
+    <div class="stats-row">
+        <div class="equal-col">
             <div class="card text-center stats-card overall h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">{% if view_mode == 'project' %}项目总数{% else %}经办人数{% endif %}</h6>
-                    <h2 class="text-primary">
+                    <h6>{% if view_mode == 'project' %}项目总数{% else %}经办人数{% endif %}</h6>
+                    <h2>
                         {% if view_mode == 'project' %}
                             {{ overview_data.summary.project_count }}
                         {% else %}
@@ -162,46 +329,54 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-2 equal-col">
+        {% if module_filter == 'all' or not module_filter or module_filter == 'procurement' %}
+        <div class="equal-col">
             <div class="card text-center stats-card procurement h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">采购情况</h6>
+                    <h6>采购情况</h6>
                     <h3>{{ overview_data.summary.procurement_stats.updated }}/{{ overview_data.summary.procurement_stats.total }}</h3>
-                    <small class="text-muted">已更新/总数</small>
+                    <small>已更新/总数</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-2 equal-col">
+        {% endif %}
+        {% if module_filter == 'all' or not module_filter or module_filter == 'contract' %}
+        <div class="equal-col">
             <div class="card text-center stats-card contract h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">合同情况</h6>
+                    <h6>合同情况</h6>
                     <h3>{{ overview_data.summary.contract_stats.updated }}/{{ overview_data.summary.contract_stats.total }}</h3>
-                    <small class="text-muted">已更新/总数</small>
+                    <small>已更新/总数</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-2 equal-col">
+        {% endif %}
+        {% if module_filter == 'all' or not module_filter or module_filter == 'payment' %}
+        <div class="equal-col">
             <div class="card text-center stats-card payment h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">支付情况</h6>
+                    <h6>支付情况</h6>
                     <h3>{{ overview_data.summary.payment_stats.updated }}/{{ overview_data.summary.payment_stats.total }}</h3>
-                    <small class="text-muted">已更新/总数</small>
+                    <small>已更新/总数</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-2 equal-col">
+        {% endif %}
+        {% if module_filter == 'all' or not module_filter or module_filter == 'settlement' %}
+        <div class="equal-col">
             <div class="card text-center stats-card settlement h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">结算情况</h6>
+                    <h6>结算情况</h6>
                     <h3>{{ overview_data.summary.settlement_stats.updated }}/{{ overview_data.summary.settlement_stats.total }}</h3>
-                    <small class="text-muted">已更新/总数</small>
+                    <small>已更新/总数</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-2 equal-col">
+        {% endif %}
+        <div class="equal-col">
             <div class="card text-center stats-card overall h-100 w-100">
                 <div class="card-body">
-                    <h6 class="text-muted">综合准时率</h6>
+                    <h6>综合准时率</h6>
                     <h2 class="text-success">{{ overview_data.summary.overall_on_time_rate }}%</h2>
                 </div>
             </div>
@@ -223,14 +398,22 @@
                     <thead>
                         <tr>
                             <th>{% if view_mode == 'project' %}项目名称{% else %}经办人{% endif %}</th>
+                            {% if module_filter == 'all' or not module_filter or module_filter == 'procurement' %}
                             <th>采购</th>
                             <th>采购准时率</th>
+                            {% endif %}
+                            {% if module_filter == 'all' or not module_filter or module_filter == 'contract' %}
                             <th>合同</th>
                             <th>合同准时率</th>
+                            {% endif %}
+                            {% if module_filter == 'all' or not module_filter or module_filter == 'payment' %}
                             <th>支付</th>
                             <th>支付准时率</th>
+                            {% endif %}
+                            {% if module_filter == 'all' or not module_filter or module_filter == 'settlement' %}
                             <th>结算</th>
                             <th>结算准时率</th>
+                            {% endif %}
                             <th>综合准时率</th>
                             {% if view_mode == 'person' %}<th>负责项目</th>{% endif %}
                             <th>操作</th>
@@ -241,30 +424,38 @@
                             {% for project in overview_data.projects %}
                             <tr>
                                 <td><strong>{{ project.project_code }}</strong><br><small>{{ project.project_name }}</small></td>
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'procurement' %}
                                 <td>{{ project.procurement_updated }}/{{ project.procurement_count }}<br><small class="text-muted">{{ project.procurement_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if project.procurement_on_time_rate >= 90 %}high{% elif project.procurement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ project.procurement_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'contract' %}
                                 <td>{{ project.contract_updated }}/{{ project.contract_count }}<br><small class="text-muted">{{ project.contract_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if project.contract_on_time_rate >= 90 %}high{% elif project.contract_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ project.contract_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'payment' %}
                                 <td>{{ project.payment_updated }}/{{ project.payment_count }}<br><small class="text-muted">{{ project.payment_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if project.payment_on_time_rate >= 90 %}high{% elif project.payment_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ project.payment_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'settlement' %}
                                 <td>{{ project.settlement_updated }}/{{ project.settlement_count }}<br><small class="text-muted">{{ project.settlement_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if project.settlement_on_time_rate >= 90 %}high{% elif project.settlement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ project.settlement_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
                                 <td>
                                     <div class="progress">
                                         <div class="progress-bar {% if project.overall_on_time_rate >= 90 %}bg-success{% elif project.overall_on_time_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
@@ -285,30 +476,38 @@
                             {% for person in overview_data.persons %}
                             <tr>
                                 <td><strong>{{ person.person_name }}</strong></td>
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'procurement' %}
                                 <td>{{ person.procurement_updated }}/{{ person.procurement_count }}<br><small class="text-muted">{{ person.procurement_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if person.procurement_on_time_rate >= 90 %}high{% elif person.procurement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ person.procurement_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'contract' %}
                                 <td>{{ person.contract_updated }}/{{ person.contract_count }}<br><small class="text-muted">{{ person.contract_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if person.contract_on_time_rate >= 90 %}high{% elif person.contract_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ person.contract_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'payment' %}
                                 <td>{{ person.payment_updated }}/{{ person.payment_count }}<br><small class="text-muted">{{ person.payment_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if person.payment_on_time_rate >= 90 %}high{% elif person.payment_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ person.payment_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
+                                {% if module_filter == 'all' or not module_filter or module_filter == 'settlement' %}
                                 <td>{{ person.settlement_updated }}/{{ person.settlement_count }}<br><small class="text-muted">{{ person.settlement_avg_days }}天</small></td>
                                 <td>
                                     <span class="on-time-badge {% if person.settlement_on_time_rate >= 90 %}high{% elif person.settlement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
                                         {{ person.settlement_on_time_rate }}%
                                     </span>
                                 </td>
+                                {% endif %}
                                 <td>
                                     <div class="progress">
                                         <div class="progress-bar {% if person.overall_on_time_rate >= 90 %}bg-success{% elif person.overall_on_time_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
@@ -448,7 +647,7 @@
                     <!-- 详情概要 -->
                     {% if detail_data.summary %}
                     <div class="row mb-4">
-                        <div class="col-md-3 equal-col">
+                        <div class="col-md-4 equal-col">
                             <div class="card text-center stats-card overall h-100 w-100">
                                 <div class="card-body">
                                     <h6 class="text-muted">综合准时率</h6>
@@ -456,17 +655,19 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 equal-col">
+                        {% if module_filter == 'all' or not module_filter or module_filter == 'procurement' %}
+                        <div class="col-md-4 equal-col">
                             <div class="card text-center stats-card procurement h-100 w-100">
                                 <div class="card-body">
                                     <h6 class="text-muted">采购</h6>
                                     <h4>{{ detail_data.summary.procurement.updated }}/{{ detail_data.summary.procurement.total }}</h4>
-                                    
-<small class="text-muted">准时率 {{ detail_data.summary.procurement.on_time_rate }}% · 平均{{ detail_data.summary.procurement.avg_days }}天</small>
+                                    <small class="text-muted">准时率 {{ detail_data.summary.procurement.on_time_rate }}% · 平均{{ detail_data.summary.procurement.avg_days }}天</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 equal-col">
+                        {% endif %}
+                        {% if module_filter == 'all' or not module_filter or module_filter == 'contract' %}
+                        <div class="col-md-4 equal-col">
                             <div class="card text-center stats-card contract h-100 w-100">
                                 <div class="card-body">
                                     <h6 class="text-muted">合同</h6>
@@ -475,7 +676,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 equal-col">
+                        {% endif %}
+                        {% if module_filter == 'all' or not module_filter or module_filter == 'payment' %}
+                        <div class="col-md-4 equal-col">
                             <div class="card text-center stats-card payment h-100 w-100">
                                 <div class="card-body">
                                     <h6 class="text-muted">支付</h6>
@@ -484,9 +687,9 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row mb-4">
-                        <div class="col-md-12 equal-col">
+                        {% endif %}
+                        {% if module_filter == 'all' or not module_filter or module_filter == 'settlement' %}
+                        <div class="col-md-4 equal-col">
                             <div class="card text-center stats-card settlement h-100 w-100">
                                 <div class="card-body">
                                     <h6 class="text-muted">结算</h6>
@@ -495,6 +698,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                     {% endif %}
 
@@ -581,13 +785,92 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const STORAGE_KEY = 'update_monitor_filters';
+    
+    // 从localStorage加载筛选条件
+    function loadFiltersFromStorage() {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : {};
+        } catch (e) {
+            console.error('Failed to load filters from storage:', e);
+            return {};
+        }
+    }
+    
+    // 保存筛选条件到localStorage
+    function saveFiltersToStorage(filters) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+        } catch (e) {
+            console.error('Failed to save filters to storage:', e);
+        }
+    }
+    
+    // 获取当前筛选参数（优先从URL，其次从localStorage）
+    function getCurrentFilters() {
+        const url = new URL(window.location.href);
+        const urlStartDate = url.searchParams.get('start_date');
+        const urlModule = url.searchParams.get('module');
+        
+        // 如果URL中有参数，使用URL参数并保存到localStorage
+        if (urlStartDate || urlModule) {
+            const filters = {
+                start_date: urlStartDate,
+                module: urlModule
+            };
+            saveFiltersToStorage(filters);
+            return filters;
+        }
+        
+        // 否则从localStorage加载
+        return loadFiltersFromStorage();
+    }
+    
+    // 应用筛选参数到URL
+    function applyFiltersToUrl(url, filters) {
+        if (filters.start_date) {
+            url.searchParams.set('start_date', filters.start_date);
+        }
+        if (filters.module && filters.module !== 'all') {
+            url.searchParams.set('module', filters.module);
+        }
+        return url;
+    }
+    
+    // 页面加载时，如果URL中没有筛选参数但localStorage有，则自动应用
+    function initializeFilters() {
+        const url = new URL(window.location.href);
+        const hasUrlFilters = url.searchParams.has('start_date') || url.searchParams.has('module');
+        
+        if (!hasUrlFilters) {
+            const storedFilters = loadFiltersFromStorage();
+            if (storedFilters.start_date || storedFilters.module) {
+                applyFiltersToUrl(url, storedFilters);
+                // 使用 replaceState 避免在浏览器历史中添加新记录
+                window.history.replaceState({}, '', url.toString());
+                // 重新加载页面以应用筛选
+                window.location.reload();
+            }
+        }
+    }
+    
+    // 初始化筛选条件
+    initializeFilters();
+    
     // 视图模式切换
     document.querySelectorAll('.view-mode-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const mode = this.dataset.mode;
             const url = new URL(window.location.href);
+            const filters = getCurrentFilters();
+            
             url.searchParams.set('view_mode', mode);
             url.searchParams.delete('target_code');  // 切换视图时清除目标选择
+            
+            // 保留筛选条件
+            applyFiltersToUrl(url, filters);
+            
             window.location.href = url.toString();
         });
     });
@@ -597,7 +880,13 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const targetCode = this.dataset.target;
             const url = new URL(window.location.href);
+            const filters = getCurrentFilters();
+            
             url.searchParams.set('target_code', targetCode);
+            
+            // 保留筛选条件
+            applyFiltersToUrl(url, filters);
+            
             window.location.href = url.toString();
         });
     });
@@ -610,12 +899,33 @@ document.addEventListener('DOMContentLoaded', function() {
         detailModal.show();
         detailModalEl.addEventListener('hidden.bs.modal', function() {
             const url = new URL(window.location.href);
+            const filters = getCurrentFilters();
+            
             url.searchParams.delete('target_code');
             url.searchParams.delete('show_all');
+            
+            // 保留筛选条件
+            applyFiltersToUrl(url, filters);
+            
             history.replaceState({}, '', url.toString());
         });
     }
     {% endif %}
+    
+    // 监听表单提交，保存筛选条件
+    const filterForm = document.querySelector('form[method="get"]');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            const startDate = document.getElementById('start_date').value;
+            const module = document.getElementById('module').value;
+            
+            // 保存到localStorage
+            saveFiltersToStorage({
+                start_date: startDate,
+                module: module
+            });
+        });
+    }
 
     // 趋势图功能暂时禁用（数据结构需要重新设计）
     {% if target_code and detail_data %}
@@ -677,8 +987,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // 更新监控趋势图（主页面 + 详情模态框）
 document.addEventListener('DOMContentLoaded', function () {
     const detailTrendData = {{ trend_data_json|safe }};
+    const detailScatterData = {{ detail_scatter_json|safe }};
     const mainTrendData = {{ main_trend_json|safe }};
     const detailModalEl = document.getElementById('detailModal');
+    const globalYearValue = '{{ filter_config.selected_year_value }}';
 
     function buildTrendLabels(trend) {
         const labelSet = new Set();
@@ -727,52 +1039,143 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
+    // 详情模态框：使用散点图展示每条业务的实际更新时间
     function renderDetailTrend() {
-        const trend = detailTrendData || {};
-        const modules = ['procurement', 'contract', 'payment', 'settlement'];
+        const scatter = detailScatterData || {};
         const el = document.getElementById('trendChart');
         if (!el) return;
 
-        const hasAnyData = modules.some(key => Array.isArray(trend[key]) && trend[key].length);
-        if (!hasAnyData) {
-            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
-            return;
-        }
+        const modules = ['procurement', 'contract', 'payment', 'settlement'];
+        const moduleLabels = {
+            procurement: '采购',
+            contract: '合同',
+            payment: '付款',
+            settlement: '结算',
+        };
+        const moduleColors = {
+            procurement: '#0d6efd',
+            contract: '#198754',
+            payment: '#fd7e14',
+            settlement: '#6f42c1',
+        };
 
-        const labels = buildTrendLabels(trend);
-        if (!labels.length) {
-            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
-            return;
-        }
+        const chartSeries = [];
+        const allPoints = [];
 
-        const baseSeries = [
-            buildModuleSeries(labels, trend, 'procurement', '采购', '#0d6efd'),
-            buildModuleSeries(labels, trend, 'contract', '合同', '#198754'),
-            buildModuleSeries(labels, trend, 'payment', '付款', '#fd7e14'),
-            buildModuleSeries(labels, trend, 'settlement', '结算', '#6f42c1'),
-        ];
+        modules.forEach(key => {
+            const rawPoints = scatter[key] || [];
+            if (!Array.isArray(rawPoints) || !rawPoints.length) return;
 
-        const baselines = [
-            { name: '采购规定期限（7天）', value: 7, color: '#0d6efd' },
-            { name: '合同规定期限（5天）', value: 5, color: '#198754' },
-            { name: '付款规定期限（3天）', value: 3, color: '#fd7e14' },
-        ];
+            const color = moduleColors[key] || '#6c757d';
+            const data = rawPoints.map(p => ({
+                x: new Date(p.date).getTime(),
+                y: p.cycle_days,
+                code: p.code,
+                name: p.name,
+                person: p.person,
+            }));
 
-        const chartSeries = [...baseSeries];
-        baselines.forEach(baseline => {
             chartSeries.push({
-                name: baseline.name,
-                data: Array(labels.length).fill(baseline.value),
-                color: baseline.color,
+                name: moduleLabels[key] || key,
+                type: 'scatter',
+                data,
+                color,
+            });
+
+            allPoints.push(...data);
+        });
+
+        if (!allPoints.length) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            return;
+        }
+
+        // 计算 X 轴范围（根据全局年度筛选固定刻度）
+        const allX = allPoints.map(p => p.x);
+        let axisMin = Math.min(...allX);
+        let axisMax = Math.max(...allX);
+        const minDate = new Date(axisMin);
+        const maxDate = new Date(axisMax);
+
+        const xaxis = {
+            type: 'datetime',
+            title: { text: '更新完成时间' },
+            labels: { format: 'yyyy年MM月' },
+        };
+
+        const isAllYears = !globalYearValue || globalYearValue === 'all';
+        if (isAllYears) {
+            const startYear = minDate.getFullYear();
+            const endYear = maxDate.getFullYear();
+            axisMin = new Date(startYear, 0, 1).getTime();
+            axisMax = new Date(endYear, 11, 31).getTime();
+            const yearSpan = endYear - startYear + 1;
+            xaxis.min = axisMin;
+            xaxis.max = axisMax;
+            xaxis.tickAmount = yearSpan * 2 + 1; // 半年一个刻度
+        } else {
+            const yearInt = parseInt(globalYearValue, 10);
+            if (!isNaN(yearInt)) {
+                axisMin = new Date(yearInt, 0, 1).getTime();
+                axisMax = new Date(yearInt, 11, 31).getTime();
+                xaxis.min = axisMin;
+                xaxis.max = axisMax;
+                xaxis.tickAmount = 12; // 按月刻度
+            }
+        }
+
+        // 基准线：使用当前筛选条件下的整体平均更新周期，并覆盖完整横轴
+        const baselineDefs = [
+            {
+                key: 'procurement',
+                name: '采购整体平均周期（{{ detail_data.summary.procurement.avg_days|default:0 }}天）',
+                value: {{ detail_data.summary.procurement.avg_days|default:0 }},
+                color: '#0d6efd',
+            },
+            {
+                key: 'contract',
+                name: '合同整体平均周期（{{ detail_data.summary.contract.avg_days|default:0 }}天）',
+                value: {{ detail_data.summary.contract.avg_days|default:0 }},
+                color: '#198754',
+            },
+            {
+                key: 'payment',
+                name: '付款整体平均周期（{{ detail_data.summary.payment.avg_days|default:0 }}天）',
+                value: {{ detail_data.summary.payment.avg_days|default:0 }},
+                color: '#fd7e14',
+            },
+            {
+                key: 'settlement',
+                name: '结算整体平均周期（{{ detail_data.summary.settlement.avg_days|default:0 }}天）',
+                value: {{ detail_data.summary.settlement.avg_days|default:0 }},
+                color: '#6f42c1',
+            },
+        ];
+
+        baselineDefs.forEach(b => {
+            if (!b.value || isNaN(b.value)) return;
+            chartSeries.push({
+                name: b.name,
+                type: 'line',
+                data: [{ x: axisMin, y: b.value }, { x: axisMax, y: b.value }],
+                color: b.color,
             });
         });
 
+        const allY = allPoints.map(p => p.y);
+        const maxBaseline = Math.max(
+            ...baselineDefs.map(b => (b.value && !isNaN(b.value) ? b.value : 0)),
+            0,
+        );
+        const yMax = Math.max(...allY, maxBaseline) * 1.2;
+
         const options = {
-            chart: { type: 'line', height: 400, toolbar: { show: true } },
+            chart: { type: 'line', height: 400, toolbar: { show: true }, zoom: { enabled: true } },
             series: chartSeries,
-            xaxis: { categories: labels, title: { text: '时间分段' } },
+            xaxis: xaxis,
             yaxis: {
-                title: { text: '平均更新时长（天）' },
+                title: { text: '更新周期（天）' },
+                max: yMax,
                 labels: {
                     formatter: function (value) {
                         return value ? Math.round(value) : '';
@@ -780,24 +1183,31 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
             },
             title: {
-                text: '更新周期趋势',
+                text: '更新周期散点分布图',
                 align: 'left',
                 style: { fontSize: '16px', fontWeight: 600 },
             },
             stroke: {
-                curve: 'smooth',
-                width: chartSeries.map((_, idx) => idx >= baseSeries.length ? 2 : 3),
-                dashArray: chartSeries.map((_, idx) => idx >= baseSeries.length ? 5 : 0),
+                width: chartSeries.map(s => (s.type === 'line' ? 3 : 0)),
+                dashArray: chartSeries.map(s => (s.type === 'line' ? 5 : 0)),
             },
-            markers: { size: chartSeries.map((_, idx) => (idx >= baseSeries.length ? 0 : 5)) },
+            markers: {
+                size: chartSeries.map(s => (s.type === 'scatter' ? 6 : 0)),
+            },
             dataLabels: { enabled: false },
             legend: { show: true, position: 'top', horizontalAlign: 'right' },
             tooltip: {
                 enabled: true,
-                shared: true,
-                intersect: false,
+                shared: false,
+                intersect: true,
+                x: { format: 'yyyy年MM月dd日' },
                 y: {
-                    formatter: function (value) {
+                    formatter: function (value, { seriesIndex, dataPointIndex, w }) {
+                        const series = w.config.series[seriesIndex];
+                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
+                            const point = series.data[dataPointIndex];
+                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person || ''}`;
+                        }
                         return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
                     },
                 },

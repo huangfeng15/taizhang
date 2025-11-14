@@ -93,13 +93,13 @@
     <ul class="nav nav-tabs model-tabs" role="tablist">
         <li class="nav-item" role="presentation">
             <a class="nav-link {% if model_type == 'procurement' %}active{% endif %}"
-               href="?model_type=procurement">
+               href="{% url 'completeness_field_config' %}?model_type=procurement">
                 采购字段配置
             </a>
         </li>
         <li class="nav-item" role="presentation">
             <a class="nav-link {% if model_type == 'contract' %}active{% endif %}"
-               href="?model_type=contract">
+               href="{% url 'completeness_field_config' %}?model_type=contract">
                 合同字段配置
             </a>
         </li>

@@ -12,14 +12,18 @@ class UpdateStatisticsFacade:
     提供统一的接口来访问更新监控的各种统计功能
     """
     
-    def __init__(self, start_date=None):
+    def __init__(self, start_date=None, module_filter=None):
         """
         初始化服务实例
         
         Args:
             start_date: 起始日期，只统计该日期之后的业务数据
+            module_filter: 业务模块筛选（'procurement' / 'contract' / 'payment' / 'settlement' 或 None）
         """
-        self.stats_service = UpdateStatisticsService(start_date=start_date)
+        self.stats_service = UpdateStatisticsService(
+            start_date=start_date,
+            module_filter=module_filter,
+        )
     
     def get_overview(self, view_mode='project', year_filter=None, project_filter=None, start_date=None):
         """

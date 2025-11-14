@@ -16,15 +16,22 @@ from project.enums import FilePositioning
 class UpdateStatisticsService:
     """更新监控统计服务类（参照ArchiveStatisticsService的设计模式）"""
 
-    def __init__(self, start_date=None):
+    def __init__(self, start_date=None, module_filter=None):
         """
         初始化更新规则（次月月底准时规则）
         
         Args:
             start_date: 起始日期，只统计该日期之后的业务数据
+            module_filter: 业务模块筛选（'procurement' / 'contract' / 'payment' / 'settlement' 或 None）
         """
         self.today = timezone.now().date()
         self.start_date = start_date
+        # 当前业务维度筛选，None 表示不过滤，统计所有模块
+        self.module_filter = (
+            module_filter
+            if module_filter in {"procurement", "contract", "payment", "settlement"}
+            else None
+        )
 
     def _calculate_update_deadline(self, business_date):
         """
@@ -423,8 +430,105 @@ class UpdateStatisticsService:
 
         return group_by_half_year(queryset, cycle_field="update_cycle")
 
+    def _calculate_module_update_scatter(self, module, project_code=None, person_name=None,
+                                         year_filter=None, project_filter=None):
+        """
+        计算单个模块的更新散点数据（每条业务一颗点，使用实际更新时间）。
+
+        返回格式:
+            [
+              {'date': '2025-05-15', 'cycle_days': 12, 'code': '...', 'name': '...', 'person': '...'},
+              ...
+            ]
+        """
+        config = self._get_module_config(module)
+        if not config:
+            return []
+
+        model = config["model"]
+        business_field = config["business_date_field"]
+        update_field = config["update_date_field"]
+
+        # 只统计有业务日期的记录
+        queryset = model.objects.filter(**{f"{business_field}__isnull": False})
+
+        # 应用起始日期筛选（与概览/趋势保持一致）
+        if self.start_date:
+            queryset = queryset.filter(**{f"{business_field}__gte": self.start_date})
+
+        # 维度筛选
+        if project_code:
+            queryset = queryset.filter(**{config["project_field"]: project_code})
+        if person_name and config.get("person_field"):
+            queryset = queryset.filter(**{config["person_field"]: person_name})
+        if project_filter:
+            queryset = queryset.filter(**{config["project_field"]: project_filter})
+        if year_filter and year_filter != "all":
+            queryset = queryset.filter(**{f"{business_field}__year": int(year_filter)})
+
+        # 合同仅统计主合同
+        if module == "contract":
+            queryset = queryset.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
+
+        points = []
+        for item in queryset:
+            business_date = getattr(item, business_field, None)
+            if not business_date:
+                continue
+
+            update_value = getattr(item, update_field, None)
+            if not update_value:
+                # 保持与统计逻辑一致，尝试使用 created_at 作为更新时间退路
+                update_value = getattr(item, "created_at", None)
+            if not update_value:
+                continue
+
+            # 统一为 date 对象
+            if hasattr(update_value, "date"):
+                update_date = update_value.date()
+            else:
+                update_date = update_value
+            if not update_date:
+                continue
+
+            cycle_days = (update_date - business_date).days
+
+            # 不同模块的业务编号/名称/经办人字段
+            if module == "procurement":
+                code = getattr(item, "procurement_code", "") or getattr(item, "pk", "")
+                name = getattr(item, "project_name", "") or getattr(item, "name", "")
+                person = getattr(item, "procurement_officer", "") or getattr(item, "updated_by", "") or getattr(item, "created_by", "")
+            elif module == "contract":
+                code = getattr(item, "contract_code", "") or getattr(item, "pk", "")
+                name = getattr(item, "contract_name", "") or getattr(item, "project_name", "")
+                person = getattr(item, "contract_officer", "") or getattr(item, "updated_by", "") or getattr(item, "created_by", "")
+            elif module == "payment":
+                code = getattr(item, "payment_code", "") or getattr(item, "pk", "")
+                name = getattr(item, "summary", "") or getattr(item, "contract_code", "")
+                person = getattr(item, "updated_by", "") or getattr(item, "created_by", "")
+            else:  # settlement
+                code = getattr(item, "settlement_code", "") or getattr(item, "pk", "")
+                name = getattr(item, "summary", "") or getattr(item, "contract_code", "")
+                person = getattr(item, "updated_by", "") or getattr(item, "created_by", "")
+
+            points.append(
+                {
+                    "date": update_date.isoformat(),
+                    "cycle_days": cycle_days,
+                    "code": str(code),
+                    "name": str(name) if name is not None else "",
+                    "person": str(person) if person is not None else "",
+                }
+            )
+
+        # 按更新时间排序，保证前端渲染顺序稳定
+        points.sort(key=lambda x: x["date"])
+        return points
+
     def _get_module_config(self, module):
-        """获取模块配置"""
+        """获取模块配置；如设置了 module_filter，则只对该模块返回配置。"""
+        if self.module_filter and module != self.module_filter:
+            return None
         configs = {
             'procurement': {
                 'model': Procurement,
@@ -597,7 +701,17 @@ class UpdateStatisticsService:
             project_code=project_code,
             year_filter=year_filter,
         )
+        procurement_scatter = self._calculate_module_update_scatter(
+            module='procurement',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
         contract_trend = self._calculate_module_update_trend(
+            module='contract',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+        contract_scatter = self._calculate_module_update_scatter(
             module='contract',
             project_code=project_code,
             year_filter=year_filter,
@@ -607,7 +721,17 @@ class UpdateStatisticsService:
             project_code=project_code,
             year_filter=year_filter,
         )
+        payment_scatter = self._calculate_module_update_scatter(
+            module='payment',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
         settlement_trend = self._calculate_module_update_trend(
+            module='settlement',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+        settlement_scatter = self._calculate_module_update_scatter(
             module='settlement',
             project_code=project_code,
             year_filter=year_filter,
@@ -647,6 +771,12 @@ class UpdateStatisticsService:
             'contract_trend': contract_trend,
             'payment_trend': payment_trend,
             'settlement_trend': settlement_trend,
+            'scatter': {
+                'procurement': procurement_scatter,
+                'contract': contract_scatter,
+                'payment': payment_scatter,
+                'settlement': settlement_scatter,
+            },
             'problems': problems,
             'summary': summary,
         }
@@ -743,7 +873,19 @@ class UpdateStatisticsService:
             year_filter=year_filter,
             project_filter=project_filter,
         )
+        procurement_scatter = self._calculate_module_update_scatter(
+            module='procurement',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
         contract_trend = self._calculate_module_update_trend(
+            module='contract',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        contract_scatter = self._calculate_module_update_scatter(
             module='contract',
             person_name=person_name,
             year_filter=year_filter,
@@ -755,7 +897,19 @@ class UpdateStatisticsService:
             year_filter=year_filter,
             project_filter=project_filter,
         )
+        payment_scatter = self._calculate_module_update_scatter(
+            module='payment',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
         settlement_trend = self._calculate_module_update_trend(
+            module='settlement',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        settlement_scatter = self._calculate_module_update_scatter(
             module='settlement',
             person_name=person_name,
             year_filter=year_filter,
@@ -767,6 +921,12 @@ class UpdateStatisticsService:
             'contract_trend': contract_trend,
             'payment_trend': payment_trend,
             'settlement_trend': settlement_trend,
+            'scatter': {
+                'procurement': procurement_scatter,
+                'contract': contract_scatter,
+                'payment': payment_scatter,
+                'settlement': settlement_scatter,
+            },
             'problems': problems,
             'summary': summary,
         }
