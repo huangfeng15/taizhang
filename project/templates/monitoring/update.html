@@ -1,792 +1,657 @@
 {% extends "base.html" %}
 {% load static %}
+{% load monitor_filters %}
 
-{% block title %}{{ page_title }} - 项目采购与成本管理系统{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/monitoring.css' %}">
 <style>
-:root {
-    --primary-color: #1890ff;
-    --bg-color: #f0f2f5;
-    --card-bg: #ffffff;
-    --text-primary: #262626;
-    --text-secondary: #595959;
-    --border-color: #e8e8e8;
-    --success-color: #52c41a;
-    --error-color: #ff4d4f;
-    --warning-color: #faad14;
-    --neutral-color: #f0f0f0;
-    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --font-family: 'Source Han Sans', 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-}
-
-.dashboard-container {
-    max-width: 1800px;
-    margin: 0 auto;
-    padding: 24px;
-    background-color: var(--bg-color);
-    font-family: var(--font-family);
-}
-
-.page-header {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-    gap: 16px;
-}
-
-.page-title {
-    font-size: 28px;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.helper-note {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 8px;
-}
-
-.filter-controls {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    background: var(--card-bg);
-    padding: 14px 18px;
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-}
-
-.filter-controls label {
-    font-size: 14px;
-    color: var(--text-secondary);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.filter-controls select,
-.filter-controls input[type="text"],
-.filter-controls input[type="date"] {
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    font-size: 15px;
-    min-width: 150px;
-    color: var(--text-primary);
-    background: #fff;
-    transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.filter-controls input[type="text"]:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
-}
-
-.filter-controls input[type="text"].error {
-    border-color: var(--error-color);
-}
-
-.date-error {
-    color: var(--error-color);
-    font-size: 12px;
-    margin-left: 8px;
-    animation: fadeIn 0.3s;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.kpi-overview {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 24px;
-    margin-bottom: 24px;
-}
-
-.kpi-card {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: var(--shadow);
-    border-top: 4px solid var(--primary-color);
-}
-
-.kpi-card.is-success {
-    border-top-color: var(--success-color);
-}
-
-.kpi-card.is-error {
-    border-top-color: var(--error-color);
-}
-
-.kpi-card-title {
-    font-size: 15px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-}
-
-.kpi-card-value {
-    font-size: 40px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.kpi-card-value .unit {
-    font-size: 22px;
-    font-weight: 500;
-    margin-left: 6px;
-}
-
-.main-content-card {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: var(--shadow);
-    margin-bottom: 24px;
-}
-
-.heatmap-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px 24px;
-    margin-bottom: 24px;
-    align-items: center;
-    padding: 16px;
-    background: #fafafa;
-    border-radius: 8px;
-    border: 1px dashed var(--border-color);
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    color: var(--text-secondary);
-}
-
-.legend-color-box {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
-.legend-color-box.on-time { background-color: var(--success-color); }
-.legend-color-box.delayed { background-color: var(--error-color); }
-.legend-color-box.no-event {
-    background-color: var(--neutral-color);
-    border: 1px solid #d9d9d9;
-}
-
-.legend-color-box.mixed-event {
-    display: flex;
-    width: 28px;
-    height: 16px;
-    overflow: hidden;
-    border: 1px solid #ccc;
-}
-
-.mixed-bar-on-time { background-color: var(--success-color); height: 100%; }
-.mixed-bar-delayed { background-color: var(--error-color); height: 100%; }
-
-.legend-rule {
-    font-size: 13px;
-    color: var(--text-secondary);
-    flex-basis: 100%;
-}
-
-.legend-rule strong { color: var(--primary-color); }
-
-.project-heatmap-container {
-    display: grid;
-    gap: 24px;
-}
-
-.project-card {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 18px;
-    transition: box-shadow 0.3s;
-    background: #fff;
-}
-
-.project-card:hover { box-shadow: var(--shadow); }
-
-.project-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 16px;
-    gap: 12px;
-}
-
-.project-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.project-name {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    word-break: break-all;         /* 强制在任意字符间断行 */
-    line-height: 1.5;              /* 增加行高以提高可读性 */
-    overflow-wrap: anywhere;       /* 在任何位置换行 */
-    white-space: normal;           /* 允许正常换行 */
-}
-
-.project-code {
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-
-.project-timeliness-rate {
-    font-size: 16px;
-    font-weight: bold;
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.project-timeliness-rate.good {
-    color: var(--success-color);
-    border-color: rgba(82, 196, 26, 0.3);
-    background: rgba(82, 196, 26, 0.08);
-}
-
-.project-timeliness-rate.bad {
-    color: var(--error-color);
-    border-color: rgba(255, 77, 79, 0.3);
-    background: rgba(255, 77, 79, 0.08);
-}
-
-.project-timeliness-rate.neutral {
-    color: var(--text-secondary);
-    border-color: rgba(0, 0, 0, 0.1);
-    background: rgba(0, 0, 0, 0.03);
-}
-
-.heatmap-grid {
-    display: grid;
-    grid-template-columns: 120px repeat(12, 1fr);
-    gap: 6px;
-}
-
-.grid-header,
-.module-name,
-.month-cell {
-    text-align: center;
-    padding: 10px 6px;
-    font-size: 12px;
-    border-radius: 6px;
-}
-
-.grid-header {
-    background-color: #fafafa;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.module-name {
-    background-color: #fafafa;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    word-break: break-word;
-    hyphens: auto;
-    line-height: 1.4;
-}
-
-.month-cell {
-    height: 34px;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.month-cell:hover {
-    transform: scale(1.05);
-    z-index: 10;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.month-cell.on-time { background-color: var(--success-color); color: #fff; }
-.month-cell.delayed { background-color: var(--error-color); color: #fff; }
-.month-cell.no-event { background-color: var(--neutral-color); color: var(--text-secondary); }
-.month-cell.mixed-event { padding: 0; background-color: var(--neutral-color); overflow: hidden; }
-
-.ratio-bar { display: flex; width: 100%; height: 100%; }
-.ratio-bar-on-time { background-color: var(--success-color); }
-.ratio-bar-delayed { background-color: var(--error-color); }
-
-.tooltip {
-    visibility: hidden;
-    min-width: 240px;
-    background-color: rgba(51, 51, 51, 0.95);
-    color: #fff;
-    border-radius: 6px;
-    padding: 10px;
-    position: absolute;
-    z-index: 100;
-    bottom: 120%;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-    text-align: left;
-}
-
-.tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -6px;
-    border-width: 6px;
-    border-style: solid;
-    border-color: rgba(51, 51, 51, 0.95) transparent transparent transparent;
-}
-
-.month-cell:hover .tooltip {
-    visibility: visible;
-    opacity: 1;
-}
-
-.tooltip-title {
-    font-weight: bold;
-    margin-bottom: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 6px;
-}
-
-.tooltip-content p {
-    margin: 4px 0;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
-}
-
-.tooltip-content span {
-    color: rgba(255, 255, 255, 0.65);
-    display: block;
-}
-
-.tooltip-deadline {
-    color: var(--warning-color) !important;
-    font-weight: 600;
-}
-
-.stats-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.stats-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.view-toggle {
-    display: flex;
-    border: 1px solid var(--primary-color);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.toggle-btn {
-    padding: 8px 18px;
-    border: none;
-    background-color: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--primary-color);
-    transition: background-color 0.3s, color 0.3s;
-}
-
-.toggle-btn.active { background-color: var(--primary-color); color: #fff; }
-
-.stats-table-wrapper { overflow-x: auto; }
-
-.stats-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-}
-
-.stats-table th,
-.stats-table td {
-    padding: 12px 8px;
-    border: 1px solid var(--border-color);
-    text-align: center;
-    white-space: nowrap;
-}
-
-/* 模块间高对比度分隔线 */
-.stats-table th.module-separator,
-.stats-table td.module-separator {
-    border-left: 3px solid #bfbfbf;
-}
-
-.stats-table thead {
-    background-color: #fafafa;
-    font-weight: 600;
-}
-
-.stats-table .col-group-header {
-    border-bottom: 2px solid var(--primary-color);
-}
-
-.stats-table .col-subheader {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.stats-table tbody tr:hover { background-color: #f5f5f5; }
-.stats-table .timely { color: var(--success-color); }
-.stats-table .delayed { color: var(--error-color); }
-.stats-table .total { font-weight: bold; }
-.stats-table .row-header {
-    text-align: left;
-    font-weight: bold;
-    color: var(--text-primary);
-    word-break: break-word;
-    white-space: normal;
-    line-height: 1.4;
-    max-width: 200px;
-}
-.stats-table .rate { font-weight: bold; }
-.stats-table .rate.good { color: var(--success-color); }
-.stats-table .rate.average { color: var(--warning-color); }
-.stats-table .rate.bad { color: var(--error-color); }
-
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-secondary);
-    border: 1px dashed var(--border-color);
-    border-radius: 12px;
-    background: #fafafa;
-}
-
-.empty-state i {
-    font-size: 42px;
-    margin-bottom: 12px;
-    color: var(--text-secondary);
-}
-
-@media (max-width: 768px) {
-    .filter-controls {
-        flex-direction: column;
-        align-items: stretch;
+    .view-mode-selector {
+        display: inline-flex;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-
-    .heatmap-grid {
-        grid-template-columns: 90px repeat(12, 1fr);
+    .view-mode-btn {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
     }
-}
-
-/* 加载提示样式 */
-.loading-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.9);
-    z-index: 9999;
-    justify-content: center;
-    align-items: center;
-}
-
-.loading-overlay.active {
-    display: flex;
-}
-
-.loading-content {
-    text-align: center;
-}
-
-.loading-spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid var(--primary-color);
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 16px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.loading-text {
-    font-size: 16px;
-    color: var(--text-primary);
-    font-weight: 500;
-}
+    .view-mode-btn:hover {
+        background: #f8f9fa;
+    }
+    .view-mode-btn.active {
+        background: #0d6efd;
+        color: white;
+    }
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.2s;
+        height: 100%;
+    }
+    .stats-card .card-body { padding: 0.75rem 1rem; }
+    .stats-card h2, .stats-card h3 { margin: 0.25rem 0; }
+    .stats-card h6 { margin-bottom: 0.25rem; }
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    .stats-card.procurement {
+        border-left-color: #0d6efd;
+    }
+    .stats-card.contract {
+        border-left-color: #198754;
+    }
+    .stats-card.payment {
+        border-left-color: #ffc107;
+    }
+    .stats-card.settlement {
+        border-left-color: #6f42c1;
+    }
+    .stats-card.overall {
+        border-left-color: #6c757d;
+    }
+    /* Equal height helpers for cards */
+    .equal-col { display: flex; }
+    .equal-col .card { height: 100%; width: 100%; }
+    .progress { height: 20px; }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    .on-time-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .on-time-badge.high {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+    .on-time-badge.medium {
+        background-color: #fff3cd;
+        color: #664d03;
+    }
+    .on-time-badge.low {
+        background-color: #f8d7da;
+        color: #842029;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- 加载提示遮罩 -->
-<div class="loading-overlay" id="loading-overlay">
-    <div class="loading-content">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">正在加载数据，请稍候...</div>
+<div class="container-fluid mt-4">
+    <!-- 页面标题和视图切换 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ page_title }}</h2>
+        <div class="view-mode-selector">
+            <button type="button" class="view-mode-btn {% if view_mode == 'project' %}active{% endif %}" data-mode="project">
+                <i class="fas fa-project-diagram"></i> 项目视图
+            </button>
+            <button type="button" class="view-mode-btn {% if view_mode == 'person' %}active{% endif %}" data-mode="person">
+                <i class="fas fa-user"></i> 个人视图
+            </button>
+        </div>
     </div>
-</div>
 
-<div class="dashboard-container">
-    <header class="page-header">
-        <div>
-            <h1 class="page-title"><i class="fas fa-chart-pie"></i> 项目更新准时率</h1>
-            <p class="helper-note">当前统计：{{ display_year }}</p>
+    <!-- 筛选条件 -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <!-- 保留现有参数 -->
+                <input type="hidden" name="view_mode" value="{{ view_mode }}">
+                {% if filter_config.selected_year_value %}
+                <input type="hidden" name="year" value="{{ filter_config.selected_year_value }}">
+                {% endif %}
+                {% if filter_config.selected_project_value %}
+                <input type="hidden" name="project" value="{{ filter_config.selected_project_value }}">
+                {% endif %}
+                
+                <!-- 起始日期选择器 -->
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">
+                        <i class="fas fa-calendar-alt"></i> 业务起始日期
+                    </label>
+                    <input type="date" class="form-control" id="start_date" name="start_date"
+                           value="{{ start_date|default:'' }}"
+                           title="只统计该日期之后的业务数据">
+                </div>
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> 应用筛选
+                    </button>
+                    {% if start_date %}
+                    <a href="?view_mode={{ view_mode }}{% if filter_config.selected_year_value %}&year={{ filter_config.selected_year_value }}{% endif %}{% if filter_config.selected_project_value %}&project={{ filter_config.selected_project_value }}{% endif %}"
+                       class="btn btn-secondary">
+                        <i class="fas fa-times"></i> 清除
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-7">
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        当前筛选：{{ filter_config.display_year|default:"全部年度" }}
+                        {% if filter_config.selected_project_value %} · {{ filter_config.selected_project_value }}{% else %} · 全部项目{% endif %}
+                        {% if start_date %} · 起始日期：{{ start_date }}{% endif %}
+                        <span class="ms-3">准时规则：业务发生次月月底前更新</span>
+                    </div>
+                </div>
+            </form>
         </div>
-        <div class="monitoring-page__filters">
-            {% include 'monitoring/includes/filter_bar.html' with filters=monitoring_filters action=request.path submit_icon='fas fa-search' submit_label='查询' %}
-        </div>
-    </header>
+    </div>
 
-    <section class="kpi-overview">
-        <div class="kpi-card"><div class="kpi-card-title">监控中项目总数</div><div class="kpi-card-value" id="kpi-total-projects">-</div></div>
-        <div class="kpi-card is-success"><div class="kpi-card-title">总体更新准时率</div><div class="kpi-card-value" id="kpi-timeliness-rate">-</div></div>
-        <div class="kpi-card"><div class="kpi-card-title">业务事件总数</div><div class="kpi-card-value" id="kpi-total-events">-</div></div>
-        <div class="kpi-card is-error"><div class="kpi-card-title">累计延迟事件数</div><div class="kpi-card-value" id="kpi-delayed-events">-</div></div>
-    </section>
-
-    <section class="main-content-card">
-        <div id="project-heatmap-container" class="project-heatmap-container"></div>
-        <div class="heatmap-legend">
-            <div class="legend-item"><div class="legend-color-box on-time"></div> 准时更新</div>
-            <div class="legend-item"><div class="legend-color-box delayed"></div> 延迟更新</div>
-            <div class="legend-item"><div class="legend-color-box no-event"></div> 无业务事件</div>
-            <div class="legend-item"><div class="legend-color-box mixed-event"><div class="mixed-bar-on-time" style="width:60%"></div><div class="mixed-bar-delayed" style="width:40%"></div></div> 混合状态</div>
-            <div class="legend-rule"><strong>准时更新规则：</strong>业务发生后<strong>次月月底前</strong>完成录入视为准时，仅统计当前筛选年份数据。</div>
-            <div class="legend-rule"><strong>历史数据规则：</strong>早于"监控起始日期"的历史业务不纳入准时率统计。</div>
-            <div class="legend-rule"><strong>事件触发：</strong>采购(结果公示)、合同(签订日期)、付款(付款日期)、结算(完成日期)。</div>
-        </div>
-    </section>
-
-    <section class="main-content-card">
-        <div class="stats-header">
-            <h2 class="stats-title"><i class="fas fa-table"></i> 详细统计数据</h2>
-            <div class="view-toggle">
-                <button id="view-by-project" class="toggle-btn active" type="button">按项目统计</button>
-                <button id="view-by-person" class="toggle-btn" type="button">按人员统计</button>
+    <!-- 汇总统计卡片（6张） -->
+    {% if overview_data %}
+    <div class="row mb-4">
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card overall h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">{% if view_mode == 'project' %}项目总数{% else %}经办人数{% endif %}</h6>
+                    <h2 class="text-primary">
+                        {% if view_mode == 'project' %}
+                            {{ overview_data.summary.project_count }}
+                        {% else %}
+                            {{ overview_data.summary.person_count }}
+                        {% endif %}
+                    </h2>
+                </div>
             </div>
         </div>
-        <div id="statistics-table-container" class="stats-table-wrapper"></div>
-    </section>
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card procurement h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">采购情况</h6>
+                    <h3>{{ overview_data.summary.procurement_stats.updated }}/{{ overview_data.summary.procurement_stats.total }}</h3>
+                    <small class="text-muted">已更新/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card contract h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">合同情况</h6>
+                    <h3>{{ overview_data.summary.contract_stats.updated }}/{{ overview_data.summary.contract_stats.total }}</h3>
+                    <small class="text-muted">已更新/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card payment h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">支付情况</h6>
+                    <h3>{{ overview_data.summary.payment_stats.updated }}/{{ overview_data.summary.payment_stats.total }}</h3>
+                    <small class="text-muted">已更新/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card settlement h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">结算情况</h6>
+                    <h3>{{ overview_data.summary.settlement_stats.updated }}/{{ overview_data.summary.settlement_stats.total }}</h3>
+                    <small class="text-muted">已更新/总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 equal-col">
+            <div class="card text-center stats-card overall h-100 w-100">
+                <div class="card-body">
+                    <h6 class="text-muted">综合准时率</h6>
+                    <h2 class="text-success">{{ overview_data.summary.overall_on_time_rate }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 数据列表表格 -->
+    {% if overview_data %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                {% if view_mode == 'project' %}项目更新统计明细{% else %}经办人更新统计明细{% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% if view_mode == 'project' %}项目名称{% else %}经办人{% endif %}</th>
+                            <th>采购</th>
+                            <th>采购准时率</th>
+                            <th>合同</th>
+                            <th>合同准时率</th>
+                            <th>支付</th>
+                            <th>支付准时率</th>
+                            <th>结算</th>
+                            <th>结算准时率</th>
+                            <th>综合准时率</th>
+                            {% if view_mode == 'person' %}<th>负责项目</th>{% endif %}
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if view_mode == 'project' %}
+                            {% for project in overview_data.projects %}
+                            <tr>
+                                <td><strong>{{ project.project_code }}</strong><br><small>{{ project.project_name }}</small></td>
+                                <td>{{ project.procurement_updated }}/{{ project.procurement_count }}<br><small class="text-muted">{{ project.procurement_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if project.procurement_on_time_rate >= 90 %}high{% elif project.procurement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ project.procurement_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ project.contract_updated }}/{{ project.contract_count }}<br><small class="text-muted">{{ project.contract_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if project.contract_on_time_rate >= 90 %}high{% elif project.contract_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ project.contract_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ project.payment_updated }}/{{ project.payment_count }}<br><small class="text-muted">{{ project.payment_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if project.payment_on_time_rate >= 90 %}high{% elif project.payment_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ project.payment_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ project.settlement_updated }}/{{ project.settlement_count }}<br><small class="text-muted">{{ project.settlement_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if project.settlement_on_time_rate >= 90 %}high{% elif project.settlement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ project.settlement_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar {% if project.overall_on_time_rate >= 90 %}bg-success{% elif project.overall_on_time_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" style="width: {{ project.overall_on_time_rate }}%" 
+                                             aria-valuenow="{{ project.overall_on_time_rate }}" aria-valuemin="0" aria-valuemax="100">
+                                            {{ project.overall_on_time_rate }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary view-detail-btn" data-target="{{ project.project_code }}">
+                                        <i class="fas fa-eye"></i> 查看详情
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            {% for person in overview_data.persons %}
+                            <tr>
+                                <td><strong>{{ person.person_name }}</strong></td>
+                                <td>{{ person.procurement_updated }}/{{ person.procurement_count }}<br><small class="text-muted">{{ person.procurement_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if person.procurement_on_time_rate >= 90 %}high{% elif person.procurement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ person.procurement_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ person.contract_updated }}/{{ person.contract_count }}<br><small class="text-muted">{{ person.contract_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if person.contract_on_time_rate >= 90 %}high{% elif person.contract_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ person.contract_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ person.payment_updated }}/{{ person.payment_count }}<br><small class="text-muted">{{ person.payment_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if person.payment_on_time_rate >= 90 %}high{% elif person.payment_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ person.payment_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>{{ person.settlement_updated }}/{{ person.settlement_count }}<br><small class="text-muted">{{ person.settlement_avg_days }}天</small></td>
+                                <td>
+                                    <span class="on-time-badge {% if person.settlement_on_time_rate >= 90 %}high{% elif person.settlement_on_time_rate >= 70 %}medium{% else %}low{% endif %}">
+                                        {{ person.settlement_on_time_rate }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar {% if person.overall_on_time_rate >= 90 %}bg-success{% elif person.overall_on_time_rate >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" style="width: {{ person.overall_on_time_rate }}%"
+                                             aria-valuenow="{{ person.overall_on_time_rate }}" aria-valuemin="0" aria-valuemax="100">
+                                            {{ person.overall_on_time_rate }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ person.project_count }}个</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary view-detail-btn" data-target="{{ person.person_name }}">
+                                        <i class="fas fa-eye"></i> 查看详情
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 延迟记录列表 -->
+    {% if trend_and_problems and trend_and_problems.problems %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle"></i> 
+                {% if view_mode == 'project' %}
+                    {% if filter_config.selected_project_value %}本项目延迟记录{% else %}所有项目延迟记录{% endif %}
+                {% else %}
+                    所有经办人延迟记录
+                {% endif %}
+                <small class="text-muted ms-2">(超过次月月底未更新)</small>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% for severity, items in trend_and_problems.problems.items %}
+                {% if items %}
+                <div class="card mb-2">
+                    <div class="card-header" data-bs-toggle="collapse" data-bs-target="#{{ severity }}-problems" style="cursor: pointer;">
+                        <strong>{{ severity|upper }}</strong> ({{ items|length }}条)
+                        <i class="fas fa-chevron-down float-end"></i>
+                    </div>
+                    <div id="{{ severity }}-problems" class="collapse">
+                        <div class="card-body p-0">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>业务类型</th>
+                                        <th>编号</th>
+                                        <th>名称</th>
+                                        <th>经办人</th>
+                                        <th>业务日期</th>
+                                        <th>更新截止日</th>
+                                        <th>剩余天数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr>
+                                        <td>{{ item.module_label }}</td>
+                                        <td>{{ item.code }}</td>
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.responsible_person }}</td>
+                                        <td>{{ item.business_date|date:"Y-m-d" }}</td>
+                                        <td>{{ item.update_deadline|date:"Y-m-d" }}</td>
+                                        <td class="{% if item.days_remaining < 0 %}text-danger{% elif item.days_remaining <= 3 %}text-warning{% else %}text-success{% endif %}">
+                                            <strong>{{ item.days_remaining }}天</strong>
+                                        </td>
+                                        <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-link">编辑</a></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 详情模态框 -->
+    {% if target_code and detail_data %}
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% if view_mode == 'project' %}项目详情{% else %}经办人详情{% endif %} - {{ target_code }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 业务类型筛选 -->
+                    <div class="mb-3">
+                        <div class="btn-group" role="group" aria-label="业务类型筛选">
+                            <input type="radio" class="btn-check" name="moduleFilter" id="moduleAll" value="all" checked>
+                            <label class="btn btn-outline-primary" for="moduleAll">全部</label>
+                            
+                            <input type="radio" class="btn-check" name="moduleFilter" id="moduleProcurement" value="procurement">
+                            <label class="btn btn-outline-primary" for="moduleProcurement">采购</label>
+                            
+                            <input type="radio" class="btn-check" name="moduleFilter" id="moduleContract" value="contract">
+                            <label class="btn btn-outline-primary" for="moduleContract">合同</label>
+                            
+                            <input type="radio" class="btn-check" name="moduleFilter" id="modulePayment" value="payment">
+                            <label class="btn btn-outline-primary" for="modulePayment">付款</label>
+                            
+                            <input type="radio" class="btn-check" name="moduleFilter" id="moduleSettlement" value="settlement">
+                            <label class="btn btn-outline-primary" for="moduleSettlement">结算</label>
+                        </div>
+                    </div>
+                    
+                    <!-- 详情概要 -->
+                    {% if detail_data.summary %}
+                    <div class="row mb-4">
+                        <div class="col-md-3 equal-col">
+                            <div class="card text-center stats-card overall h-100 w-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">综合准时率</h6>
+                                    <h2 class="text-success">{{ detail_data.summary.overall_update_rate }}%</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 equal-col">
+                            <div class="card text-center stats-card procurement h-100 w-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">采购</h6>
+                                    <h4>{{ detail_data.summary.procurement.updated }}/{{ detail_data.summary.procurement.total }}</h4>
+                                    
+<small class="text-muted">准时率 {{ detail_data.summary.procurement.on_time_rate }}% · 平均{{ detail_data.summary.procurement.avg_days }}天</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 equal-col">
+                            <div class="card text-center stats-card contract h-100 w-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">合同</h6>
+                                    <h4>{{ detail_data.summary.contract.updated }}/{{ detail_data.summary.contract.total }}</h4>
+                                    <small class="text-muted">准时率 {{ detail_data.summary.contract.on_time_rate }}% · 平均{{ detail_data.summary.contract.avg_days }}天</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 equal-col">
+                            <div class="card text-center stats-card payment h-100 w-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">支付</h6>
+                                    <h4>{{ detail_data.summary.payment.updated }}/{{ detail_data.summary.payment.total }}</h4>
+                                    <small class="text-muted">准时率 {{ detail_data.summary.payment.on_time_rate }}% · 平均{{ detail_data.summary.payment.avg_days }}天</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-md-12 equal-col">
+                            <div class="card text-center stats-card settlement h-100 w-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">结算</h6>
+                                    <h4>{{ detail_data.summary.settlement.updated }}/{{ detail_data.summary.settlement.total }}</h4>
+                                    <small class="text-muted">准时率 {{ detail_data.summary.settlement.on_time_rate }}% · 平均{{ detail_data.summary.settlement.avg_days }}天</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 趋势图 -->
+                    <h6>更新周期趋势</h6>
+                    <div id="trendChart" class="mb-4" style="height: 400px;">
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-info-circle"></i> 趋势图功能开发中，敬请期待
+                        </div>
+                    </div>
+
+                    <!-- 延迟记录明细 -->
+                    {% if detail_data.problems %}
+                    <h6 class="mt-4">更新记录明细</h6>
+                    {% for severity, items in detail_data.problems.items %}
+                        {% if items %}
+                        <div class="card mb-2 severity-section" data-severity="{{ severity }}">
+                            <div class="card-header" data-bs-toggle="collapse" data-bs-target="#detail-{{ severity }}" style="cursor: pointer;">
+                                <strong>
+                                    {% if severity == 'delayed' %}已延迟
+                                    {% elif severity == 'upcoming' %}即将到期
+                                    {% elif severity == 'completed' %}已完成
+                                    {% else %}{{ severity|upper }}
+                                    {% endif %}
+                                </strong>
+                                <span class="severity-count">({{ items|length }}条)</span>
+                                <i class="fas fa-chevron-down float-end"></i>
+                            </div>
+                            <div id="detail-{{ severity }}" class="collapse {% if severity == 'delayed' %}show{% endif %}">
+                                <div class="card-body p-0">
+                                    <table class="table table-sm mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>业务类型</th>
+                                                <th>编号</th>
+                                                <th>名称</th>
+                                                <th>经办人</th>
+                                                <th>业务日期</th>
+                                                <th>更新截止日</th>
+                                                <th>剩余天数</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in items %}
+                                            <tr class="problem-row" data-module="{{ item.module }}">
+                                                <td>{{ item.module_label }}</td>
+                                                <td>{{ item.code }}</td>
+                                                <td>{{ item.name }}</td>
+                                                <td>{{ item.responsible_person }}</td>
+                                                <td>{{ item.business_date|date:"Y-m-d" }}</td>
+                                                <td>{{ item.update_deadline|date:"Y-m-d" }}</td>
+                                                <td class="{% if item.days_remaining < 0 %}text-danger{% elif item.days_remaining <= 3 %}text-warning{% else %}text-success{% endif %}">
+                                                    <strong>{{ item.days_remaining }}天</strong>
+                                                </td>
+                                                <td><a href="{{ item.edit_url }}" class="btn btn-sm btn-link">编辑</a></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 暂无更新记录数据
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
-{{ monitoring_data|json_script:"update-monitoring-data" }}
-<script src="{% static 'js/update_monitoring.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
-(function() {
-    // 显示加载提示
-    const loadingOverlay = document.getElementById('loading-overlay');
-    if (loadingOverlay) {
-        loadingOverlay.classList.add('active');
-    }
-
-    const dataElement = document.getElementById('update-monitoring-data');
-    const monitoringData = dataElement ? JSON.parse(dataElement.textContent) : null;
-    const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (char) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[char]));
-
-    // 声明必需的DOM元素引用和全局变量
-    const heatmapContainer = document.getElementById('project-heatmap-container');
-    const statsContainer = document.getElementById('statistics-table-container');
-    const viewByProjectBtn = document.getElementById('view-by-project');
-    const viewByPersonBtn = document.getElementById('view-by-person');
-    
-    // 模块映射和当前视图状态
-    const moduleMap = {
-        'procurement': '采购',
-        'contract': '合同',
-        'payment': '付款',
-        'settlement': '结算',
-        'total': '总计'
-    };
-    const moduleKeys = ['procurement', 'contract', 'payment', 'settlement', 'total'];
-    let currentStatsView = 'project';
-
-    function renderKpis() {
-        const { totalProjects, overallTimelinessRate, totalEvents, delayedEvents } = monitoringData.kpis || {};
-        const formatRate = (value) => (value === null || value === undefined) ? '--' : `${value.toFixed(1)}<span class="unit">%</span>`;
-        document.getElementById('kpi-total-projects').textContent = totalProjects ?? 0;
-        document.getElementById('kpi-timeliness-rate').innerHTML = formatRate(overallTimelinessRate);
-        document.getElementById('kpi-total-events').textContent = totalEvents ?? 0;
-        document.getElementById('kpi-delayed-events').textContent = delayedEvents ?? 0;
-    }
-
-    function buildTooltip(moduleName, monthInfo) {
-        const timely = monthInfo.timely || 0;
-        const delayed = monthInfo.delayed || 0;
-        const parts = [
-            `<div class="tooltip-title">${escapeHtml(moduleName)} · ${monthInfo.month}月</div>`,
-            `<div class="tooltip-content"><p>准时事件: <span>${timely}</span></p><p>延迟事件: <span>${delayed}</span></p><hr>`
-        ];
-        (monthInfo.events || []).forEach((event) => {
-            const handlerLine = event.handler ? `<span>经办人: ${escapeHtml(event.handler)}</span>` : '';
-            parts.push(
-                `<p>发生: ${escapeHtml(event.eventDate)} ｜ 录入: ${escapeHtml(event.updateDate)}<br>` +
-                `<strong class="tooltip-deadline">截止: ${escapeHtml(event.deadlineDate)}</strong><br>${handlerLine}</p>`
-            );
+document.addEventListener('DOMContentLoaded', function() {
+    // 视图模式切换
+    document.querySelectorAll('.view-mode-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const mode = this.dataset.mode;
+            const url = new URL(window.location.href);
+            url.searchParams.set('view_mode', mode);
+            url.searchParams.delete('target_code');  // 切换视图时清除目标选择
+            window.location.href = url.toString();
         });
-        parts.push('</div>');
-        return parts.join('');
-    }
+    });
 
-    function renderHeatmap() {
-        heatmapContainer.innerHTML = '';
-        const projects = monitoringData.projects || [];
-        if (!projects.length) {
-            heatmapContainer.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><div>在当前筛选条件下暂无业务事件数据</div></div>`;
-            return;
-        }
-        projects.forEach((project) => {
-            const projectCard = document.createElement('div');
-            projectCard.className = 'project-card';
+    // 查看详情按钮
+    document.querySelectorAll('.view-detail-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetCode = this.dataset.target;
+            const url = new URL(window.location.href);
+            url.searchParams.set('target_code', targetCode);
+            window.location.href = url.toString();
+        });
+    });
 
-            const rate = project.timelinessRate;
-            const rateClass = rate === null || rate === undefined ? 'neutral' : (rate >= 80 ? 'good' : 'bad');
-            const rateDisplay = rate === null || rate === undefined ? '--' : `${rate.toFixed(1)}%`;
-            projectCard.innerHTML = `
-                <div class="project-header">
-                    <div class="project-info">
-                        <div class="project-name">${escapeHtml(project.projectName)}</div>
-                        <div class="project-code">${escapeHtml(project.projectCode)}</div>
-                    </div>
-                    <div class="project-timeliness-rate ${rateClass}">准时率: ${rateDisplay}</div>
-                </div>`;
-
-            const heatmapGrid = document.createElement('div');
-            heatmapGrid.className = 'heatmap-grid';
-            let headerCells = '<div class="grid-header"></div>';
-            for (let month = 1; month <= 12; month += 1) {
-                headerCells += `<div class="grid-header">${month}月</div>`;
-            }
-            heatmapGrid.innerHTML = headerCells;
-
-            (project.modules || []).forEach((module) => {
-                heatmapGrid.innerHTML += `<div class="module-name">${escapeHtml(module.moduleName)}</div>`;
-                (module.months || []).forEach((monthInfo) => {
-                    const status = monthInfo.status || 'no-event';
-                    const timelyRatio = monthInfo.timelyRatio || 0;
-                    let cellContent = '';
-                    if (status === 'mixed') {
-                        cellContent = `<div class="ratio-bar"><div class="ratio-bar-on-time" style="width:${timelyRatio}%"></div><div class="ratio-bar-delayed" style="width:${100 - timelyRatio}%"></div></div>`;
-                    } else if (status === 'on-time') {
-                        cellContent = '<i class="fas fa-check" style="color:#fff;"></i>';
-                    } else if (status === 'delayed') {
-                        cellContent = '<i class="fas fa-exclamation" style="color:#fff;"></i>';
-                    }
-                    const tooltipHtml = buildTooltip(module.moduleName, monthInfo);
-                    heatmapGrid.innerHTML += `<div class="month-cell ${status}">${cellContent}<div class="tooltip">${tooltipHtml}</div></div>`;
-                });
-            });
-
-            projectCard.appendChild(heatmapGrid);
-            heatmapContainer.appendChild(projectCard);
+    // 详情模态框：自动弹出与URL清理
+    {% if target_code %}
+    const detailModalEl = document.getElementById('detailModal');
+    if (detailModalEl && window.bootstrap) {
+        const detailModal = new bootstrap.Modal(detailModalEl);
+        detailModal.show();
+        detailModalEl.addEventListener('hidden.bs.modal', function() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('target_code');
+            url.searchParams.delete('show_all');
+            history.replaceState({}, '', url.toString());
         });
     }
+    {% endif %}
 
-    function renderStatisticsTable(viewKey) {
-        const statsSource = monitoringData.statistics || {};
-        const data = viewKey === 'person' ? (statsSource.byPerson || {}) : (statsSource.byProject || {});
-        if (!Object.keys(data).length) {
-            statsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-user-clock"></i><div>暂无可统计的数据</div></div>`;
-            return;
-        }
-        const headerName = viewKey === 'person' ? '经办人' : '项目';
-        const moduleHeaders = moduleKeys
-            .map((key, index) => `<th colspan="4" class="col-group-header${index > 0 ? ' module-separator' : ''}">${escapeHtml(moduleMap[key] || (key === 'total' ? '总计' : key))}</th>`)
-            .join('');
-        const subHeaderRow = moduleKeys
-            .map((key, index) => `<th class="col-subheader${index > 0 ? ' module-separator' : ''}">准时</th><th class="col-subheader">延迟</th><th class="col-subheader">总数</th><th class="col-subheader">准时率</th>`)
-            .join('');
+    // 趋势图功能暂时禁用（数据结构需要重新设计）
+    {% if target_code and detail_data %}
+    // 趋势图数据暂未实现，显示提示信息
+    {% endif %}
 
-        const tableRows = Object.keys(data).sort().map((label) => {
-            const rowCells = moduleKeys.map((moduleKey, index) => {
-                const cell = data[label]?.[moduleKey] || { timely: 0, delayed: 0, total: 0 };
-                const rate = cell.total > 0 ? (cell.timely / cell.total) * 100 : null;
-                let rateClass = 'neutral';
-                if (rate !== null) {
-                    if (rate >= 90) rateClass = 'good';
-                    else if (rate >= 60) rateClass = 'average';
-                    else rateClass = 'bad';
-                }
-                const rateDisplay = rate === null ? '-' : `${rate.toFixed(1)}%`;
-                const separatorClass = index > 0 ? ' module-separator' : '';
-                return `<td class="timely${separatorClass}">${cell.timely}</td><td class="delayed">${cell.delayed}</td><td class="total">${cell.total}</td><td class="rate ${rateClass}">${rateDisplay}</td>`;
-            }).join('');
-            return `<tr><td class="row-header">${escapeHtml(label)}</td>${rowCells}</tr>`;
-        }).join('');
+    // 模态框中的业务类型筛选功能
+    {% if target_code and detail_data %}
+    const moduleFilterRadios = document.querySelectorAll('input[name="moduleFilter"]');
+    moduleFilterRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const selectedModule = this.value;
+            filterProblemsByModule(selectedModule);
+        });
+    });
 
-        statsContainer.innerHTML = `
-            <table class="stats-table">
-                <thead>
-                    <tr><th rowspan="2">${headerName}</th>${moduleHeaders}</tr>
-                    <tr>${subHeaderRow}</tr>
-                </thead>
-                <tbody>${tableRows}</tbody>
-            </table>`;
-    }
-
-    function renderView(viewType) {
-        currentStatsView = viewType;
-        renderStatisticsTable(viewType);
-        if (viewType === 'project') {
-            viewByProjectBtn.classList.add('active');
-            viewByPersonBtn.classList.remove('active');
-        } else {
-            viewByPersonBtn.classList.add('active');
-            viewByProjectBtn.classList.remove('active');
-        }
-    }
-
-    function init() {
-        renderKpis();
-        renderHeatmap();
-        renderView(currentStatsView);
-        viewByProjectBtn.addEventListener('click', () => currentStatsView !== 'project' && renderView('project'));
-        viewByPersonBtn.addEventListener('click', () => currentStatsView !== 'person' && renderView('person'));
+    function filterProblemsByModule(module) {
+        const allRows = document.querySelectorAll('.problem-row');
+        const severitySections = document.querySelectorAll('.severity-section');
         
-        // 隐藏加载提示
-        if (loadingOverlay) {
-            loadingOverlay.classList.remove('active');
-        }
+        allRows.forEach(row => {
+            if (module === 'all' || row.dataset.module === module) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // 更新每个严重程度分类的计数
+        severitySections.forEach(section => {
+            const severity = section.dataset.severity;
+            const visibleRows = section.querySelectorAll('.problem-row[style=""], .problem-row:not([style])');
+            const countSpan = section.querySelector('.severity-count');
+            
+            let count = 0;
+            visibleRows.forEach(row => {
+                if (module === 'all' || row.dataset.module === module) {
+                    count++;
+                }
+            });
+            
+            if (countSpan) {
+                countSpan.textContent = `(${count}条)`;
+            }
+            
+            // 如果该分类没有可见记录，隐藏整个卡片
+            if (count === 0) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = '';
+            }
+        });
     }
-
-    init();
-})();
+    {% endif %}
+});
 </script>
 {% endblock %}

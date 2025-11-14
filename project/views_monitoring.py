@@ -249,37 +249,95 @@ def archive_monitor(request):
 
 
 def update_monitor(request):
-    """更新监控 - 问题列表视图。"""
-    from project.services.monitors.update_problem_detector import UpdateProblemDetector
+    """
+    更新监控 - 双视图模式（项目视图/个人视图）
+    参照archive_monitor的成功设计模式
+    """
+    from project.services.monitors.update_statistics_facade import UpdateStatisticsFacade
+    from datetime import datetime
 
+    # 1. 解析全局筛选参数（与归档监控完全一致）
     global_filters = _resolve_global_filters(request)
-    responsible_person = request.GET.get('responsible_person', '')
-    time_dimension = request.GET.get('time_dimension', 'current_month')
+    view_mode = request.GET.get('view_mode', 'project')
+    target_code = request.GET.get('target_code', '')
     show_all = request.GET.get('show_all', '') == 'true'
+    
+    # 解析起始日期参数
+    start_date = None
+    start_date_str = request.GET.get('start_date', '')
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = None
 
-    filters = {}
-    if global_filters['project']:
-        filters['project'] = global_filters['project']
-    if responsible_person:
-        filters['responsible_person'] = responsible_person
+    # 2. 初始化统计门面（简洁的接口调用）
+    facade = UpdateStatisticsFacade(start_date=start_date)
 
-    return_url = request.get_full_path()
-    detector = UpdateProblemDetector(time_dimension=time_dimension, year_filter=global_filters['year_filter'])
-    problems = detector.detect_problems(filters, return_url=return_url, show_all=show_all)
-    statistics = detector.get_statistics(problems)
+    # 3. 获取概览数据（项目视图或个人视图）
+    overview_data = facade.get_overview(
+        view_mode=view_mode,
+        year_filter=global_filters['year_value'],
+        project_filter=global_filters['project'],
+        start_date=start_date
+    )
 
-    year_context, project_codes, project_filter, filter_config = _extract_monitoring_filters(request)
+    # 4. 获取详情数据（如果有目标）
+    detail_data = None
+    if target_code:
+        detail_data = facade.get_detail(
+            view_mode=view_mode,
+            target_code=target_code,
+            year_filter=global_filters['year_value'],
+            project_filter=global_filters['project'],
+            show_all=show_all
+        )
+
+    # 5. 获取主页面的趋势和问题数据
+    trend_and_problems = facade.get_trend_and_problems(
+        view_mode=view_mode,
+        year_filter=global_filters['year_value'],
+        project_filter=global_filters['project'],
+        show_all=show_all
+    )
+
+    # 6. 构建上下文（与归档监控保持一致的结构）
+    year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
+    
+    # 准备趋势图数据（JSON格式）
+    trend_data_json = {}
+    if detail_data:
+        trend_data_json = {
+            'procurement': detail_data.get('procurement_trend', []),
+            'contract': detail_data.get('contract_trend', []),
+            'payment': detail_data.get('payment_trend', []),
+            'settlement': detail_data.get('settlement_trend', []),
+        }
+
+    # 准备主页面趋势数据
+    main_trend_json = {}
+    if trend_and_problems:
+        main_trend_json = {
+            'procurement': trend_and_problems.get('procurement_trend', []),
+            'contract': trend_and_problems.get('contract_trend', []),
+            'payment': trend_and_problems.get('payment_trend', []),
+            'settlement': trend_and_problems.get('settlement_trend', []),
+        }
+
     context = {
-        'problems': problems,
-        'statistics': statistics,
-        'selected_project': global_filters['project'],
-        'selected_person': responsible_person,
-        'time_dimension': time_dimension,
-        'show_all': show_all,
         'page_title': '更新监控',
+        'view_mode': view_mode,
+        'target_code': target_code,
+        'overview_data': overview_data,
+        'detail_data': detail_data,
+        'trend_and_problems': trend_and_problems,
+        'show_all': show_all,
+        'start_date': start_date_str,
+        'trend_data_json': json.dumps(trend_data_json, ensure_ascii=False),
+        'main_trend_json': json.dumps(main_trend_json, ensure_ascii=False),
         'filter_config': filter_config,
     }
-    return render(request, 'monitoring/update_problems.html', context)
+    return render(request, 'monitoring/update.html', context)
 
 
 def completeness_check(request):
