@@ -517,7 +517,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     {% endif %}
 
-    // 渲染趋势图（详情区域）
+    // 采购方式规定周期映射（从配置文件CYCLE_RULES）- 全局常量
+    const PROCUREMENT_DEADLINES = {
+        '直接采购': 15,
+        '战采结果应用': 15,
+        '单一来源': 25,
+        '询价': 35,
+        '竞价': 35,
+        '比价': 35,
+        '竞争性谈判': 35,
+        '公开招标': 45,
+        '邀请招标': 45,
+    };
+    const DEFAULT_PROCUREMENT_DEADLINE = 45;  // 全部采购方式时使用
+    const CONTRACT_DEADLINE = 30;  // 合同周期：结果公示后30天
+    
+    // 渲染趋势图（详情区域）- 散点图+基准线+区域标注
     {% if target_code and detail_data %}
     const trendData = {{ trend_data_json|safe }};
     
@@ -530,47 +545,24 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // 构建标签列表
-        const labelSet = new Set();
-        trendData.procurement.forEach(item => {
-            if (item.count > 0) {
-                labelSet.add(item.period);
-            }
-        });
-        trendData.contract.forEach(item => {
-            if (item.count > 0) {
-                labelSet.add(item.period);
-            }
-        });
+        // 准备散点数据
+        const procScatter = trendData.procurement.map(p => ({
+            x: new Date(p.date).getTime(),
+            y: p.cycle_days,
+            code: p.code,
+            name: p.name,
+            person: p.person
+        }));
         
-        // 判断维度并排序标签
-        const dimension = trendData.procurement.some(d => d.month) ? 'month' : 'year';
-        let labels;
-        if (dimension === 'month') {
-            labels = Array.from(labelSet).sort((a, b) => {
-                const aMonth = parseInt(a.replace('月', ''));
-                const bMonth = parseInt(b.replace('月', ''));
-                return aMonth - bMonth;
-            });
-        } else {
-            labels = Array.from(labelSet).sort((a, b) => {
-                const getKey = (lbl) => {
-                    if (lbl.includes('上半年')) {
-                        return [parseInt(lbl.split('上半年')[0]), 1];
-                    }
-                    if (lbl.includes('下半年')) {
-                        return [parseInt(lbl.split('下半年')[0]), 2];
-                    }
-                    return [9999, 9];
-                };
-                const [aYear, aHalf] = getKey(a);
-                const [bYear, bHalf] = getKey(b);
-                if (aYear !== bYear) return aYear - bYear;
-                return aHalf - bHalf;
-            });
-        }
+        const contScatter = trendData.contract.map(c => ({
+            x: new Date(c.date).getTime(),
+            y: c.cycle_days,
+            code: c.code,
+            name: c.name,
+            person: c.person
+        }));
         
-        if (labels.length === 0) {
+        if (procScatter.length === 0 && contScatter.length === 0) {
             const el = document.getElementById('trendChart');
             if (el) {
                 el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
@@ -578,54 +570,77 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // 构建采购和合同数据系列
-        const procurementSeries = {
-            name: '采购周期',
-            data: labels.map(label => {
-                const item = trendData.procurement.find(d => d.period === label);
-                return item && item.count > 0 ? item.avg_cycle : null;
-            }),
-            color: '#0d6efd'
-        };
+        // 获取采购方式的规定周期
+        const procurementMethod = '{{ procurement_method }}';
+        const procBaseline = procurementMethod ? (PROCUREMENT_DEADLINES[procurementMethod] || DEFAULT_PROCUREMENT_DEADLINE) : DEFAULT_PROCUREMENT_DEADLINE;
         
-        const contractSeries = {
-            name: '合同周期',
-            data: labels.map(label => {
-                const item = trendData.contract.find(d => d.period === label);
-                return item && item.count > 0 ? item.avg_cycle : null;
-            }),
-            color: '#198754'
-        };
+        // 构建系列
+        const chartSeries = [];
+        const allX = [...procScatter, ...contScatter].map(p => p.x);
+        const xMin = Math.min(...allX);
+        const xMax = Math.max(...allX);
         
-        // 基准线（根据采购方式动态设置）
-        const baselines = [
-            { name: '合同规定周期（15天）', value: 15, color: '#198754' }
-        ];
-        
-        // 构建完整的系列数组
-        const chartSeries = [procurementSeries, contractSeries];
-        baselines.forEach(baseline => {
+        // 采购散点
+        if (procScatter.length > 0) {
             chartSeries.push({
-                name: baseline.name,
-                data: Array(labels.length).fill(baseline.value),
-                color: baseline.color
+                name: '采购周期',
+                type: 'scatter',
+                data: procScatter,
+                color: '#0d6efd'
             });
+        }
+        
+        // 合同散点
+        if (contScatter.length > 0) {
+            chartSeries.push({
+                name: '合同周期',
+                type: 'scatter',
+                data: contScatter,
+                color: '#198754'
+            });
+        }
+        
+        // 采购基准线
+        if (procScatter.length > 0) {
+            chartSeries.push({
+                name: `采购规定周期（${procBaseline}天）`,
+                type: 'line',
+                data: [{ x: xMin, y: procBaseline }, { x: xMax, y: procBaseline }],
+                color: '#0d6efd'
+            });
+        }
+        
+        // 合同基准线
+        chartSeries.push({
+            name: `合同规定周期（${CONTRACT_DEADLINE}天）`,
+            type: 'line',
+            data: [{ x: xMin, y: CONTRACT_DEADLINE }, { x: xMax, y: CONTRACT_DEADLINE }],
+            color: '#198754'
         });
         
-        // 使用ApexCharts配置
+        // 计算Y轴最大值用于区域标注
+        const allY = [...procScatter, ...contScatter].map(p => p.y);
+        const yMax = Math.max(...allY, procBaseline, CONTRACT_DEADLINE) * 1.2;
+        
+        // ApexCharts配置
         const options = {
             chart: {
                 type: 'line',
                 height: 400,
-                toolbar: { show: true }
+                toolbar: { show: true },
+                zoom: { enabled: true }
             },
             series: chartSeries,
             xaxis: {
-                categories: labels,
-                title: { text: '时间周期' }
+                type: 'datetime',
+                title: { text: '完成时间' },
+                labels: {
+                    format: 'yyyy年MM月'
+                }
             },
             yaxis: {
-                title: { text: '平均工作周期（天）' },
+                title: { text: '工作周期（天）' },
+                max: yMax,
                 labels: {
                     formatter: function(value) {
                         return value ? Math.round(value) : '';
@@ -633,20 +648,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             title: {
-                text: '工作周期趋势',
+                text: '工作周期散点分布图',
                 align: 'left',
                 style: { fontSize: '16px', fontWeight: 600 }
             },
             stroke: {
-                curve: 'smooth',
-                width: chartSeries.map((_, idx) => idx >= 2 ? 2 : 3),
-                dashArray: chartSeries.map((_, idx) => idx >= 2 ? 5 : 0)
+                width: chartSeries.map(s => s.type === 'line' ? 3 : 0),
+                dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)
             },
             markers: {
-                size: chartSeries.map((_, idx) => idx >= 2 ? 0 : 5)
+                size: chartSeries.map(s => s.type === 'scatter' ? 6 : 0)
             },
             dataLabels: {
                 enabled: false
+            },
+            annotations: {
+                yaxis: [
+                    {
+                        y: 0,
+                        y2: Math.max(procBaseline, CONTRACT_DEADLINE),
+                        fillColor: '#d4edda',
+                        opacity: 0.3,
+                        label: {
+                            text: '低于基准时间（正常）',
+                            style: {
+                                color: '#155724',
+                                background: '#d4edda'
+                            }
+                        }
+                    },
+                    {
+                        y: Math.max(procBaseline, CONTRACT_DEADLINE),
+                        y2: yMax,
+                        fillColor: '#f8d7da',
+                        opacity: 0.3,
+                        label: {
+                            text: '超出基准时间（超期）',
+                            style: {
+                                color: '#721c24',
+                                background: '#f8d7da'
+                            }
+                        }
+                    }
+                ]
             },
             legend: {
                 show: true,
@@ -655,10 +699,18 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             tooltip: {
                 enabled: true,
-                shared: true,
-                intersect: false,
+                shared: false,
+                intersect: true,
+                x: {
+                    format: 'yyyy年MM月dd日'
+                },
                 y: {
-                    formatter: function(value) {
+                    formatter: function(value, { seriesIndex, dataPointIndex, w }) {
+                        const series = w.config.series[seriesIndex];
+                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
+                            const point = series.data[dataPointIndex];
+                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person}`;
+                        }
                         return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
                     }
                 }
@@ -686,12 +738,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     {% endif %}
 
-    // 多序列趋势图（人员/项目）- 工作周期版本
+    // 多序列趋势图（人员/项目）- 散点图版本（无趋势线）
     const multiData = {{ multi_trend_json|safe }};
     const colorPalette = ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
     
-    function renderMultiSeriesChart(elementId, labels, seriesArray, title, isProcurement) {
-        if (!labels || !seriesArray || seriesArray.length === 0) {
+    function renderMultiSeriesChart(elementId, seriesArray, title, isProcurement) {
+        if (!seriesArray || seriesArray.length === 0) {
             const el = document.getElementById(elementId);
             if (el) {
                 el.innerHTML = '<div class="alert alert-info text-center">暂无数据</div>';
@@ -699,9 +751,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // 检查是否所有系列的数据都为空或null
+        // 检查是否有有效数据
         const hasValidData = seriesArray.some(series =>
-            series.data && series.data.some(val => val !== null && val !== undefined && val !== 0)
+            series.points && series.points.length > 0
         );
         
         if (!hasValidData) {
@@ -712,49 +764,79 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // 根据采购方式确定基准线
+        // 根据采购方式确定基准线（使用正确的配置）
         const procurementMethod = '{{ procurement_method }}';
-        let procBaseline = 40; // 默认40天
-        if (procurementMethod === '公开招标') procBaseline = 45;
-        else if (procurementMethod === '单一来源采购') procBaseline = 20;
-        else if (procurementMethod === '公开询价') procBaseline = 15;
-        else if (procurementMethod === '直接采购') procBaseline = 15;
-        else if (procurementMethod === '公开竞价') procBaseline = 15;
-        else if (procurementMethod === '战采结果应用') procBaseline = 15;
+        const procBaseline = procurementMethod ? (PROCUREMENT_DEADLINES[procurementMethod] || DEFAULT_PROCUREMENT_DEADLINE) : DEFAULT_PROCUREMENT_DEADLINE;
         
-        const baselines = isProcurement
-            ? [{ name: `采购规定周期（${procBaseline}天）`, value: procBaseline, color: '#0d6efd' }]
-            : [{ name: '合同规定周期（15天）', value: 15, color: '#198754' }];
+        // 构建系列数据
+        const chartSeries = [];
+        const allPoints = [];
         
-        // 准备ApexCharts格式的系列数据
-        const chartSeries = seriesArray.map((s, idx) => ({
-            name: s.name,
-            data: s.data.map(v => v === null || v === undefined ? null : v),
-            color: colorPalette[idx % colorPalette.length]
-        }));
-        
-        // 添加基准线
-        baselines.forEach(baseline => {
+        seriesArray.forEach((series, idx) => {
+            if (!series.points || series.points.length === 0) return;
+            
+            const color = colorPalette[idx % colorPalette.length];
+            
+            // 散点数据
+            const scatterData = series.points.map(p => ({
+                x: new Date(p.date).getTime(),
+                y: p.cycle_days,
+                code: p.code,
+                name: p.name,
+                person: p.person
+            }));
+            
             chartSeries.push({
-                name: baseline.name,
-                data: Array(labels.length).fill(baseline.value),
-                color: baseline.color
+                name: series.name,
+                type: 'scatter',
+                data: scatterData,
+                color: color
             });
+            
+            allPoints.push(...scatterData);
         });
+        
+        // 基准线
+        if (allPoints.length > 0) {
+            const allX = allPoints.map(p => p.x);
+            const xMin = Math.min(...allX);
+            const xMax = Math.max(...allX);
+            
+            const baselineValue = isProcurement ? procBaseline : CONTRACT_DEADLINE;
+            const baselineName = isProcurement ? `采购规定周期（${procBaseline}天）` : `合同规定周期（${CONTRACT_DEADLINE}天）`;
+            const baselineColor = isProcurement ? '#ff6b6b' : '#51cf66';
+            
+            chartSeries.push({
+                name: baselineName,
+                type: 'line',
+                data: [{ x: xMin, y: baselineValue }, { x: xMax, y: baselineValue }],
+                color: baselineColor
+            });
+        }
+        
+        // 计算Y轴最大值用于区域标注
+        const allY = allPoints.map(p => p.y);
+        const baselineValue = isProcurement ? procBaseline : CONTRACT_DEADLINE;
+        const yMax = Math.max(...allY, baselineValue) * 1.2;
         
         const options = {
             chart: {
                 type: 'line',
                 height: 400,
-                toolbar: { show: true }
+                toolbar: { show: true },
+                zoom: { enabled: true }
             },
             series: chartSeries,
             xaxis: {
-                categories: labels,
-                title: { text: '时间周期' }
+                type: 'datetime',
+                title: { text: '完成时间' },
+                labels: {
+                    format: 'yyyy年MM月'
+                }
             },
             yaxis: {
-                title: { text: '平均工作周期（天）' },
+                title: { text: '工作周期（天）' },
+                max: yMax,
                 labels: {
                     formatter: function(value) {
                         return value ? Math.round(value) : '';
@@ -767,27 +849,68 @@ document.addEventListener('DOMContentLoaded', function() {
                 style: { fontSize: '16px', fontWeight: 600 }
             },
             stroke: {
-                curve: 'smooth',
-                width: chartSeries.map((_, idx) => idx >= seriesArray.length ? 2 : 3),
-                dashArray: chartSeries.map((_, idx) => idx >= seriesArray.length ? 5 : 0)
+                width: chartSeries.map(s => s.type === 'line' ? 3 : 0),
+                dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)
             },
             markers: {
-                size: chartSeries.map((_, idx) => idx >= seriesArray.length ? 0 : 5)
+                size: chartSeries.map(s => s.type === 'scatter' ? 5 : 0)
             },
             dataLabels: {
                 enabled: false
             },
+            annotations: {
+                yaxis: [
+                    {
+                        y: 0,
+                        y2: baselineValue,
+                        fillColor: '#d4edda',
+                        opacity: 0.2,
+                        label: {
+                            text: '低于基准时间',
+                            style: {
+                                color: '#155724',
+                                background: '#d4edda'
+                            }
+                        }
+                    },
+                    {
+                        y: baselineValue,
+                        y2: yMax,
+                        fillColor: '#f8d7da',
+                        opacity: 0.2,
+                        label: {
+                            text: '超出基准时间',
+                            style: {
+                                color: '#721c24',
+                                background: '#f8d7da'
+                            }
+                        }
+                    }
+                ]
+            },
             legend: {
                 show: true,
                 position: 'top',
-                horizontalAlign: 'right'
+                horizontalAlign: 'right',
+                markers: {
+                    width: 12,
+                    height: 12
+                }
             },
             tooltip: {
                 enabled: true,
-                shared: true,
-                intersect: false,
+                shared: false,
+                intersect: true,
+                x: {
+                    format: 'yyyy年MM月dd日'
+                },
                 y: {
-                    formatter: function(value) {
+                    formatter: function(value, { seriesIndex, dataPointIndex, w }) {
+                        const series = w.config.series[seriesIndex];
+                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
+                            const point = series.data[dataPointIndex];
+                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person || ''}`;
+                        }
                         return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
                     }
                 }
@@ -821,22 +944,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
     
-    if (multiData && multiData.labels) {
+    if (multiData) {
         waitForApexCharts(function() {
             // 个人视图
             {% if view_mode == 'person' %}
-            renderMultiSeriesChart('multiTrendChartProc', multiData.labels, multiData.procurement, '所有经办人采购周期趋势', true);
-            renderMultiSeriesChart('multiTrendChartCont', multiData.labels, multiData.contract, '所有经办人合同周期趋势', false);
+            renderMultiSeriesChart('multiTrendChartProc', multiData.procurement, '所有经办人采购周期散点分布', true);
+            renderMultiSeriesChart('multiTrendChartCont', multiData.contract, '所有经办人合同周期散点分布', false);
             {% endif %}
             
             // 项目视图
             {% if view_mode == 'project' %}
             {% if filter_config.selected_project_value %}
-            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '本项目经办人采购周期趋势', true);
-            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '本项目经办人合同周期趋势', false);
+            renderMultiSeriesChart('projMultiChartProc', multiData.procurement, '本项目经办人采购周期散点分布', true);
+            renderMultiSeriesChart('projMultiChartCont', multiData.contract, '本项目经办人合同周期散点分布', false);
             {% else %}
-            renderMultiSeriesChart('projMultiChartProc', multiData.labels, multiData.procurement, '所有项目采购周期趋势', true);
-            renderMultiSeriesChart('projMultiChartCont', multiData.labels, multiData.contract, '所有项目合同周期趋势', false);
+            renderMultiSeriesChart('projMultiChartProc', multiData.procurement, '所有项目采购周期散点分布', true);
+            renderMultiSeriesChart('projMultiChartCont', multiData.contract, '所有项目合同周期散点分布', false);
             {% endif %}
             {% endif %}
         });

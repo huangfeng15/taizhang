@@ -444,9 +444,18 @@ class CycleStatisticsService:
         # 转换为散点数据格式
         scatter_data = []
         for item in queryset:
-            end_date_value = getattr(item, end_field.split('__')[-1]) if '__' not in end_field else (
-                getattr(item.procurement, end_field.split('__')[-1]) if hasattr(item, 'procurement') else None
-            )
+            # 正确获取结束日期字段值
+            if '__' in end_field:
+                # 处理关联字段（如 procurement__result_publicity_release_date）
+                parts = end_field.split('__')
+                end_date_value = item
+                for part in parts:
+                    end_date_value = getattr(end_date_value, part, None)
+                    if end_date_value is None:
+                        break
+            else:
+                # 直接字段
+                end_date_value = getattr(item, end_field, None)
             
             if not end_date_value:
                 continue
@@ -916,21 +925,18 @@ class CycleStatisticsService:
 
     def get_persons_multi_trend(self, year_filter=None, project_filter=None, procurement_method=None, top_n=10):
         """
-        获取多人趋势：按经办人分别计算采购/合同的趋势，多条折线合并显示。
-        只显示至少有一个人有数据的时间段。
+        获取多人趋势：按经办人分别计算采购/合同的散点数据
         返回: {
-          'labels': [...],
-          'procurement': [{'name': '张三', 'data': [...]}, ...],
-          'contract': [{'name': '张三', 'data': [...]}, ...]
+          'procurement': [{'name': '张三', 'points': [{date, cycle_days, ...}]}, ...],
+          'contract': [{'name': '张三', 'points': [{date, cycle_days, ...}]}, ...]
         }
         """
         # 选人（按业务量排序取前N名）
         person_list = self.get_person_list(year_filter=year_filter, global_project=project_filter, procurement_method=procurement_method)
         person_names = [p['name'] for p in person_list[:top_n]]
 
-        # 逐人计算趋势并汇总标签（只收集有数据的标签）
-        all_labels = set()
-        per_person_trend = {'procurement': {}, 'contract': {}}
+        # 逐人计算散点数据
+        result = {'procurement': [], 'contract': []}
         for name in person_names:
             t_p = self._calculate_trend(
                 model=Procurement,
@@ -951,41 +957,24 @@ class CycleStatisticsService:
                 end_field='signing_date',
                 person_field='contract_officer'
             )
-            # 只添加有数据的标签
-            for it in t_p:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            for it in t_c:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            per_person_trend['procurement'][name] = t_p
-            per_person_trend['contract'][name] = t_c
-
-        # 统一标签顺序（只包含有数据的标签）
-        if year_filter and year_filter != 'all':
-            # 单年度：只显示有数据的月份
-            labels = self._sort_month_labels(all_labels)
-        else:
-            # 多年度：只显示有数据的半年
-            labels = self._sort_halfyear_labels(all_labels)
-
-        # 对齐成折线数组
-        result = {'labels': labels, 'procurement': [], 'contract': []}
-        for name in person_names:
-            result['procurement'].append({
-                'name': name,
-                'data': self._align_series(per_person_trend['procurement'].get(name, []), labels)
-            })
-            result['contract'].append({
-                'name': name,
-                'data': self._align_series(per_person_trend['contract'].get(name, []), labels)
-            })
+            
+            # 只添加有数据的人
+            if t_p:
+                result['procurement'].append({
+                    'name': name,
+                    'points': t_p
+                })
+            if t_c:
+                result['contract'].append({
+                    'name': name,
+                    'points': t_c
+                })
+        
         return result
 
     def get_projects_multi_trend(self, year_filter=None, procurement_method=None, top_n=10):
         """
-        获取多项目趋势：按项目分别计算采购/合同的趋势，多条折线合并显示（取前N个项目）。
-        只显示至少有一个项目有数据的时间段。
+        获取多项目趋势：按项目分别计算采购/合同的散点数据（取前N个项目）
         """
         from project.models import Project
         projects = list(Project.objects.all())
@@ -998,9 +987,8 @@ class CycleStatisticsService:
         scored.sort(key=lambda x: x[1], reverse=True)
         top_projects = [p.project_code for p, _ in scored[:top_n]]
 
-        # 计算趋势并汇总（只收集有数据的标签）
-        all_labels = set()
-        per_project_trend = {'procurement': {}, 'contract': {}}
+        # 计算散点数据
+        result = {'procurement': [], 'contract': []}
         for code in top_projects:
             t_p = self._calculate_trend(
                 model=Procurement,
@@ -1017,39 +1005,26 @@ class CycleStatisticsService:
                 start_field='procurement__result_publicity_release_date',
                 end_field='signing_date'
             )
-            # 只添加有数据的标签
-            for it in t_p:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            for it in t_c:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            per_project_trend['procurement'][code] = t_p
-            per_project_trend['contract'][code] = t_c
-
-        # 统一标签顺序（只包含有数据的标签）
-        if year_filter and year_filter != 'all':
-            labels = self._sort_month_labels(all_labels)
-        else:
-            labels = self._sort_halfyear_labels(all_labels)
-
-        result = {'labels': labels, 'procurement': [], 'contract': []}
-        for code in top_projects:
-            result['procurement'].append({
-                'name': code,
-                'data': self._align_series(per_project_trend['procurement'].get(code, []), labels)
-            })
-            result['contract'].append({
-                'name': code,
-                'data': self._align_series(per_project_trend['contract'].get(code, []), labels)
-            })
+            
+            # 只添加有数据的项目
+            if t_p:
+                result['procurement'].append({
+                    'name': code,
+                    'points': t_p
+                })
+            if t_c:
+                result['contract'].append({
+                    'name': code,
+                    'points': t_c
+                })
+        
         return result
 
     def get_project_officers_multi_trend(self, project_code, year_filter=None, procurement_method=None, top_n=10):
         """
-        获取单个项目下经办人维度的趋势：
-        - 采购tab：各采购经办人的采购趋势
-        - 合同tab：各合同经办人的合同趋势
+        获取单个项目下经办人维度的散点数据：
+        - 采购tab：各采购经办人的采购散点
+        - 合同tab：各合同经办人的合同散点
         """
         # 选人：该项目内前N名经办人
         p_qs = Procurement.objects.filter(project_id=project_code)
@@ -1080,9 +1055,7 @@ class CycleStatisticsService:
         p_names = sort_by_volume(p_names, True)
         c_names = sort_by_volume(c_names, False)
 
-        all_labels = set()
-        p_trends = {}
-        c_trends = {}
+        result = {'procurement': [], 'contract': []}
         for n in p_names:
             t = self._calculate_trend(
                 model=Procurement,
@@ -1094,11 +1067,9 @@ class CycleStatisticsService:
                 end_field='result_publicity_release_date',
                 person_field='procurement_officer'
             )
-            # 只添加有数据的标签
-            for it in t:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            p_trends[n] = t
+            if t:
+                result['procurement'].append({'name': n, 'points': t})
+        
         for n in c_names:
             t = self._calculate_trend(
                 model=Contract,
@@ -1109,20 +1080,7 @@ class CycleStatisticsService:
                 end_field='signing_date',
                 person_field='contract_officer'
             )
-            # 只添加有数据的标签
-            for it in t:
-                if it.get('count', 0) > 0:
-                    all_labels.add(it['period'])
-            c_trends[n] = t
-
-        # 统一标签顺序（只包含有数据的标签）
-        if year_filter and year_filter != 'all':
-            labels = self._sort_month_labels(all_labels)
-        else:
-            labels = self._sort_halfyear_labels(all_labels)
-        result = {'labels': labels, 'procurement': [], 'contract': []}
-        for n in p_names:
-            result['procurement'].append({'name': n, 'data': self._align_series(p_trends.get(n, []), labels)})
-        for n in c_names:
-            result['contract'].append({'name': n, 'data': self._align_series(c_trends.get(n, []), labels)})
+            if t:
+                result['contract'].append({'name': n, 'points': t})
+        
         return result

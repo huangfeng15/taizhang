@@ -149,12 +149,12 @@ CYCLE_RULES = {
         'code_field': 'contract_code',
         'name_field': 'contract_name',
         'label': '合同周期',
-        'deadline_days': 15,  # 统一规定周期15天
+        'deadline_days': 30,  # 统一规定周期30天（结果公示后30天）
         # 超期严重程度阈值（超期天数）
         'severity_thresholds': {
-            'severe': 15,    # 超期15天以上为严重
-            'moderate': 7,   # 超期7-15天为中度
-            'mild': 1        # 超期1-7天为轻微
+            'severe': 30,    # 超期30天以上为严重
+            'moderate': 15,  # 超期15-30天为中度
+            'mild': 1        # 超期1-15天为轻微
         }
     }
 }
