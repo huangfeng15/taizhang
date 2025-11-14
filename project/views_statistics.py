@@ -77,6 +77,8 @@ def statistics_view(request):
     context = {
         'year_context': year_context,
         'monitoring_filters': _build_monitoring_filter_fields(filter_config),
+        'procurement_stats': procurement_stats,
+        'contract_stats': contract_stats,
         'procurement_method_labels': json.dumps(procurement_method_labels, ensure_ascii=False),
         'procurement_method_data': json.dumps(procurement_method_data, ensure_ascii=False),
         'procurement_monthly_data': json.dumps(procurement_monthly_data, ensure_ascii=False),

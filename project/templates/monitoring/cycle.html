@@ -102,7 +102,9 @@
                 <label for="procurementMethodSelect">采购方式筛选</label>
                 <select id="procurementMethodSelect" class="form-select">
                     {% for choice in procurement_method_choices %}
-                    <option value="{{ choice.value }}" {% if procurement_method == choice.value %}selected{% endif %}>
+                    <option value="{{ choice.value }}"
+                        {% if choice.value == 'all' and procurement_method is None %}selected
+                        {% elif procurement_method == choice.value %}selected{% endif %}>
                         {{ choice.label }}
                     </option>
                     {% endfor %}
@@ -110,7 +112,7 @@
             </div>
             <div class="col-md-8">
                 <small class="text-muted">
-                    <i class="fas fa-info-circle"></i> 
+                    <i class="fas fa-info-circle"></i>
                     选择采购方式后，将按照该方式的规定周期进行统计。不同采购方式的规定周期不同。
                 </small>
             </div>
@@ -480,16 +482,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 采购方式筛选
-    document.getElementById('procurementMethodSelect').addEventListener('change', function() {
-        const url = new URL(window.location.href);
-        if (this.value) {
-            url.searchParams.set('procurement_method', this.value);
-        } else {
-            url.searchParams.delete('procurement_method');
-        }
-        url.searchParams.delete('target_code');
-        window.location.href = url.toString();
-    });
+    const procMethodSelect = document.getElementById('procurementMethodSelect');
+    if (procMethodSelect) {
+        procMethodSelect.addEventListener('change', function() {
+            const url = new URL(window.location.href);
+            if (this.value) {
+                url.searchParams.set('procurement_method', this.value);
+            } else {
+                url.searchParams.delete('procurement_method');
+            }
+            url.searchParams.delete('target_code');
+            window.location.href = url.toString();
+        });
+    }
 
     // 查看详情按钮
     document.querySelectorAll('.view-detail-btn').forEach(btn => {

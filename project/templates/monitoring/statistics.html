@@ -246,6 +246,7 @@
         padding: 20px;
         border-radius: 8px;
         background: #fafafa;
+        position: relative;
     }
     
     .chart-container h5 {
@@ -257,6 +258,8 @@
 
     .chart-container canvas {
         max-height: 300px;
+        width: 100% !important;
+        height: auto !important;
     }
     
     /* 表格容器 */
@@ -748,6 +751,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Chart.js 图表库 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // 标签页切换功能
 document.addEventListener('DOMContentLoaded', function() {
@@ -794,10 +799,22 @@ function initProcurementCharts() {
                     backgroundColor: ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1'],
                 }]
             },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                plugins: { legend: { position: 'right' } } 
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10
+                        }
+                    }
+                },
+                layout: {
+                    padding: 10
+                }
             }
         });
     }
@@ -915,7 +932,18 @@ const allMethodsData = {
 
 function initProcurementDurationChart() {
     const ctx = document.getElementById('procurementDurationChart');
-    if (!ctx) return;
+    if (!ctx) {
+        console.error('找不到采购周期图表canvas元素');
+        return;
+    }
+
+    console.log('采购周期数据:', commonMethodsData);
+    
+    // 检查数据是否有效
+    if (!commonMethodsData.labels || commonMethodsData.labels.length === 0) {
+        console.warn('采购周期标签数据为空');
+        return;
+    }
 
     window.durationChart = new Chart(ctx, {
         type: 'bar',
@@ -924,11 +952,21 @@ function initProcurementDurationChart() {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                x: { stacked: false },
+                x: {
+                    stacked: false,
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                },
                 y: {
                     stacked: false,
                     beginAtZero: true,
-                    title: { display: true, text: '项目数量' }
+                    title: { display: true, text: '项目数量' },
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    }
                 }
             },
             plugins: {
@@ -946,6 +984,8 @@ function initProcurementDurationChart() {
             }
         }
     });
+    
+    console.log('采购周期图表已创建');
 }
 
 function toggleProcurementMethods() {

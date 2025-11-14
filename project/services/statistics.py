@@ -52,6 +52,8 @@ def get_procurement_statistics(year=None, project_codes=None):
                 'control_price': proc.control_price or Decimal('0'),
                 'procurement_method': proc.procurement_method,
                 'archive_date': proc.archive_date,
+                'requirement_approval_date': getattr(proc, 'requirement_approval_date', None),
+                'result_publicity_release_date': proc.result_publicity_release_date,
             }
         else:
             cur = project_name_max[name]
@@ -62,6 +64,11 @@ def get_procurement_statistics(year=None, project_codes=None):
             # 归档日期取最新的非空值
             if proc.archive_date and (not cur['archive_date'] or proc.archive_date > cur['archive_date']):
                 cur['archive_date'] = proc.archive_date
+            # 日期字段也保留（用于周期计算）
+            if proc.requirement_approval_date:
+                cur['requirement_approval_date'] = proc.requirement_approval_date
+            if proc.result_publicity_release_date:
+                cur['result_publicity_release_date'] = proc.result_publicity_release_date
 
     # 基本汇总
     total_count = len(project_name_max)
@@ -109,6 +116,48 @@ def get_procurement_statistics(year=None, project_codes=None):
                 'amount': float(item['amount'] or 0) / 10000.0,  # 万元
             })
 
+    # 采购周期分析（按采购方式统计周期分布）
+    # 使用去重后的数据，保持与采购方式分布统计口径一致
+    cycle_by_method = {}
+    all_methods_set = set()
+    
+    for name, data in project_name_max.items():
+        method = data['procurement_method']
+        if not method:
+            continue
+        all_methods_set.add(method)
+        
+        if method not in cycle_by_method:
+            cycle_by_method[method] = {
+                'within_15': 0, 'within_25': 0, 'within_40': 0,
+                'within_60': 0, 'over_60': 0, 'no_data': 0
+            }
+        
+        # 直接使用去重后数据中保存的日期信息
+        requirement_date = data.get('requirement_approval_date')
+        result_date = data.get('result_publicity_release_date')
+        
+        # 计算采购周期（从需求批复到结果公示发布）
+        if requirement_date and result_date:
+            cycle_days = (result_date - requirement_date).days
+            
+            if cycle_days <= 15:
+                cycle_by_method[method]['within_15'] += 1
+            elif cycle_days <= 25:
+                cycle_by_method[method]['within_25'] += 1
+            elif cycle_days <= 40:
+                cycle_by_method[method]['within_40'] += 1
+            elif cycle_days <= 60:
+                cycle_by_method[method]['within_60'] += 1
+            else:
+                cycle_by_method[method]['over_60'] += 1
+        else:
+            # 没有日期数据的记录计入no_data
+            cycle_by_method[method]['no_data'] += 1
+    
+    common_methods = list(PROCUREMENT_METHODS_COMMON)
+    all_methods_list = sorted(list(all_methods_set))
+
     return {
         'year': year if year is not None else '全部',
         'total_count': total_count,
@@ -121,6 +170,10 @@ def get_procurement_statistics(year=None, project_codes=None):
         # 原始值（元）供财务分析使用
         'total_budget_amount': float(total_budget_amount),
         'total_winning_amount': float(total_winning_amount),
+        # 采购周期分析
+        'cycle_by_method': cycle_by_method,
+        'common_methods': common_methods,
+        'all_methods_list': all_methods_list,
     }
 
 

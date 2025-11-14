@@ -616,7 +616,20 @@ def cycle_monitor(request):
     view_mode = request.GET.get('view_mode', 'project')
     target_code = request.GET.get('target_code', '')
     show_all = request.GET.get('show_all', '') == 'true'
-    procurement_method = request.GET.get('procurement_method', ProcurementMethod.PUBLIC_INQUIRY.value)
+    # 获取采购方式参数：
+    # - 未传参数时，默认使用"公开询价"
+    # - 传递'all'时，表示"全部采购方式"
+    # - 传递具体方式时，使用该方式
+    procurement_method_param = request.GET.get('procurement_method')
+    if procurement_method_param is None:
+        # 首次进入，默认使用公开询价
+        procurement_method = ProcurementMethod.PUBLIC_INQUIRY.value
+    elif procurement_method_param == 'all':
+        # 用户选择了全部采购方式
+        procurement_method = None
+    else:
+        # 用户选择了具体的采购方式
+        procurement_method = procurement_method_param
 
     stats_service = CycleStatisticsService()
 
@@ -688,7 +701,7 @@ def cycle_monitor(request):
     # 获取采购方式选项
     from project.enums import ProcurementMethod
     procurement_method_choices = [
-        {'value': '', 'label': '全部采购方式'},
+        {'value': 'all', 'label': '全部采购方式'},
     ]
     for method in ProcurementMethod:
         procurement_method_choices.append({
