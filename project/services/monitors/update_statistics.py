@@ -365,6 +365,64 @@ class UpdateStatisticsService:
             'avg_days': avg_days
         }
 
+    def _calculate_module_update_trend(self, module, project_code=None, person_name=None,
+                                      year_filter=None, project_filter=None):
+        """计算单个模块的更新周期趋势数据。
+
+        返回形式与归档监控的趋势数据保持一致，例如：
+        [{'month': 1, 'period': '1月', 'avg_cycle': 3.5, 'count': 10}, ...]
+        """
+        config = self._get_module_config(module)
+        if not config:
+            return []
+
+        model = config["model"]
+        business_field = config["business_date_field"]
+        update_field = config["update_date_field"]
+
+        # 基础查询：只统计有业务日期的记录
+        queryset = model.objects.filter(**{f"{business_field}__isnull": False})
+
+        # 应用起始日期筛选（保持与统计概览一致）
+        if self.start_date:
+            queryset = queryset.filter(**{f"{business_field}__gte": self.start_date})
+
+        # 维度筛选
+        if project_code:
+            queryset = queryset.filter(**{config["project_field"]: project_code})
+        if person_name and config.get("person_field"):
+            queryset = queryset.filter(**{config["person_field"]: person_name})
+        if project_filter:
+            queryset = queryset.filter(**{config["project_field"]: project_filter})
+
+        # 合同仅统计主合同
+        if module == "contract":
+            queryset = queryset.filter(file_positioning=FilePositioning.MAIN_CONTRACT.value)
+
+        # 仅统计已经有更新日期的数据
+        queryset = queryset.filter(**{f"{update_field}__isnull": False})
+        if not queryset.exists():
+            return []
+
+        # 标注业务年份、月份以及“更新周期”
+        queryset = queryset.annotate(
+            update_cycle=ExpressionWrapper(
+                F(update_field) - F(business_field),
+                output_field=fields.DurationField(),
+            ),
+            business_year=ExtractYear(business_field),
+            business_month=ExtractMonth(business_field),
+        )
+
+        # 根据 year_filter 选择按月或按半年度分组
+        from .utils.time_grouping import group_by_month, group_by_half_year
+
+        if year_filter and year_filter != "all":
+            queryset = queryset.filter(**{f"{business_field}__year": int(year_filter)})
+            return group_by_month(queryset, cycle_field="update_cycle")
+
+        return group_by_half_year(queryset, cycle_field="update_cycle")
+
     def _get_module_config(self, module):
         """获取模块配置"""
         configs = {
@@ -410,39 +468,55 @@ class UpdateStatisticsService:
         }
 
     def _build_summary(self, total_stats, count, is_person_view=False):
-        """构建汇总统计"""
+        """构建汇总统计
+
+        total_stats 结构为各模块 {'total', 'updated', 'on_time'} 的汇总，
+        这里统一按“按时条数 / 总条数”计算综合准时率，
+        保证与项目/经办人明细中的口径一致。
+        """
         all_total = sum(stats['total'] for stats in total_stats.values())
         all_updated = sum(stats['updated'] for stats in total_stats.values())
         all_on_time = sum(stats['on_time'] for stats in total_stats.values())
-        
-        overall_on_time_rate = round(all_on_time / all_updated * 100, 1) if all_updated > 0 else 0
-        
+
+        overall_on_time_rate = (
+            round(all_on_time / all_total * 100, 1) if all_total > 0 else 0
+        )
+
         summary = {
             'project_count' if not is_person_view else 'person_count': count,
             'procurement_stats': {
                 'total': total_stats['procurement']['total'],
                 'updated': total_stats['procurement']['updated'],
-                'update_rate': round(total_stats['procurement']['updated'] / total_stats['procurement']['total'] * 100, 1) if total_stats['procurement']['total'] > 0 else 0
+                'update_rate': round(
+                    total_stats['procurement']['updated'] / total_stats['procurement']['total'] * 100, 1
+                ) if total_stats['procurement']['total'] > 0 else 0,
             },
             'contract_stats': {
                 'total': total_stats['contract']['total'],
                 'updated': total_stats['contract']['updated'],
-                'update_rate': round(total_stats['contract']['updated'] / total_stats['contract']['total'] * 100, 1) if total_stats['contract']['total'] > 0 else 0
+                'update_rate': round(
+                    total_stats['contract']['updated'] / total_stats['contract']['total'] * 100, 1
+                ) if total_stats['contract']['total'] > 0 else 0,
             },
             'payment_stats': {
                 'total': total_stats['payment']['total'],
                 'updated': total_stats['payment']['updated'],
-                'update_rate': round(total_stats['payment']['updated'] / total_stats['payment']['total'] * 100, 1) if total_stats['payment']['total'] > 0 else 0
+                'update_rate': round(
+                    total_stats['payment']['updated'] / total_stats['payment']['total'] * 100, 1
+                ) if total_stats['payment']['total'] > 0 else 0,
             },
             'settlement_stats': {
                 'total': total_stats['settlement']['total'],
                 'updated': total_stats['settlement']['updated'],
-                'update_rate': round(total_stats['settlement']['updated'] / total_stats['settlement']['total'] * 100, 1) if total_stats['settlement']['total'] > 0 else 0
+                'update_rate': round(
+                    total_stats['settlement']['updated'] / total_stats['settlement']['total'] * 100, 1
+                ) if total_stats['settlement']['total'] > 0 else 0,
             },
             'overall_on_time_rate': overall_on_time_rate,
-            'average_cycle': 0  # 暂时设为0，后续可计算所有模块的平均周期
+            # 暂留平均周期字段，后续如需可基于趋势数据统一计算
+            'average_cycle': 0,
         }
-        
+
         return summary
 
     def _get_all_persons(self, year_filter=None, project_filter=None):
@@ -501,105 +575,85 @@ class UpdateStatisticsService:
         return len(project_ids)
 
     def get_project_trend_and_problems(self, project_code, year_filter=None, show_all=False):
-        """
-        获取单个项目的趋势图和延迟记录
-        【参照归档监控的get_project_trend_and_problems方法】
-        
-        Args:
-            project_code: 项目编码
-            year_filter: 年度筛选
-            show_all: 是否显示所有记录
-        
-        Returns:
-            dict: {
+        """获取单个项目的趋势图和延迟记录
+
+        返回结构尽量与归档监控保持一致，同时保留更新监控特有的热力图数据：
+            {
+                'heatmap_data': {...},
                 'procurement_trend': [...],
                 'contract_trend': [...],
                 'payment_trend': [...],
                 'settlement_trend': [...],
                 'problems': {...},
-                'summary': {...}
+                'summary': {...},
             }
         """
         from .update_problem_detector import UpdateProblemDetector
-        
-        # 计算趋势数据（使用现有的UpdateMonitorService的热力图数据）
         from project.services.update_monitor import UpdateMonitorService
+
+        # 1. 计算各模块的更新周期趋势
+        procurement_trend = self._calculate_module_update_trend(
+            module='procurement',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+        contract_trend = self._calculate_module_update_trend(
+            module='contract',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+        payment_trend = self._calculate_module_update_trend(
+            module='payment',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+        settlement_trend = self._calculate_module_update_trend(
+            module='settlement',
+            project_code=project_code,
+            year_filter=year_filter,
+        )
+
+        # 2. 构建热力图数据（复用原有 UpdateMonitorService 快照能力）
         monitor_service = UpdateMonitorService()
-        
-        # 获取热力图数据
         year = int(year_filter) if year_filter and year_filter != 'all' else None
-        start_date = date(2020, 1, 1)  # 设置一个起始日期
+        start_date = date(2020, 1, 1)
         snapshot = monitor_service.build_snapshot(year=year, start_date=start_date)
-        
-        # 从snapshot中提取该项目的数据
+
         project_data = None
         for proj in snapshot.get('projects', []):
             if proj['projectCode'] == project_code:
                 project_data = proj
                 break
-        
-        # 计算各模块统计
+
+        # 3. 统计概要（与列表“项目更新统计明细”的口径完全一致）
         summary = self._build_project_summary(project_code, year_filter)
-        
-        # 获取超期记录
-        detector = UpdateProblemDetector(year_filter=int(year_filter) if year_filter and year_filter != 'all' else None)
+
+        # 4. 获取超期记录
+        detector_year = int(year_filter) if year_filter and year_filter != 'all' else None
+        detector = UpdateProblemDetector(year_filter=detector_year)
         filters = {'project': project_code}
-        
-        # 如果设置了起始日期，需要传递给detector
+
+        # 若设置了起始日期，则按起始日期重算检测范围
         if self.start_date:
-            # 重新初始化detector以使用正确的日期范围
             detector = UpdateProblemDetector(year_filter=None)
             detector.start_date = self.start_date
             detector.end_date = detector.today
-        
+
         problems = detector.detect_problems(filters=filters, show_all=show_all)
-        
+
         return {
             'heatmap_data': project_data,  # 热力图数据
-            'procurement_trend': [],  # 趋势图数据（暂时为空，可后续添加）
-            'contract_trend': [],
-            'payment_trend': [],
-            'settlement_trend': [],
+            'procurement_trend': procurement_trend,
+            'contract_trend': contract_trend,
+            'payment_trend': payment_trend,
+            'settlement_trend': settlement_trend,
             'problems': problems,
-            'summary': summary
+            'summary': summary,
         }
 
     def get_all_persons_trend_and_problems(self, year_filter=None, project_filter=None, show_all=False):
-        """
-        获取所有经办人的汇总趋势图和延迟记录（用于个人视图主页面）
-        【参照归档监控的get_all_persons_trend_and_problems方法】
-        
-        Returns:
-            dict: {
-                'procurement_trend': [...],
-                'contract_trend': [...],
-                'payment_trend': [...],
-                'settlement_trend': [...],
-                'problems': {...}
-            }
-        """
-        from .update_problem_detector import UpdateProblemDetector
-        
-        # 获取超期记录
-        detector = UpdateProblemDetector(year_filter=int(year_filter) if year_filter and year_filter != 'all' else None)
-        filters = {}
-        if project_filter:
-            filters['project'] = project_filter
-        problems = detector.detect_problems(filters=filters, show_all=show_all)
-        
-        return {
-            'procurement_trend': [],
-            'contract_trend': [],
-            'payment_trend': [],
-            'settlement_trend': [],
-            'problems': problems
-        }
+        """获取所有经办人的汇总趋势图和延迟记录（用于个人视图主页面）
 
-    def get_person_trend_and_problems(self, person_name, year_filter=None, project_filter=None, show_all=False):
-        """
-        获取单个经办人的趋势图和延迟记录（用于查看详情时）
-        【参照归档监控的get_person_trend_and_problems方法】
-        
         Returns:
             dict: {
                 'procurement_trend': [...],
@@ -607,36 +661,114 @@ class UpdateStatisticsService:
                 'payment_trend': [...],
                 'settlement_trend': [...],
                 'problems': {...},
-                'summary': {...}
             }
         """
         from .update_problem_detector import UpdateProblemDetector
-        
-        # 计算统计概要
-        summary = self._build_person_summary(person_name, year_filter, project_filter)
-        
+
         # 获取超期记录
-        detector = UpdateProblemDetector(year_filter=int(year_filter) if year_filter and year_filter != 'all' else None)
+        detector_year = int(year_filter) if year_filter and year_filter != 'all' else None
+        detector = UpdateProblemDetector(year_filter=detector_year)
+        filters = {}
+        if project_filter:
+            filters['project'] = project_filter
+        problems = detector.detect_problems(filters=filters, show_all=show_all)
+
+        # 汇总所有经办人的趋势（按项目过滤）
+        procurement_trend = self._calculate_module_update_trend(
+            module='procurement',
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        contract_trend = self._calculate_module_update_trend(
+            module='contract',
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        payment_trend = self._calculate_module_update_trend(
+            module='payment',
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        settlement_trend = self._calculate_module_update_trend(
+            module='settlement',
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+
+        return {
+            'procurement_trend': procurement_trend,
+            'contract_trend': contract_trend,
+            'payment_trend': payment_trend,
+            'settlement_trend': settlement_trend,
+            'problems': problems,
+        }
+
+    def get_person_trend_and_problems(self, person_name, year_filter=None, project_filter=None, show_all=False):
+        """获取单个经办人的趋势图和延迟记录（用于查看详情时）
+
+        Returns:
+            dict: {
+                'procurement_trend': [...],
+                'contract_trend': [...],
+                'payment_trend': [...],
+                'settlement_trend': [...],
+                'problems': {...},
+                'summary': {...},
+            }
+        """
+        from .update_problem_detector import UpdateProblemDetector
+
+        # 统计概要（经办人维度）
+        summary = self._build_person_summary(person_name, year_filter, project_filter)
+
+        # 获取超期记录
+        detector_year = int(year_filter) if year_filter and year_filter != 'all' else None
+        detector = UpdateProblemDetector(year_filter=detector_year)
         filters = {'responsible_person': person_name}
         if project_filter:
             filters['project'] = project_filter
-        
-        # 如果设置了起始日期，需要传递给detector
+
+        # 如设置起始日期，则按起始日期重算检测范围
         if self.start_date:
-            # 重新初始化detector以使用正确的日期范围
             detector = UpdateProblemDetector(year_filter=None)
             detector.start_date = self.start_date
             detector.end_date = detector.today
-        
+
         problems = detector.detect_problems(filters=filters, show_all=show_all)
-        
+
+        # 经办人维度的更新趋势
+        procurement_trend = self._calculate_module_update_trend(
+            module='procurement',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        contract_trend = self._calculate_module_update_trend(
+            module='contract',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        payment_trend = self._calculate_module_update_trend(
+            module='payment',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+        settlement_trend = self._calculate_module_update_trend(
+            module='settlement',
+            person_name=person_name,
+            year_filter=year_filter,
+            project_filter=project_filter,
+        )
+
         return {
-            'procurement_trend': [],
-            'contract_trend': [],
-            'payment_trend': [],
-            'settlement_trend': [],
+            'procurement_trend': procurement_trend,
+            'contract_trend': contract_trend,
+            'payment_trend': payment_trend,
+            'settlement_trend': settlement_trend,
             'problems': problems,
-            'summary': summary
+            'summary': summary,
         }
 
     def _build_project_summary(self, project_code, year_filter=None):
@@ -661,18 +793,28 @@ class UpdateStatisticsService:
             project_code=project_code,
             year_filter=year_filter
         )
-        
-        total = (procurement_stats['total'] + contract_stats['total'] +
-                payment_stats['total'] + settlement_stats['total'])
-        updated = (procurement_stats['updated'] + contract_stats['updated'] +
-                  payment_stats['updated'] + settlement_stats['updated'])
-        
+
+        total = (
+            procurement_stats['total'] + contract_stats['total'] +
+            payment_stats['total'] + settlement_stats['total']
+        )
+        updated = (
+            procurement_stats['updated'] + contract_stats['updated'] +
+            payment_stats['updated'] + settlement_stats['updated']
+        )
+        on_time = (
+            procurement_stats['on_time'] + contract_stats['on_time'] +
+            payment_stats['on_time'] + settlement_stats['on_time']
+        )
+
         return {
             'procurement': procurement_stats,
             'contract': contract_stats,
             'payment': payment_stats,
             'settlement': settlement_stats,
-            'overall_update_rate': round(updated / total * 100, 1) if total > 0 else 0
+            # 综合准时率：按项目维度将各模块“按时条数/总条数”汇总
+            'overall_update_rate': round(on_time / total * 100, 1) if total > 0 else 0,
+            # 如有需要未来可以补充 overall_on_time_rate 等其它维度
         }
 
     def _build_person_summary(self, person_name, year_filter=None, project_filter=None):
@@ -701,16 +843,25 @@ class UpdateStatisticsService:
             year_filter=year_filter,
             project_filter=project_filter
         )
-        
-        total = (procurement_stats['total'] + contract_stats['total'] +
-                payment_stats['total'] + settlement_stats['total'])
-        updated = (procurement_stats['updated'] + contract_stats['updated'] +
-                  payment_stats['updated'] + settlement_stats['updated'])
-        
+
+        total = (
+            procurement_stats['total'] + contract_stats['total'] +
+            payment_stats['total'] + settlement_stats['total']
+        )
+        updated = (
+            procurement_stats['updated'] + contract_stats['updated'] +
+            payment_stats['updated'] + settlement_stats['updated']
+        )
+        on_time = (
+            procurement_stats['on_time'] + contract_stats['on_time'] +
+            payment_stats['on_time'] + settlement_stats['on_time']
+        )
+
         return {
             'procurement': procurement_stats,
             'contract': contract_stats,
             'payment': payment_stats,
             'settlement': settlement_stats,
-            'overall_update_rate': round(updated / total * 100, 1) if total > 0 else 0
+            # 综合准时率：按经办人维度汇总
+            'overall_update_rate': round(on_time / total * 100, 1) if total > 0 else 0,
         }

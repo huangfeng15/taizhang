@@ -397,7 +397,7 @@ class CycleStatisticsService:
                         year_filter=None, global_project=None, procurement_method=None,
                         start_field='', end_field='', person_field=None):
         """
-        计算工作周期趋势
+        计算工作周期趋势（散点数据）
         
         Args:
             model: 模型类（Procurement 或 Contract）
@@ -411,7 +411,7 @@ class CycleStatisticsService:
             person_field: 经办人字段名
         
         Returns:
-            list: [{'period': '2024-H1', 'avg_cycle': 25.5}, ...]
+            list: [{'date': '2025-05-15', 'cycle_days': 35, 'code': 'CG-001', 'name': '...'}, ...]
         """
         queryset = model.objects.filter(
             **{f'{start_field}__isnull': False, f'{end_field}__isnull': False}
@@ -430,27 +430,51 @@ class CycleStatisticsService:
             queryset = queryset.filter(project_id=global_project)
         if procurement_method and procurement_method != 'all' and model == Procurement:
             queryset = queryset.filter(procurement_method=procurement_method)
+        if year_filter and year_filter != 'all':
+            queryset = queryset.filter(**{f'{end_field}__year': int(year_filter)})
 
-        # 计算工作周期
+        # 计算工作周期并获取散点数据
         queryset = queryset.annotate(
             work_cycle=ExpressionWrapper(
                 F(end_field) - F(start_field),
                 output_field=fields.DurationField()
-            ),
-            business_year=ExtractYear(start_field),
-            business_month=ExtractMonth(start_field)
-        )
+            )
+        ).select_related('project')
 
-        # 判断分组方式
-        if year_filter and year_filter != 'all':
-            # 单年度：按月分组
-            queryset = queryset.filter(**{f'{start_field}__year': int(year_filter)})
-            trend_data = self._group_by_month(queryset)
-        else:
-            # 全年度：按半年分组
-            trend_data = self._group_by_half_year(queryset)
+        # 转换为散点数据格式
+        scatter_data = []
+        for item in queryset:
+            end_date_value = getattr(item, end_field.split('__')[-1]) if '__' not in end_field else (
+                getattr(item.procurement, end_field.split('__')[-1]) if hasattr(item, 'procurement') else None
+            )
+            
+            if not end_date_value:
+                continue
+                
+            cycle_days = item.work_cycle.days if item.work_cycle else 0
+            
+            # 获取业务编码和名称
+            if model == Procurement:
+                code = getattr(item, 'procurement_code', '')
+                name = getattr(item, 'project_name', '')
+                person = getattr(item, 'procurement_officer', '')
+            else:  # Contract
+                code = getattr(item, 'contract_code', '')
+                name = getattr(item, 'contract_name', '')
+                person = getattr(item, 'contract_officer', '')
+            
+            scatter_data.append({
+                'date': end_date_value.isoformat(),
+                'cycle_days': cycle_days,
+                'code': code,
+                'name': name,
+                'person': person,
+                'project_code': item.project_id if hasattr(item, 'project_id') else ''
+            })
 
-        return trend_data
+        # 按日期排序
+        scatter_data.sort(key=lambda x: x['date'])
+        return scatter_data
 
     def _group_by_month(self, queryset):
         """委托公共实现，保持对外行为不变（DRY）。"""

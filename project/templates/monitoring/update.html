@@ -335,6 +335,24 @@
     {% endif %}
 
     <!-- 延迟记录列表 -->
+    {% if trend_and_problems %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-line"></i>
+                {% if view_mode == 'project' %}
+                    
+                {% else %}
+                    
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div id="mainTrendChart" style="height: 400px;"></div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if trend_and_problems and trend_and_problems.problems %}
     <div class="card mb-4">
         <div class="card-header">
@@ -652,6 +670,238 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     {% endif %}
+});
+</script>
+
+<script>
+// 更新监控趋势图（主页面 + 详情模态框）
+document.addEventListener('DOMContentLoaded', function () {
+    const detailTrendData = {{ trend_data_json|safe }};
+    const mainTrendData = {{ main_trend_json|safe }};
+    const detailModalEl = document.getElementById('detailModal');
+
+    function buildTrendLabels(trend) {
+        const labelSet = new Set();
+        ['procurement', 'contract', 'payment', 'settlement'].forEach(key => {
+            (trend[key] || []).forEach(item => {
+                if (item.count > 0) {
+                    labelSet.add(item.period);
+                }
+            });
+        });
+
+        const labels = Array.from(labelSet);
+        if (!labels.length) {
+            return [];
+        }
+
+        if (labels.some(lbl => lbl.includes('月') && !lbl.includes('上半年') && !lbl.includes('下半年'))) {
+            return labels.sort((a, b) => {
+                const aMonth = parseInt(a.replace('月', ''), 10);
+                const bMonth = parseInt(b.replace('月', ''), 10);
+                return aMonth - bMonth;
+            });
+        }
+
+        return labels.sort((a, b) => {
+            const parse = (lbl) => {
+                const year = parseInt(lbl, 10);
+                const half = lbl.includes('上半年') ? 1 : (lbl.includes('下半年') ? 2 : 9);
+                return [year, half];
+            };
+            const [ay, ah] = parse(a);
+            const [by, bh] = parse(b);
+            return ay === by ? ah - bh : ay - bh;
+        });
+    }
+
+    function buildModuleSeries(labels, trend, key, name, color) {
+        const series = trend[key] || [];
+        return {
+            name,
+            data: labels.map(label => {
+                const item = series.find(d => d.period === label);
+                return item && item.count > 0 ? item.avg_cycle : null;
+            }),
+            color,
+        };
+    }
+
+    function renderDetailTrend() {
+        const trend = detailTrendData || {};
+        const modules = ['procurement', 'contract', 'payment', 'settlement'];
+        const el = document.getElementById('trendChart');
+        if (!el) return;
+
+        const hasAnyData = modules.some(key => Array.isArray(trend[key]) && trend[key].length);
+        if (!hasAnyData) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            return;
+        }
+
+        const labels = buildTrendLabels(trend);
+        if (!labels.length) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            return;
+        }
+
+        const baseSeries = [
+            buildModuleSeries(labels, trend, 'procurement', '采购', '#0d6efd'),
+            buildModuleSeries(labels, trend, 'contract', '合同', '#198754'),
+            buildModuleSeries(labels, trend, 'payment', '付款', '#fd7e14'),
+            buildModuleSeries(labels, trend, 'settlement', '结算', '#6f42c1'),
+        ];
+
+        const baselines = [
+            { name: '采购规定期限（7天）', value: 7, color: '#0d6efd' },
+            { name: '合同规定期限（5天）', value: 5, color: '#198754' },
+            { name: '付款规定期限（3天）', value: 3, color: '#fd7e14' },
+        ];
+
+        const chartSeries = [...baseSeries];
+        baselines.forEach(baseline => {
+            chartSeries.push({
+                name: baseline.name,
+                data: Array(labels.length).fill(baseline.value),
+                color: baseline.color,
+            });
+        });
+
+        const options = {
+            chart: { type: 'line', height: 400, toolbar: { show: true } },
+            series: chartSeries,
+            xaxis: { categories: labels, title: { text: '时间分段' } },
+            yaxis: {
+                title: { text: '平均更新时长（天）' },
+                labels: {
+                    formatter: function (value) {
+                        return value ? Math.round(value) : '';
+                    },
+                },
+            },
+            title: {
+                text: '更新周期趋势',
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 },
+            },
+            stroke: {
+                curve: 'smooth',
+                width: chartSeries.map((_, idx) => idx >= baseSeries.length ? 2 : 3),
+                dashArray: chartSeries.map((_, idx) => idx >= baseSeries.length ? 5 : 0),
+            },
+            markers: { size: chartSeries.map((_, idx) => (idx >= baseSeries.length ? 0 : 5)) },
+            dataLabels: { enabled: false },
+            legend: { show: true, position: 'top', horizontalAlign: 'right' },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function (value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    },
+                },
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: { borderColor: '#e7e7e7', strokeDashArray: 4 },
+        };
+
+        el.innerHTML = '';
+        const chart = new ApexCharts(el, options);
+        chart.render();
+    }
+
+    function renderMainTrend() {
+        const trend = mainTrendData || {};
+        const modules = ['procurement', 'contract', 'payment', 'settlement'];
+        const el = document.getElementById('mainTrendChart');
+        if (!el) return;
+
+        const hasAnyData = modules.some(key => Array.isArray(trend[key]) && trend[key].length);
+        if (!hasAnyData) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            return;
+        }
+
+        const labels = buildTrendLabels(trend);
+        if (!labels.length) {
+            el.innerHTML = '<div class="alert alert-info text-center">暂无趋势数据</div>';
+            return;
+        }
+
+        const chartSeries = [
+            buildModuleSeries(labels, trend, 'procurement', '采购', '#0d6efd'),
+            buildModuleSeries(labels, trend, 'contract', '合同', '#198754'),
+            buildModuleSeries(labels, trend, 'payment', '付款', '#fd7e14'),
+            buildModuleSeries(labels, trend, 'settlement', '结算', '#6f42c1'),
+        ];
+
+        const options = {
+            chart: { type: 'line', height: 400, toolbar: { show: true } },
+            series: chartSeries,
+            xaxis: { categories: labels, title: { text: '时间分段' } },
+            yaxis: {
+                title: { text: '平均更新时长（天）' },
+                labels: {
+                    formatter: function (value) {
+                        return value ? Math.round(value) : '';
+                    },
+                },
+            },
+            title: {
+                text: '整体更新周期趋势',
+                align: 'left',
+                style: { fontSize: '16px', fontWeight: 600 },
+            },
+            stroke: { curve: 'smooth', width: 3 },
+            markers: { size: 5 },
+            dataLabels: { enabled: false },
+            legend: { show: true, position: 'top', horizontalAlign: 'right' },
+            tooltip: {
+                enabled: true,
+                shared: true,
+                intersect: false,
+                y: {
+                    formatter: function (value) {
+                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
+                    },
+                },
+            },
+            colors: chartSeries.map(s => s.color),
+            grid: { borderColor: '#e7e7e7', strokeDashArray: 4 },
+        };
+
+        el.innerHTML = '';
+        const chart = new ApexCharts(el, options);
+        chart.render();
+    }
+
+    function waitForApexCharts(callback, maxWait = 5000) {
+        const startTime = Date.now();
+        const checkInterval = setInterval(function () {
+            if (typeof ApexCharts !== 'undefined') {
+                clearInterval(checkInterval);
+                callback();
+            } else if (Date.now() - startTime > maxWait) {
+                clearInterval(checkInterval);
+                console.error('ApexCharts 加载超时');
+            }
+        }, 100);
+    }
+
+    // 详情模态框打开时渲染趋势图
+    {% if target_code and detail_data %}
+    if (detailModalEl) {
+        detailModalEl.addEventListener('shown.bs.modal', function () {
+            waitForApexCharts(renderDetailTrend);
+        });
+    }
+    {% endif %}
+
+    // 主页面趋势图
+    if (document.getElementById('mainTrendChart')) {
+        waitForApexCharts(renderMainTrend);
+    }
 });
 </script>
 {% endblock %}
