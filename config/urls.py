@@ -6,7 +6,6 @@ from django.contrib import admin
 from django.conf import settings
 from django.contrib.auth import views as auth_views
 from project import views
-from project import views_reports
 from project.views_workload import workload_statistics_view
 
 urlpatterns = [
@@ -46,13 +45,10 @@ urlpatterns = [
     path('monitoring/workload/', workload_statistics_view, name='workload_statistics'),
     path('monitoring/completeness/field-config/', views.completeness_field_config, name='completeness_field_config'),
     path('api/completeness/field-config/update/', views.update_completeness_field_config, name='update_completeness_field_config'),
-    # 原有报表路由已废除,统一使用新的Word报表生成功能
-    path('reports/generate/', views_reports.generate_word_report, name='generate_report'),
-    path('reports/professional/', views_reports.generate_word_report, name='generate_professional_report'),
-    path('reports/word/', views_reports.generate_word_report, name='generate_word_report'),
-    # 以下路由已废除,重定向到新报表
-    # path('reports/preview/', views.report_preview, name='report_preview'),
-    # path('reports/export/', views.report_export, name='report_export'),
+    path('reports/generate/', views.generate_report, name='generate_report'),
+    path('reports/preview/', views.report_preview, name='report_preview'),
+    path('reports/export/', views.report_export, name='report_export'),
+    path('reports/professional/', views.generate_professional_report, name='generate_professional_report'),
 
     # 级联选择器数据API
     path('api/projects/', views.api_projects_list, name='api_projects_list'),

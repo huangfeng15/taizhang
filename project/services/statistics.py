@@ -52,7 +52,7 @@ def get_procurement_statistics(year=None, project_codes=None):
                 'control_price': proc.control_price or Decimal('0'),
                 'procurement_method': proc.procurement_method,
                 'archive_date': proc.archive_date,
-                'requirement_approval_date': getattr(proc, 'requirement_approval_date', None),
+                'requirement_approval_date': proc.requirement_approval_date,
                 'result_publicity_release_date': proc.result_publicity_release_date,
             }
         else:
