@@ -69,6 +69,16 @@ class ReportGenerator:
         """
         return self._prepare_report_data(report_type, report_title)
 
+    def generate_data(self, report_type: str = 'standard', report_title: str = None) -> Dict[str, Any]:
+        """
+        向后兼容方法：保留 generate_data 接口，内部委托 generate_data_only。
+
+        说明：
+        - 旧代码和文档中大量使用 generator.generate_data(...) 调用形式
+        - 为避免在多个调用点同时改动，这里提供一个轻量别名方法
+        """
+        return self.generate_data_only(report_type=report_type, report_title=report_title)
+
     def _prepare_report_data(self, report_type: str, report_title: str = None) -> Dict[str, Any]:
         """
         准备报表数据
@@ -330,7 +340,13 @@ def export_to_word(report_data: Dict[str, Any], file_path: str) -> str:
     Returns:
         str: 生成的文件路径
     """
-    formatter = WordFormatter(template_type='standard')
+    # 优先从元信息中识别报告类型，以便按 standard/professional/comprehensive 选择模板
+    meta = report_data.get('meta', {}) if isinstance(report_data, dict) else {}
+    template_type = meta.get('report_type', 'standard')
+    if template_type not in ('standard', 'professional', 'comprehensive'):
+        template_type = 'standard'
+
+    formatter = WordFormatter(template_type=template_type)
     return formatter.format_report(report_data, file_path)
 
 

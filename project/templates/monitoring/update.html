@@ -783,6 +783,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="{% static 'js/scatter-chart-optimizer.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const STORAGE_KEY = 'update_monitor_filters';
@@ -1052,12 +1053,6 @@ document.addEventListener('DOMContentLoaded', function () {
             payment: '付款',
             settlement: '结算',
         };
-        const moduleColors = {
-            procurement: '#0d6efd',
-            contract: '#198754',
-            payment: '#fd7e14',
-            settlement: '#6f42c1',
-        };
 
         const chartSeries = [];
         const allPoints = [];
@@ -1066,7 +1061,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const rawPoints = scatter[key] || [];
             if (!Array.isArray(rawPoints) || !rawPoints.length) return;
 
-            const color = moduleColors[key] || '#6c757d';
             const data = rawPoints.map(p => ({
                 x: new Date(p.date).getTime(),
                 y: p.cycle_days,
@@ -1079,7 +1073,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 name: moduleLabels[key] || key,
                 type: 'scatter',
                 data,
-                color,
             });
 
             allPoints.push(...data);
@@ -1090,18 +1083,23 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // 计算 X 轴范围（根据全局年度筛选固定刻度）
+        // 使用优化器生成配置
+        const config = window.ScatterChartOptimizer.generateOptimizedScatterConfig({
+            seriesData: chartSeries,
+            title: '更新周期散点分布图',
+            yAxisTitle: '更新周期（天）',
+            baselineValue: null,
+            baselineName: null,
+            containerWidth: el.offsetWidth,
+            enableInteraction: true
+        });
+
+        // 计算X轴范围
         const allX = allPoints.map(p => p.x);
         let axisMin = Math.min(...allX);
         let axisMax = Math.max(...allX);
         const minDate = new Date(axisMin);
         const maxDate = new Date(axisMax);
-
-        const xaxis = {
-            type: 'datetime',
-            title: { text: '更新完成时间' },
-            labels: { format: 'yyyy年MM月' },
-        };
 
         const isAllYears = !globalYearValue || globalYearValue === 'all';
         if (isAllYears) {
@@ -1110,115 +1108,49 @@ document.addEventListener('DOMContentLoaded', function () {
             axisMin = new Date(startYear, 0, 1).getTime();
             axisMax = new Date(endYear, 11, 31).getTime();
             const yearSpan = endYear - startYear + 1;
-            xaxis.min = axisMin;
-            xaxis.max = axisMax;
-            xaxis.tickAmount = yearSpan * 2 + 1; // 半年一个刻度
+            config.xaxis.min = axisMin;
+            config.xaxis.max = axisMax;
+            config.xaxis.tickAmount = yearSpan * 2 + 1;
         } else {
             const yearInt = parseInt(globalYearValue, 10);
             if (!isNaN(yearInt)) {
                 axisMin = new Date(yearInt, 0, 1).getTime();
                 axisMax = new Date(yearInt, 11, 31).getTime();
-                xaxis.min = axisMin;
-                xaxis.max = axisMax;
-                xaxis.tickAmount = 12; // 按月刻度
+                config.xaxis.min = axisMin;
+                config.xaxis.max = axisMax;
+                config.xaxis.tickAmount = 12;
             }
         }
 
-        // 基准线：使用当前筛选条件下的整体平均更新周期，并覆盖完整横轴
+        // 添加业务类型的基准线
         const baselineDefs = [
-            {
-                key: 'procurement',
-                name: '采购整体平均周期（{{ detail_data.summary.procurement.avg_days|default:0 }}天）',
-                value: {{ detail_data.summary.procurement.avg_days|default:0 }},
-                color: '#0d6efd',
-            },
-            {
-                key: 'contract',
-                name: '合同整体平均周期（{{ detail_data.summary.contract.avg_days|default:0 }}天）',
-                value: {{ detail_data.summary.contract.avg_days|default:0 }},
-                color: '#198754',
-            },
-            {
-                key: 'payment',
-                name: '付款整体平均周期（{{ detail_data.summary.payment.avg_days|default:0 }}天）',
-                value: {{ detail_data.summary.payment.avg_days|default:0 }},
-                color: '#fd7e14',
-            },
-            {
-                key: 'settlement',
-                name: '结算整体平均周期（{{ detail_data.summary.settlement.avg_days|default:0 }}天）',
-                value: {{ detail_data.summary.settlement.avg_days|default:0 }},
-                color: '#6f42c1',
-            },
+            {key: 'procurement', value: {{ detail_data.summary.procurement.avg_days|default:0 }}, color: '#0d6efd'},
+            {key: 'contract', value: {{ detail_data.summary.contract.avg_days|default:0 }}, color: '#198754'},
+            {key: 'payment', value: {{ detail_data.summary.payment.avg_days|default:0 }}, color: '#fd7e14'},
+            {key: 'settlement', value: {{ detail_data.summary.settlement.avg_days|default:0 }}, color: '#6f42c1'},
         ];
 
         baselineDefs.forEach(b => {
             if (!b.value || isNaN(b.value)) return;
-            chartSeries.push({
-                name: b.name,
+            config.series.push({
+                name: `${moduleLabels[b.key]}平均（${b.value}天）`,
                 type: 'line',
-                data: [{ x: axisMin, y: b.value }, { x: axisMax, y: b.value }],
+                data: [{x: axisMin, y: b.value}, {x: axisMax, y: b.value}],
                 color: b.color,
             });
         });
 
-        const allY = allPoints.map(p => p.y);
-        const maxBaseline = Math.max(
-            ...baselineDefs.map(b => (b.value && !isNaN(b.value) ? b.value : 0)),
-            0,
-        );
-        const yMax = Math.max(...allY, maxBaseline) * 1.2;
-
-        const options = {
-            chart: { type: 'line', height: 400, toolbar: { show: true }, zoom: { enabled: true } },
-            series: chartSeries,
-            xaxis: xaxis,
-            yaxis: {
-                title: { text: '更新周期（天）' },
-                max: yMax,
-                labels: {
-                    formatter: function (value) {
-                        return value ? Math.round(value) : '';
-                    },
-                },
-            },
-            title: {
-                text: '更新周期散点分布图',
-                align: 'left',
-                style: { fontSize: '16px', fontWeight: 600 },
-            },
-            stroke: {
-                width: chartSeries.map(s => (s.type === 'line' ? 3 : 0)),
-                dashArray: chartSeries.map(s => (s.type === 'line' ? 5 : 0)),
-            },
-            markers: {
-                size: chartSeries.map(s => (s.type === 'scatter' ? 6 : 0)),
-            },
-            dataLabels: { enabled: false },
-            legend: { show: true, position: 'top', horizontalAlign: 'right' },
-            tooltip: {
-                enabled: true,
-                shared: false,
-                intersect: true,
-                x: { format: 'yyyy年MM月dd日' },
-                y: {
-                    formatter: function (value, { seriesIndex, dataPointIndex, w }) {
-                        const series = w.config.series[seriesIndex];
-                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
-                            const point = series.data[dataPointIndex];
-                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person || ''}`;
-                        }
-                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
-                    },
-                },
-            },
-            colors: chartSeries.map(s => s.color),
-            grid: { borderColor: '#e7e7e7', strokeDashArray: 4 },
-        };
-
+        // 渲染图表
         el.innerHTML = '';
-        const chart = new ApexCharts(el, options);
+        const chart = new ApexCharts(el, config);
         chart.render();
+
+        // 启用响应式
+        window.ScatterChartOptimizer.makeChartResponsive(chart, {
+            seriesData: config.series,
+            title: '更新周期散点分布图',
+            yAxisTitle: '更新周期（天）'
+        });
     }
 
     function renderMainTrend() {

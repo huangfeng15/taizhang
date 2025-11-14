@@ -475,6 +475,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/scatter-chart-optimizer.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 视图模式切换
@@ -757,7 +758,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 多序列趋势图（人员/项目）- 散点图版本（无趋势线）
     const multiData = {{ multi_trend_json|safe }};
-    const colorPalette = ['#0d6efd','#20c997','#198754','#6610f2','#fd7e14','#6f42c1','#d63384','#0dcaf0','#dc3545','#ffc107'];
     
     function renderMultiSeriesChart(elementId, seriesArray, title, isProcurement) {
         if (!seriesArray || seriesArray.length === 0) {
@@ -786,6 +786,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const baselineName = isProcurement ? `采购规定周期（${PROCUREMENT_ARCHIVE_DEADLINE}天）` : `合同规定周期（${CONTRACT_ARCHIVE_DEADLINE}天）`;
         const baselineColor = isProcurement ? '#ff6b6b' : '#51cf66';
         
+        // 使用优化器获取颜色方案
+        const colors = window.ScatterChartOptimizer.getOptimizedColors(seriesArray.length);
+        
         // 构建系列数据
         const chartSeries = [];
         const allPoints = [];
@@ -793,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
         seriesArray.forEach((series, idx) => {
             if (!series.points || series.points.length === 0) return;
             
-            const color = colorPalette[idx % colorPalette.length];
+            const color = colors[idx];
             
             // 散点数据
             const scatterData = series.points.map(p => ({
@@ -865,101 +868,50 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        const options = {
-            chart: {
-                type: 'line',
-                height: 400,
-                toolbar: { show: true },
-                zoom: { enabled: true }
-            },
-            series: chartSeries,
-            xaxis: xaxis,
-            yaxis: {
-                title: { text: '归档周期（天）' },
-                max: yMax,
-                labels: {
-                    formatter: function(value) {
-                        return value ? Math.round(value) : '';
-                    }
-                }
-            },
-            title: {
-                text: title,
-                align: 'left',
-                style: { fontSize: '16px', fontWeight: 600 }
-            },
-            stroke: {
-                width: chartSeries.map(s => s.type === 'line' ? 3 : 0),
-                dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)
-            },
-            markers: {
-                size: chartSeries.map(s => s.type === 'scatter' ? 5 : 0)
-            },
-            dataLabels: {
-                enabled: false
-            },
-            annotations: {
-                yaxis: [
-                    {
-                        y: 0,
-                        y2: baselineValue,
-                        fillColor: '#d4edda',
-                        opacity: 0.2,
-                        label: {
-                            text: '低于基准时间',
-                            style: {
-                                color: '#155724',
-                                background: '#d4edda'
-                            }
-                        }
-                    },
-                    {
-                        y: baselineValue,
-                        y2: yMax,
-                        fillColor: '#f8d7da',
-                        opacity: 0.2,
-                        label: {
-                            text: '超出基准时间',
-                            style: {
-                                color: '#721c24',
-                                background: '#f8d7da'
-                            }
+        // 使用优化器生成配置
+        const options = window.ScatterChartOptimizer.generateOptimizedScatterConfig({
+            seriesData: chartSeries,
+            title: title,
+            yAxisTitle: '归档周期（天）',
+            baselineValue: baselineValue,
+            baselineName: baselineName,
+            containerWidth: document.getElementById(elementId).offsetWidth,
+            enableInteraction: true
+        });
+        
+        // 保留原有的X轴配置调整
+        options.xaxis = xaxis;
+        
+        // 添加区域标注
+        options.annotations = {
+            yaxis: [
+                {
+                    y: 0,
+                    y2: baselineValue,
+                    fillColor: '#d4edda',
+                    opacity: 0.2,
+                    label: {
+                        text: '低于基准时间',
+                        style: {
+                            color: '#155724',
+                            background: '#d4edda'
                         }
                     }
-                ]
-            },
-            legend: {
-                show: true,
-                position: 'top',
-                horizontalAlign: 'right',
-                markers: {
-                    width: 12,
-                    height: 12
-                }
-            },
-            tooltip: {
-                enabled: true,
-                shared: false,
-                intersect: true,
-                x: {
-                    format: 'yyyy年MM月dd日'
                 },
-                y: {
-                    formatter: function(value, { seriesIndex, dataPointIndex, w }) {
-                        const series = w.config.series[seriesIndex];
-                        if (series.type === 'scatter' && series.data[dataPointIndex]) {
-                            const point = series.data[dataPointIndex];
-                            return `${Math.round(value)}天<br/>编号: ${point.code}<br/>经办人: ${point.person || ''}`;
+                {
+                    y: baselineValue,
+                    y2: yMax,
+                    fillColor: '#f8d7da',
+                    opacity: 0.2,
+                    label: {
+                        text: '超出基准时间',
+                        style: {
+                            color: '#721c24',
+                            background: '#f8d7da'
                         }
-                        return value !== null && value !== undefined ? Math.round(value) + '天' : '无数据';
                     }
                 }
-            },
-            colors: chartSeries.map(s => s.color),
-            grid: {
-                borderColor: '#e7e7e7',
-                strokeDashArray: 4
-            }
+            ]
         };
         
         const el = document.getElementById(elementId);
@@ -967,6 +919,15 @@ document.addEventListener('DOMContentLoaded', function() {
             el.innerHTML = '';
             const chart = new ApexCharts(el, options);
             chart.render();
+            
+            // 启用响应式
+            window.ScatterChartOptimizer.makeChartResponsive(chart, {
+                seriesData: chartSeries,
+                title: title,
+                yAxisTitle: '归档周期（天）',
+                baselineValue: baselineValue,
+                baselineName: baselineName
+            });
         }
     }
     

@@ -22,12 +22,14 @@ def generate_report(request):
         export_to_excel,
     )
 
+    # 统一解析全局筛选（年度/项目），POST 时用于作为默认过滤条件
+    global_filters = _resolve_global_filters(request)
+
     if request.method == 'GET':
         current_year = get_current_year()
         current_month = datetime.now().month
         current_quarter = (current_month - 1) // 3 + 1
 
-        global_filters = _resolve_global_filters(request)
         all_projects = Project.objects.all().order_by('project_name')
 
         context = {
@@ -56,6 +58,10 @@ def generate_report(request):
         else:
             project_codes = [project_param] if project_param else None
 
+        # 如果表单未显式选择项目，则回退到全局筛选的项目列表
+        if not project_codes:
+            project_codes = global_filters.get('project_list') or None
+
         year = int(request.POST.get('year', get_current_year()))
         month = int(request.POST.get('month', datetime.now().month))
         quarter = int(request.POST.get('quarter', 1))
@@ -63,11 +69,13 @@ def generate_report(request):
         if report_type == 'project':
             generator = AnnualReportGenerator(year, project_codes=project_codes)
         elif report_type == 'weekly':
+            # 视图接收 target_date（任意日期），这里按 ISO 周规则转换为 (year, week) 供生成器使用
             target_date_str = request.POST.get('target_date')
             target_date = (
                 datetime.strptime(target_date_str, '%Y-%m-%d').date() if target_date_str else date.today()
             )
-            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+            iso_year, iso_week, _ = target_date.isocalendar()
+            generator = WeeklyReportGenerator(iso_year, iso_week, project_codes=project_codes)
         elif report_type == 'monthly':
             generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
         elif report_type == 'quarterly':
@@ -77,7 +85,11 @@ def generate_report(request):
         else:
             return JsonResponse({'success': False, 'message': '不支持的报表类型'}, status=400)
 
-        report_data = generator.generate_data()
+        # 预览/Excel 使用标准级别数据，Word 导出（周报、月报）使用专业级别数据
+        if export_format == 'word' and report_type in ['weekly', 'monthly']:
+            report_data = generator.generate_data(report_type='professional')
+        else:
+            report_data = generator.generate_data(report_type='standard')
 
         if export_format == 'word':
             try:
@@ -147,6 +159,8 @@ def report_preview(request):
         AnnualReportGenerator,
     )
     try:
+        global_filters = _resolve_global_filters(request)
+
         report_type = request.GET.get('report_type', 'monthly')
         year = int(request.GET.get('year', get_current_year()))
         month = int(request.GET.get('month', datetime.now().month))
@@ -154,12 +168,17 @@ def report_preview(request):
         project_param = request.GET.get('project', '').strip()
         project_codes = [project_param] if project_param else None
 
+        # GET 预览接口同样受全局项目筛选约束：未显式指定时回退到全局项目
+        if not project_codes:
+            project_codes = global_filters.get('project_list') or None
+
         if report_type == 'weekly':
             target_date_str = request.GET.get('target_date')
             target_date = (
                 datetime.strptime(target_date_str, '%Y-%m-%d').date() if target_date_str else date.today()
             )
-            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+            iso_year, iso_week, _ = target_date.isocalendar()
+            generator = WeeklyReportGenerator(iso_year, iso_week, project_codes=project_codes)
         elif report_type == 'monthly':
             generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
         elif report_type == 'quarterly':
@@ -188,6 +207,8 @@ def report_export(request):
         export_to_excel,
     )
     try:
+        global_filters = _resolve_global_filters(request)
+
         report_type = request.GET.get('report_type', 'monthly')
         year = int(request.GET.get('year', get_current_year()))
         month = int(request.GET.get('month', datetime.now().month))
@@ -195,12 +216,17 @@ def report_export(request):
         project_param = request.GET.get('project', '').strip()
         project_codes = [project_param] if project_param else None
 
+        # GET 导出接口同样受全局项目筛选约束：未显式指定时回退到全局项目
+        if not project_codes:
+            project_codes = global_filters.get('project_list') or None
+
         if report_type == 'weekly':
             target_date_str = request.GET.get('target_date')
             target_date = (
                 datetime.strptime(target_date_str, '%Y-%m-%d').date() if target_date_str else date.today()
             )
-            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
+            iso_year, iso_week, _ = target_date.isocalendar()
+            generator = WeeklyReportGenerator(iso_year, iso_week, project_codes=project_codes)
         elif report_type == 'monthly':
             generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
         elif report_type == 'quarterly':
@@ -234,90 +260,12 @@ def report_export(request):
         return redirect('generate_report')
 
 
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['GET'])  # 保留占位，避免误用旧路由
 def generate_professional_report(request):
-    """专业报告生成与导出（Word）。"""
-    from project.services.report_generator import (
-        WeeklyReportGenerator,
-        MonthlyReportGenerator,
-        QuarterlyReportGenerator,
-        AnnualReportGenerator,
-    )
-    from project.services.export_service import (
-        export_to_word_professional,
-        export_to_word,
-        export_to_excel,
-    )
-    if request.method == 'GET':
-        current_year = get_current_year()
-        current_month = datetime.now().month
-        current_quarter = (current_month - 1) // 3 + 1
-        global_filters = _resolve_global_filters(request)
-        projects = Project.objects.all().order_by('project_name')
+    """
+    兼容占位视图：专业报告生成功能已被统一报表生成页面替代。
 
-        context = {
-            'page_title': '专业报告生成',
-            'current_year': current_year,
-            'current_month': current_month,
-            'current_quarter': current_quarter,
-            'available_years': get_year_range(include_future=True),
-            'available_months': list(range(1, 13)),
-            'available_quarters': [1, 2, 3, 4],
-            'projects': projects,
-            'selected_projects': global_filters['project_list'],
-            'global_selected_year': global_filters['year_value'],
-            'global_selected_project': global_filters['project'],
-        }
-        return render(request, 'reports/professional_form.html', context)
-
-    try:
-        project_codes = request.POST.getlist('projects')
-        if not project_codes:
-            project_param = request.POST.get('project', '').strip()
-            project_codes = [project_param] if project_param else None
-        else:
-            project_codes = [p for p in project_codes if p] or None
-
-        report_type = request.POST.get('report_type', 'monthly')
-        year = int(request.POST.get('year', get_current_year()))
-        month = int(request.POST.get('month', datetime.now().month))
-        quarter = int(request.POST.get('quarter', 1))
-
-        if report_type == 'weekly':
-            target_date_str = request.POST.get('target_date')
-            target_date = (
-                datetime.strptime(target_date_str, '%Y-%m-%d').date() if target_date_str else date.today()
-            )
-            generator = WeeklyReportGenerator(target_date, project_codes=project_codes)
-        elif report_type == 'monthly':
-            generator = MonthlyReportGenerator(year, month, project_codes=project_codes)
-        elif report_type == 'quarterly':
-            generator = QuarterlyReportGenerator(year, quarter, project_codes=project_codes)
-        elif report_type == 'annual':
-            generator = AnnualReportGenerator(year, project_codes=project_codes)
-        else:
-            return JsonResponse({'success': False, 'message': '不支持的报表类型'}, status=400)
-
-        report_data = generator.generate_report_data()
-
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.docx', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-        try:
-            export_to_word_professional(report_data, tmp_path)
-            with open(tmp_path, 'rb') as f:
-                word_content = f.read()
-            meta = report_data.get('meta', {})
-            report_title = meta.get('report_title', '工作报告')
-            filename = f"{report_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-            response = HttpResponse(
-                word_content,
-                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            )
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-    except Exception as e:
-        messages.error(request, f'生成报告失败: {str(e)}')
-        return redirect('generate_professional_report')
+    为避免旧书签直接 404，这里简单重定向到新的报表生成入口。
+    """
+    messages.info(request, '专业报告生成功能已合并到“报表生成”页面，请在新页面中选择相应参数。')
+    return redirect('generate_report')

@@ -498,9 +498,9 @@ def monitoring_cockpit(request):
 
 
 
-# ==================== 专业Word报告生成功能 ====================
+# ==================== 专业Word报告生成功能（兼容入口，重定向到统一报表页） ====================
 
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['GET'])
 def generate_professional_report(request):
     return _views_reports.generate_professional_report(request)
 
