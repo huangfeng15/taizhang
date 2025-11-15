@@ -7,6 +7,8 @@ import zipfile
 from datetime import datetime
 from io import StringIO, BytesIO
 from pathlib import Path
+from urllib.parse import quote
+from django.utils.http import content_disposition_header
 
 import pandas as pd
 from django.conf import settings
@@ -553,31 +555,61 @@ def export_project_data(request):
             return JsonResponse({'success': False, 'message': '未找到选中的项目'}, status=404)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
+
         if len(projects) == 1:
+            # 单项目导出为xlsx
             project = projects.first()
             if project is None:
                 return JsonResponse({'success': False, 'message': '项目不存在'}, status=404)
             excel_file = generate_project_excel(project, request.user)
-            filename = f"{project.project_name}_{timestamp}.xlsx"
+
+            # 生成清晰的中文文件名，但限制长度避免问题
+            project_name_clean = project.project_name.replace('/', '_').replace('\\', '_').replace(':', '_')
+            # 如果项目名太长，使用缩写
+            if len(project_name_clean) > 30:
+                project_name_clean = project_name_clean[:27] + "..."
+
+            filename_utf8 = f"{project_name_clean}_{timestamp}.xlsx"
+            filename_ascii = f"project_{timestamp}.xlsx"  # ASCII回退名称
+
             response = HttpResponse(
                 excel_file.getvalue(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+            # 使用双文件名策略：ASCII回退 + UTF-8中文名
+            # 现代浏览器会优先使用filename*参数并自动解码显示中文
+            encoded_filename = quote(filename_utf8.encode('utf-8'))
+            response['Content-Disposition'] = (
+                f'attachment; '
+                f'filename="{filename_ascii}"; '
+                f"filename*=UTF-8''{encoded_filename}"
+            )
             return response
 
+        # 多项目导出为zip
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for project in projects:
                 excel_file = generate_project_excel(project, request.user)
+                # ZIP内部的文件名使用中文（ZIP格式本身支持UTF-8）
                 filename = f"{project.project_name}_{timestamp}.xlsx"
                 zip_file.writestr(filename, excel_file.getvalue())
 
         zip_buffer.seek(0)
-        zip_filename = f"项目数据导出_{timestamp}.zip"
+
+        # ZIP文件名也使用双文件名策略
+        zip_filename_utf8 = f"项目数据导出_{timestamp}.zip"
+        zip_filename_ascii = f"projects_export_{timestamp}.zip"
+
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        # 使用双文件名策略：ASCII回退 + UTF-8中文名
+        encoded_zip_filename = quote(zip_filename_utf8.encode('utf-8'))
+        response['Content-Disposition'] = (
+            f'attachment; '
+            f'filename="{zip_filename_ascii}"; '
+            f"filename*=UTF-8''{encoded_zip_filename}"
+        )
         return response
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'导出失败: {str(e)}'}, status=500)
