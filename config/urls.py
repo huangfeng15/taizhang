@@ -45,10 +45,6 @@ urlpatterns = [
     path('monitoring/workload/', workload_statistics_view, name='workload_statistics'),
     path('monitoring/completeness/field-config/', views.completeness_field_config, name='completeness_field_config'),
     path('api/completeness/field-config/update/', views.update_completeness_field_config, name='update_completeness_field_config'),
-    path('reports/generate/', views.generate_report, name='generate_report'),
-    path('reports/preview/', views.report_preview, name='report_preview'),
-    path('reports/export/', views.report_export, name='report_export'),
-    path('reports/professional/', views.generate_professional_report, name='generate_professional_report'),
 
     # 级联选择器数据API
     path('api/projects/', views.api_projects_list, name='api_projects_list'),

@@ -26,26 +26,6 @@ class ProjectDataImportError(Exception):
         self.stats = stats
 
 
-# ========== 报表导出（统一门面，委托 report_generator，行为不变） ==========
-
-def export_to_word(report_data, file_path: str) -> str:
-    """标准版 Word 导出（兼容旧接口），委托 report_generator 实现。"""
-    from project.services.report_generator import export_to_word as _export
-    return _export(report_data, file_path)
-
-
-def export_to_word_professional(report_data, file_path: str) -> str:
-    """专业版 Word 导出（兼容旧接口），委托 report_generator 实现。"""
-    from project.services.report_generator import export_to_word_professional as _export
-    return _export(report_data, file_path)
-
-
-def export_to_excel(report_data, file_path: str) -> str:
-    """Excel 导出（兼容旧接口），委托 report_generator 实现。"""
-    from project.services.report_generator import export_to_excel as _export
-    return _export(report_data, file_path)
-
-
 def extract_code_parts(code):
     """
     提取编号的各个部分用于排序

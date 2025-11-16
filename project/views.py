@@ -62,7 +62,6 @@ import project.views_contracts as _views_contracts
 import project.views_procurements as _views_procurements
 import project.views_payments as _views_payments
 import project.views_statistics as _views_statistics
-import project.views_reports as _views_reports
 import project.views_monitoring as _views_monitoring
 import project.views_ops as _views_ops
 import project.views_api as _views_api
@@ -477,16 +476,6 @@ def ranking_view(request):
     return _views_statistics.ranking_view(request)
 
 
-def generate_report(request):
-    return _views_reports.generate_report(request)
-
-
-def report_preview(request):
-    return _views_reports.report_preview(request)
-
-
-def report_export(request):
-    return _views_reports.report_export(request)
 
 
 def monitoring_cockpit(request):
@@ -507,9 +496,6 @@ def monitoring_cockpit(request):
 
 # ==================== 专业Word报告生成功能（兼容入口，重定向到统一报表页） ====================
 
-@require_http_methods(['GET'])
-def generate_professional_report(request):
-    return _views_reports.generate_professional_report(request)
 
 
 

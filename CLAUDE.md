@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-项目采购与成本管理系统 - 基于Django 5.2的企业内部数据管理平台，用于集中管理采购、合同、付款、结算及供应商评价数据。采用"Django Admin + 自定义前端"混合架构，支持Excel数据导入、PDF智能识别、实时监控、统计分析和专业报表生成。
+项目采购与成本管理系统 - 基于Django 5.2的企业内部数据管理平台，用于集中管理采购、合同、付款、结算及供应商评价数据。采用"Django Admin + 自定义前端"混合架构，支持Excel数据导入、PDF智能识别、实时监控和统计分析。
 
 **技术栈**: Python 3.10+ | Django 5.2 | SQLite | Bootstrap 5 | Chart.js
 
@@ -88,7 +88,7 @@ python manage.py set_staff_permission
 系统采用领域驱动设计，每个业务模块独立为Django应用：
 
 - **project/** - 核心主应用，包含Project模型和跨域业务逻辑
-  - `services/` - 业务服务层（统计、监控、报表生成）
+  - `services/` - 业务服务层（统计、监控）
   - `templates/` - 自定义前端页面（Bootstrap 5）
   - `static/` - CSS/JS静态资源
   - `management/commands/` - 自定义管理命令
@@ -144,12 +144,9 @@ Project (项目)
 - **ranking.py** - 排名统计
 - **metrics.py** - 指标计算
 
-**报表生成**:
-- **report_generator.py** - 基础报表生成
-- **professional_report_generator.py** - 专业Word报表
-- **advanced_report_generator.py** - 高级报表生成器
-- **comprehensive_word_exporter.py** - 综合报表导出
-- **word_exporter.py** - Word文档生成工具
+**数据导出**:
+- **export_service.py** - 项目数据导出服务
+- **word_formatter.py** - Word文档格式化工具
 
 ### PDF智能识别模块（pdf_import/）
 
@@ -212,11 +209,6 @@ Project (项目)
 - `/monitoring/cockpit/` - 监控驾驶舱
 - `/monitoring/statistics/` - 统计分析
 - `/monitoring/ranking/` - 排名统计
-
-**报表生成**:
-- `/reports/generate/` - 基础报表
-- `/reports/professional/` - 专业Word报表
-- `/reports/comprehensive/` - 综合报表
 
 **API接口**:
 - `/api/projects/`, `/api/procurements/`, `/api/contracts/` - 级联选择器API
