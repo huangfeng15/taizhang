@@ -3,7 +3,7 @@
 基于配置驱动的智能字段提取 + 单元格检测增强
 """
 import fitz  # PyMuPDF
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List
 from pathlib import Path
 
 from .config_loader import ConfigLoader
@@ -406,7 +406,7 @@ class FieldExtractor:
         print(f"警告: 枚举值 '{value}' 不在标准列表中，也无别名映射")
         return value
     
-    def extract_all_from_pdfs(self, pdf_files: Dict[str, str]) -> Dict[str, Any]:
+    def extract_all_from_pdfs(self, pdf_files: Dict[str, str]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """
         从多个PDF文件提取所有字段（智能合并结果）
         
@@ -428,7 +428,9 @@ class FieldExtractor:
             }
             
         Returns:
-            合并后的字段字典
+            (merged_data, requires_confirmation)
+            - merged_data: 合并后的字段字典
+            - requires_confirmation: 需要人工确认的字段列表
         """
         # 定义PDF类型的处理优先级（从高到低）
         # 优先级高的PDF类型的字段值会被优先采用
@@ -448,6 +450,8 @@ class FieldExtractor:
         
         # 存储每个文件的提取结果（独立存储，避免混淆）
         extraction_results = {}
+        # 字段级别需确认列表
+        requires_confirmation: List[Dict[str, Any]] = []
         
         # 按优先级顺序处理PDF文件
         for pdf_type in PRIORITY_ORDER:
@@ -535,4 +539,4 @@ class FieldExtractor:
         print(f"  • 提取字段数: {len(merged_data)}")
         print(f"  • 有效字段数: {len([v for v in merged_data.values() if v])}")
         
-        return merged_data
+        return merged_data, requires_confirmation

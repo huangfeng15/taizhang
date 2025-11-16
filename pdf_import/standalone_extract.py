@@ -141,7 +141,7 @@ class PDFBatchExtractor:
         
         # 使用FieldExtractor的合并提取功能
         try:
-            merged_data = self.extractor.extract_all_from_pdfs(pdf_type_map)
+            merged_data, requires_confirmation = self.extractor.extract_all_from_pdfs(pdf_type_map)
             
             # 统计
             total_fields = len(merged_data)
@@ -156,6 +156,7 @@ class PDFBatchExtractor:
                 'status': 'success',
                 'pdf_files': pdf_type_map,
                 'extracted_data': merged_data,
+                'requires_confirmation': requires_confirmation,
                 'statistics': {
                     'total_fields': total_fields,
                     'extracted_fields': extracted_fields,

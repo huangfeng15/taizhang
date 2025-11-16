@@ -193,37 +193,68 @@ def extract_data(request, session_id):
     try:
         from .core.pdf_detector import PDFDetector
         from .core.field_extractor import FieldExtractor
-        
+
         detector = PDFDetector()
         extractor = FieldExtractor()
-        
+
         # 1. 识别PDF类型
+        #    优先使用上传阶段提取的文件编号 matched_number 映射为 pdf_type，
+        #    若缺失或无法映射，再退回 PDFDetector 进行基于文件名 / 内容的识别。
+        number_type_map = {
+            '2-21': 'control_price_approval',
+            '2-23': 'procurement_request',
+            '2-24': 'procurement_notice',
+            '2-25': 'procurement_notice',  # 虽然 2-25 已在过滤器中排除，这里仍保持映射以兼容历史数据
+            '2-44': 'procurement_result_oa',
+            '2-45': 'candidate_publicity',
+            '2-47': 'result_publicity',
+        }
+
         pdf_files_by_type = {}
+        requires_confirmation = []
+
         for pdf_info in session.pdf_files:
-            pdf_path = pdf_info['path']
-            
-            # 检测PDF类型
-            pdf_type, confidence, method = detector.detect(pdf_path)
-            
-            # 更新PDF信息
+            pdf_path = pdf_info.get('path')
+            if not pdf_path:
+                continue
+
+            pdf_type = None
+            confidence = 0.0
+            method = 'none'
+
+            matched_number = pdf_info.get('matched_number')
+            if matched_number and matched_number in number_type_map:
+                # 由文件编号直接推导 PDF 类型（最高优先级）
+                pdf_type = number_type_map[matched_number]
+                confidence = 1.0
+                method = 'filename_number'
+            else:
+                # 回退到内容/文件名识别
+                pdf_type, confidence, method = detector.detect(pdf_path)
+
+            # 更新PDF信息，便于前端展示与排查
             pdf_info['detected_type'] = pdf_type
             pdf_info['confidence'] = confidence
             pdf_info['method'] = method
-            
-            # 按类型分组
-            if pdf_type != 'unknown':
+
+            # 按类型分组（只保留识别成功的类型）
+            if pdf_type and pdf_type != 'unknown':
                 pdf_files_by_type[pdf_type] = pdf_path
-        
+            else:
+                # 类型无法识别的文件加入需确认列表
+                requires_confirmation.append({
+                    'field': '__pdf_file__',
+                    'extracted_value': pdf_info.get('name'),
+                    'mapped_value': None,
+                    'reason': '无法识别PDF类型',
+                })
+
         # 2. 提取字段（从所有PDF合并）
-        extracted_data = extractor.extract_all_from_pdfs(pdf_files_by_type)
-        
-        # 3. 标记需要确认的字段
-        requires_confirmation = []
-        for field_name, value in extracted_data.items():
-            # 这里可以添加更复杂的逻辑来判断哪些字段需要确认
-            # 例如：枚举值映射、低置信度字段等
-            pass
-        
+        extracted_data, field_confirmation = extractor.extract_all_from_pdfs(pdf_files_by_type)
+
+        # 3. 标记需要确认的字段（合并类型识别与字段级别提醒）
+        requires_confirmation.extend(field_confirmation)
+
         # 4. 更新会话
         session.extracted_data = extracted_data
         session.requires_confirmation = requires_confirmation
