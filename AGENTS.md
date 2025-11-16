@@ -23,6 +23,49 @@
   - **D (依赖倒置):** 依赖抽象而非具体实现。
 - **杜绝重复 (DRY):** 识别并消除代码或逻辑中的重复模式，提升复用性。
 
+## 命名规范（字段 / 文件 / 目录）
+
+- **字段命名（模型 / GET 参数 / 表单 name）**
+  - 统一使用 `snake_case`（小写 + 下划线），禁止中文和混用驼峰。
+  - 以模型字段为“唯一真相”，筛选参数和表单 `name` 必须与模型字段名保持一致。
+  - 约定后缀：
+    - `_code`（编号）、`_name`（名称）、`_date`（日期）、`_amount` / `_price`（金额/价格）、`_ratio`（比例）、`_count`（数量）。
+    - 布尔值使用 `is_*` / `has_*` 前缀，例如 `is_settled`、`has_complaint`。
+  - 筛选参数命名：
+    - 文本/枚举：使用字段名本身，例如 `procurement_officer`、`party_b_contact_person`。
+    - 数值区间：`{field}_min` / `{field}_max`，例如 `contract_amount_min` / `contract_amount_max`。
+    - 日期区间：`{field}_start` / `{field}_end`，例如 `signing_date_start` / `signing_date_end`。
+    - 多选：前端 `name="{field}"`，后端使用 `request.GET.getlist('{field}')`。
+  - **注意：**已有模型字段（例如 `project_code`、`procurement_officer`、`party_b_contact_person` 等）视为历史命名，不要在代码中随意改名；新增字段必须遵守本规范。完整历史字段列表见 `docs/数据模型使用手册.md` 的“0.3 现有字段”。
+
+- **文件 / 目录命名**
+  - 应用目录：使用单数领域名，如 `project`、`procurement`、`contract`、`payment`、`settlement`、`supplier_eval`。
+  - Python 模块：统一 `snake_case`，例如 `views_contracts.py`、`views_procurements.py`、`filter_config.py`。
+  - 模板文件：`snake_case` + 领域前缀，例如 `procurement_list.html`、`contract_list.html`、`components/filter_system.html`。
+  - 文档：放在 `docs/` 下，文件名有明确语义，避免空格，例如 `数据模型使用手册.md`、`time-range-filter-design.md`。
+
+- **筛选相关开发要求**
+  - 新增任何高级筛选字段时，必须同时更新：
+    - `project/filter_config.py`
+    - 对应视图（如 `project/views_contracts.py`、`project/views_procurements.py`）
+  - 修改完成后，优先通过 `python manage.py check_filter_mappings` 自检，确保筛选配置与视图 GET 参数一一对应。
+
+### 命名规范 Code Review 检查清单（给助手 & 审查者）
+
+在审查 PR 或生成代码时，助手应优先检查以下命名要点：
+
+- 字段命名
+  - [ ] 新增模型字段是否为 `snake_case` 且含义清晰，避免随意缩写。
+  - [ ] GET 参数 / 表单 `name` 是否与模型字段和 `filter_config` 中的 `name` 保持一致。
+  - [ ] 数值 / 日期区间是否严格使用 `{field}_min` / `{field}_max`、`{field}_start` / `{field}_end`。
+- 筛选逻辑
+  - [ ] 新增筛选字段是否已经在视图中通过 `request.GET.get`/`getlist` 读取并参与 queryset 过滤。
+  - [ ] 是否建议用户在本地运行 `python manage.py check_filter_mappings`，验证 `filter_config` 与视图参数映射。
+- 文件命名
+  - [ ] 新增模块/模板/脚本的文件名是否遵守：应用目录单数、模块 `snake_case`、模板 `snake_case`+领域前缀、文档放在 `docs/` 且命名有语义。
+
+> 详细字段列表及历史命名说明，请以 `docs/数据模型使用手册.md` 中的“0.3 现有字段”章节为准。
+
 **请严格遵循以下工作流程和输出要求：**
 
 1.  **深入理解与初步分析（理解阶段）：**

@@ -31,13 +31,25 @@ def procurement_list(request):
     project_name_filter = request.GET.get('project_name', '')
     procurement_unit_filter = request.GET.get('procurement_unit', '')
     procurement_category_filter = request.GET.get('procurement_category', '')
+    procurement_platform_filter = request.GET.get('procurement_platform', '')
     procurement_method_filter = request.GET.get('procurement_method', '')
     qualification_review_filter = request.GET.get('qualification_review_method', '')
     bid_evaluation_filter = request.GET.get('bid_evaluation_method', '')
     bid_awarding_filter = request.GET.get('bid_awarding_method', '')
     winning_bidder_filter = request.GET.get('winning_bidder', '')
+    winning_contact_filter = request.GET.get('winning_contact', '')
+    procurement_officer_filter = request.GET.get('procurement_officer', '')
+    demand_department_filter = request.GET.get('demand_department', '')
+    demand_contact_filter = request.GET.get('demand_contact', '')
+    evaluation_committee_filter = request.GET.get('evaluation_committee', '')
+    bid_guarantee_filter = request.GET.get('bid_guarantee', '')
+    performance_guarantee_filter = request.GET.get('performance_guarantee', '')
     candidate_publicity_issue_filter = request.GET.get('candidate_publicity_issue', '')
     non_bidding_explanation_filter = request.GET.get('non_bidding_explanation', '')
+    requirement_approval_date_start = request.GET.get('requirement_approval_date_start', '')
+    requirement_approval_date_end = request.GET.get('requirement_approval_date_end', '')
+    bid_guarantee_return_date_start = request.GET.get('bid_guarantee_return_date_start', '')
+    bid_guarantee_return_date_end = request.GET.get('bid_guarantee_return_date_end', '')
     announcement_release_date_start = request.GET.get('announcement_release_date_start', '')
     announcement_release_date_end = request.GET.get('announcement_release_date_end', '')
     registration_deadline_start = request.GET.get('registration_deadline_start', '')
@@ -56,6 +68,8 @@ def procurement_list(request):
     archive_date_end = request.GET.get('archive_date_end', '')
     budget_amount_min = request.GET.get('budget_amount_min', '')
     budget_amount_max = request.GET.get('budget_amount_max', '')
+    control_price_min = request.GET.get('control_price_min', '')
+    control_price_max = request.GET.get('control_price_max', '')
     winning_amount_min = request.GET.get('winning_amount_min', '')
     winning_amount_max = request.GET.get('winning_amount_max', '')
 
@@ -81,14 +95,26 @@ def procurement_list(request):
     procurements = apply_text_filter(procurements, 'project_name', project_name_filter)
     procurements = apply_text_filter(procurements, 'procurement_unit', procurement_unit_filter)
     procurements = apply_text_filter(procurements, 'procurement_category', procurement_category_filter)
+    procurements = apply_text_filter(procurements, 'procurement_platform', procurement_platform_filter)
     procurements = apply_text_filter(procurements, 'procurement_method', procurement_method_filter)
     procurements = apply_text_filter(procurements, 'qualification_review_method', qualification_review_filter)
     procurements = apply_text_filter(procurements, 'bid_evaluation_method', bid_evaluation_filter)
     procurements = apply_text_filter(procurements, 'bid_awarding_method', bid_awarding_filter)
     procurements = apply_text_filter(procurements, 'winning_bidder', winning_bidder_filter)
+    procurements = apply_text_filter(procurements, 'winning_contact', winning_contact_filter)
+    procurements = apply_text_filter(procurements, 'procurement_officer', procurement_officer_filter)
+    procurements = apply_text_filter(procurements, 'demand_department', demand_department_filter)
+    procurements = apply_text_filter(procurements, 'demand_contact', demand_contact_filter)
+    procurements = apply_text_filter(procurements, 'evaluation_committee', evaluation_committee_filter)
+    procurements = apply_text_filter(procurements, 'bid_guarantee', bid_guarantee_filter)
+    procurements = apply_text_filter(procurements, 'performance_guarantee', performance_guarantee_filter)
     procurements = apply_text_filter(procurements, 'candidate_publicity_issue', candidate_publicity_issue_filter)
     procurements = apply_text_filter(procurements, 'non_bidding_explanation', non_bidding_explanation_filter)
 
+    if requirement_approval_date_start:
+        procurements = procurements.filter(requirement_approval_date__gte=requirement_approval_date_start)
+    if requirement_approval_date_end:
+        procurements = procurements.filter(requirement_approval_date__lte=requirement_approval_date_end)
     if announcement_release_date_start:
         procurements = procurements.filter(announcement_release_date__gte=announcement_release_date_start)
     if announcement_release_date_end:
@@ -125,10 +151,19 @@ def procurement_list(request):
         procurements = procurements.filter(budget_amount__gte=budget_amount_min)
     if budget_amount_max:
         procurements = procurements.filter(budget_amount__lte=budget_amount_max)
+    if control_price_min:
+        procurements = procurements.filter(control_price__gte=control_price_min)
+    if control_price_max:
+        procurements = procurements.filter(control_price__lte=control_price_max)
     if winning_amount_min:
         procurements = procurements.filter(winning_amount__gte=winning_amount_min)
     if winning_amount_max:
         procurements = procurements.filter(winning_amount__lte=winning_amount_max)
+
+    if bid_guarantee_return_date_start:
+        procurements = procurements.filter(bid_guarantee_return_date__gte=bid_guarantee_return_date_start)
+    if bid_guarantee_return_date_end:
+        procurements = procurements.filter(bid_guarantee_return_date__lte=bid_guarantee_return_date_end)
 
     procurements = procurements.order_by('-result_publicity_release_date', '-bid_opening_date', '-created_at')
 

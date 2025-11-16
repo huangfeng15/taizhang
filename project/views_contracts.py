@@ -57,10 +57,15 @@ def contract_list(request):
     contract_name_filter = request.GET.get('contract_name', '')
     party_a_filter = request.GET.get('party_a', '')
     party_b_filter = request.GET.get('party_b', '')
-    party_b_contact_filter = request.GET.get('party_b_contact', '')
+    party_b_contact_person_filter = request.GET.get('party_b_contact_person', '')
     contract_officer_filter = request.GET.get('contract_officer', '')
     contract_source_filter = request.GET.get('contract_source', '')
     contract_type_filter = request.GET.getlist('contract_type')
+    party_a_legal_representative_filter = request.GET.get('party_a_legal_representative', '')
+    party_a_contact_person_filter = request.GET.get('party_a_contact_person', '')
+    party_a_manager_filter = request.GET.get('party_a_manager', '')
+    party_b_legal_representative_filter = request.GET.get('party_b_legal_representative', '')
+    party_b_manager_filter = request.GET.get('party_b_manager', '')
     has_settlement_filter = request.GET.get('has_settlement', '')
     payment_ratio_min = request.GET.get('payment_ratio_min', '')
     payment_ratio_max = request.GET.get('payment_ratio_max', '')
@@ -94,14 +99,21 @@ def contract_list(request):
     # 合同类型过滤
     if file_positioning_filter:
         contracts = contracts.filter(file_positioning=file_positioning_filter)
+    if contract_type_filter:
+        contracts = contracts.filter(contract_type__in=contract_type_filter)
 
     contracts = apply_text_filter(contracts, 'contract_code', contract_code_filter)
     contracts = apply_text_filter(contracts, 'contract_sequence', contract_sequence_filter)
     contracts = apply_text_filter(contracts, 'contract_name', contract_name_filter)
     contracts = apply_text_filter(contracts, 'party_a', party_a_filter)
     contracts = apply_text_filter(contracts, 'party_b', party_b_filter)
-    contracts = apply_text_filter(contracts, 'party_b_contact', party_b_contact_filter)
+    contracts = apply_text_filter(contracts, 'party_b_contact_person', party_b_contact_person_filter)
     contracts = apply_text_filter(contracts, 'contract_officer', contract_officer_filter)
+    contracts = apply_text_filter(contracts, 'party_a_legal_representative', party_a_legal_representative_filter)
+    contracts = apply_text_filter(contracts, 'party_a_contact_person', party_a_contact_person_filter)
+    contracts = apply_text_filter(contracts, 'party_a_manager', party_a_manager_filter)
+    contracts = apply_text_filter(contracts, 'party_b_legal_representative', party_b_legal_representative_filter)
+    contracts = apply_text_filter(contracts, 'party_b_manager', party_b_manager_filter)
 
     # 合同来源等过滤
     if contract_source_filter:
