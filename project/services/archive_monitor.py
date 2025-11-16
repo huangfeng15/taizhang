@@ -4,6 +4,7 @@
 """
 from django.utils import timezone
 from datetime import timedelta
+from django.db.models import Count, Avg, Q, F, ExpressionWrapper, fields
 from procurement.models import Procurement
 from contract.models import Contract
 from project.enums import FilePositioning
@@ -102,22 +103,26 @@ class ArchiveMonitorService:
         avg_archive_days = 0
         
         if archived > 0:
-            # 统计及时归档的数量
-            for proc in archived_qs:
-                if proc.archive_date and proc.result_publicity_release_date:
-                    days_to_archive = (proc.archive_date - proc.result_publicity_release_date).days
-                    if days_to_archive <= 40:
-                        timely_archived += 1
-            
-            # 计算平均归档周期
-            archive_days_list = []
-            for proc in archived_qs:
-                if proc.archive_date and proc.result_publicity_release_date:
-                    days = (proc.archive_date - proc.result_publicity_release_date).days
-                    archive_days_list.append(days)
-            
-            if archive_days_list:
-                avg_archive_days = round(sum(archive_days_list) / len(archive_days_list), 1)
+            # 使用数据库聚合计算归档周期和及时归档数量，避免 N+1 查询
+            archived_with_dates = archived_qs.filter(
+                archive_date__isnull=False,
+                result_publicity_release_date__isnull=False,
+            ).annotate(
+                days_to_archive=ExpressionWrapper(
+                    F("archive_date") - F("result_publicity_release_date"),
+                    output_field=fields.IntegerField(),
+                )
+            )
+
+            stats = archived_with_dates.aggregate(
+                timely_archived=Count("id", filter=Q(days_to_archive__lte=40)),
+                avg_archive_days=Avg("days_to_archive"),
+            )
+
+            timely_archived = stats.get("timely_archived") or 0
+            avg_value = stats.get("avg_archive_days")
+            if avg_value is not None:
+                avg_archive_days = round(avg_value, 1)
         
         timely_rate = round((timely_archived / archived * 100), 2) if archived > 0 else 0
         

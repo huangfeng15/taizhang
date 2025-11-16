@@ -569,11 +569,7 @@
             {% for severity, items in trend_and_problems.problems.items %}
                 {% if items %}
                 <div class="card mb-2">
-                    <div class="card-header" data-bs-toggle="collapse" data-bs-target="#{{ severity }}-problems" style="cursor: pointer;">
-                        <strong>{{ severity|upper }}</strong> ({{ items|length }}条)
-                        <i class="fas fa-chevron-down float-end"></i>
-                    </div>
-                    <div id="{{ severity }}-problems" class="collapse">
+                    <div id="{{ severity }}-problems" class="collapse show">
                         <div class="card-body p-0">
                             <table class="table table-sm mb-0">
                                 <thead>
@@ -716,18 +712,7 @@
                     {% for severity, items in detail_data.problems.items %}
                         {% if items %}
                         <div class="card mb-2 severity-section" data-severity="{{ severity }}">
-                            <div class="card-header" data-bs-toggle="collapse" data-bs-target="#detail-{{ severity }}" style="cursor: pointer;">
-                                <strong>
-                                    {% if severity == 'delayed' %}已延迟
-                                    {% elif severity == 'upcoming' %}即将到期
-                                    {% elif severity == 'completed' %}已完成
-                                    {% else %}{{ severity|upper }}
-                                    {% endif %}
-                                </strong>
-                                <span class="severity-count">({{ items|length }}条)</span>
-                                <i class="fas fa-chevron-down float-end"></i>
-                            </div>
-                            <div id="detail-{{ severity }}" class="collapse {% if severity == 'delayed' %}show{% endif %}">
+                            <div id="detail-{{ severity }}" class="collapse show">
                                 <div class="card-body p-0">
                                     <table class="table table-sm mb-0">
                                         <thead>

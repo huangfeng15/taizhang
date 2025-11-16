@@ -7,13 +7,61 @@ from django.contrib import messages
 from django.conf import settings
 from django.db import transaction
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 import uuid
 import os
 from pathlib import Path
 
+try:
+    import magic  # 用于检测文件 MIME 类型
+except ImportError:  # pragma: no cover - 依赖缺失时的安全兜底
+    magic = None
+
+try:
+    import PyPDF2  # 用于校验 PDF 结构
+except ImportError:  # pragma: no cover
+    PyPDF2 = None
+
 from .models import PDFImportSession
 from procurement.models import Procurement
 from .utils.pdf_filter import PDFFileFilter
+
+
+def validate_pdf_file(uploaded_file):
+    """校验上传的 PDF 文件是否为合法、安全的 PDF.
+
+    1. 使用 magic 校验 MIME 类型为 application/pdf；
+    2. 使用 PyPDF2 解析结构，确保可读取且非空；
+    3. 校验完成后会重置文件指针，避免影响后续保存。
+    """
+    if magic is None or PyPDF2 is None:
+        # 安全优先：依赖缺失时直接视为配置错误，阻止导入
+        raise ValidationError("服务器未正确安装 PDF 校验依赖，请联系管理员配置 python-magic 与 PyPDF2。")
+
+    # 1. 校验 MIME 类型
+    # 读取前 4KB 进行类型探测
+    original_pos = uploaded_file.tell() if hasattr(uploaded_file, "tell") else None
+    header = uploaded_file.read(4096)
+    file_type = magic.from_buffer(header, mime=True)
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(original_pos or 0)
+
+    if file_type != "application/pdf":
+        raise ValidationError("文件类型不是有效的 PDF。")
+
+    # 2. 校验 PDF 结构完整性
+    try:
+        if hasattr(uploaded_file, "seek"):
+            uploaded_file.seek(0)
+        reader = PyPDF2.PdfReader(uploaded_file)
+        if not reader.pages:
+            raise ValidationError("PDF 文件内容为空。")
+    except Exception as exc:
+        # 无论具体解析错误类型如何，一律视为非法 PDF
+        raise ValidationError("PDF 文件结构损坏或无法解析。") from exc
+    finally:
+        if hasattr(uploaded_file, "seek"):
+            uploaded_file.seek(original_pos or 0)
 
 
 @login_required
@@ -41,11 +89,21 @@ def upload_pdf(request):
         upload_dir = Path(settings.MEDIA_ROOT) / 'pdf_uploads' / session_id
         upload_dir.mkdir(parents=True, exist_ok=True)
         
-        # 第一阶段：保存所有PDF文件
+        # 第一阶段：保存所有PDF文件（包含安全校验）
         all_pdf_files = []
         for pdf_file in uploaded_files:
-            # 只处理PDF文件
+            # 只处理扩展名为 .pdf 的文件
             if not pdf_file.name.lower().endswith('.pdf'):
+                continue
+
+            # 安全校验：MIME 类型 + PDF 结构完整性
+            try:
+                validate_pdf_file(pdf_file)
+            except ValidationError as exc:
+                messages.warning(request, f"文件 {pdf_file.name} 非法或损坏：{exc}")
+                continue
+            except Exception as exc:  # 防御性兜底，避免异常信息泄露
+                messages.warning(request, f"文件 {pdf_file.name} 校验失败，已被拒绝：{exc}")
                 continue
             
             file_path = upload_dir / pdf_file.name

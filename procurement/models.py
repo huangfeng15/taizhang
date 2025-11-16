@@ -303,6 +303,7 @@ class Procurement(BaseModel):
         verbose_name_plural = '采购信息'
         ordering = ['-created_at']
         indexes = [
+            # 单字段索引
             models.Index(fields=['procurement_code']),
             models.Index(fields=['winning_bidder']),
             models.Index(fields=['bid_opening_date']),
@@ -310,7 +311,10 @@ class Procurement(BaseModel):
             models.Index(fields=['created_at']),
             models.Index(fields=['procurement_officer']),
             models.Index(fields=['archive_date']),
+            # 组合索引（配合统计/监控查询，提升过滤与排序性能）
             models.Index(fields=['project', 'procurement_officer']),
+            models.Index(fields=['winning_bidder', 'bid_opening_date']),
+            models.Index(fields=['procurement_method', 'budget_amount']),
         ]
 
     def clean(self):

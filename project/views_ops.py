@@ -51,7 +51,11 @@ def _format_import_failure(stats: dict) -> str:
     return "\n".join(message_lines)
 
 
+from project.decorators import require_permission
+
+
 @login_required
+@require_permission('project.view_project')
 @require_http_methods(["GET", "POST", "DELETE", "PUT"])
 def database_management(request):
     """数据库管理：备份、恢复、清理、下载。"""
@@ -615,8 +619,8 @@ def export_project_data(request):
         return JsonResponse({'success': False, 'message': f'导出失败: {str(e)}'}, status=500)
 
 
-@csrf_exempt
 @login_required
+@csrf_protect
 @require_POST
 def import_project_data(request):
     """导入项目数据（从导出的Excel文件）"""

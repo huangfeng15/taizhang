@@ -1,6 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
 from django.db import models
+from django.contrib.auth.models import User, Permission
+from django.contrib.contenttypes.models import ContentType
+
 from project.models_base import AuditBaseModel
 from project.validators import validate_code_field, validate_and_clean_code
 from project.enums import ProjectStatus
@@ -107,3 +111,35 @@ class Project(AuditBaseModel):
             total=Sum('contract_amount')
         )['total'] or 0
         return total
+
+
+class Role(models.Model):
+    """角色模型（RBAC 基础）。"""
+
+    name = models.CharField('角色名称', max_length=50, unique=True)
+    description = models.TextField('角色描述', blank=True)
+    permissions = models.ManyToManyField(Permission, verbose_name='权限', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '角色'
+        verbose_name_plural = '角色'
+
+    def __str__(self) -> str:  # pragma: no cover - 简单表示
+        return self.name
+
+
+class UserProfile(models.Model):
+    """用户档案：扩展用户的部门与角色信息。"""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    department = models.CharField('部门', max_length=50, blank=True)
+    roles = models.ManyToManyField(Role, verbose_name='角色', blank=True)
+    phone = models.CharField('电话', max_length=20, blank=True)
+
+    class Meta:
+        verbose_name = '用户档案'
+        verbose_name_plural = '用户档案'
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.user.username} - {self.department or '未分配部门'}"

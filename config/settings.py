@@ -8,19 +8,44 @@ from pathlib import Path
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-change-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-dev-key-for-development-only-change-in-production'
+    else:
+        raise ValueError("生产环境必须通过DJANGO_SECRET_KEY环境变量设置SECRET_KEY")
+
+# SECRET_KEY回退机制（用于密钥轮换，Django 5.2新特性）
+SECRET_KEY_FALLBACKS = [
+    os.environ.get('DJANGO_SECRET_KEY_OLD'),
+] if os.environ.get('DJANGO_SECRET_KEY_OLD') else []
+
 # 允许访问的主机（更安全的默认值；生产请通过环境变量显式配置）
-default_allowed_hosts = ['127.0.0.1', 'localhost']
+default_allowed_hosts = ['127.0.0.1', 'localhost', '10.168.3.240']
 env_allowed_hosts = [
     host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
     if host.strip()
 ]
 ALLOWED_HOSTS = env_allowed_hosts if env_allowed_hosts else default_allowed_hosts
+
+# ============================================================================
+# 安全头部配置（Django最佳实践）
+# ============================================================================
+# 防止MIME类型嗅探
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# 跨域opener策略
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+# X-Frame-Options（防止点击劫持）
+X_FRAME_OPTIONS = 'DENY'
+
+# Referrer策略
+SECURE_REFERRER_POLICY = 'same-origin'
 
 # Application definition
 INSTALLED_APPS = [
@@ -53,6 +78,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'project.middleware.LoginRequiredMiddleware',  # 全局登录验证中间件
+    # 性能监控中间件（开发+生产）
+    'project.middleware.performance.PerformanceMonitoringMiddleware',
+    # 查询计数中间件（仅开发环境）
+    'project.middleware.query_counter.QueryCountDebugMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -79,14 +108,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database
+# ============================================================================
+# 数据库配置（优化连接池和性能）
+# ============================================================================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'CONN_MAX_AGE': 600,  # 连接池：保持连接10分钟（提升性能）
+        'CONN_HEALTH_CHECKS': True,  # Django 5.2新特性：启用连接健康检查
         'OPTIONS': {
             'timeout': 20,  # 防止数据库锁定
-        }
+            'init_command': "PRAGMA foreign_keys=ON",  # 确保外键约束
+        },
+        # 事务原子性（按需启用，避免全局开启影响性能）
+        'ATOMIC_REQUESTS': False,
     }
 }
 
@@ -123,7 +159,7 @@ USE_I18N = True
 USE_TZ = True
 
 # ============================================================================
-# 会话（Session）配置
+# 会话（Session）配置（增强安全性）
 # ============================================================================
 # 会话有效期：12小时（单位：秒）
 SESSION_COOKIE_AGE = 12 * 60 * 60  # 12小时 = 43200秒
@@ -132,13 +168,19 @@ SESSION_COOKIE_AGE = 12 * 60 * 60  # 12小时 = 43200秒
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # 每次请求都更新会话的过期时间（保持活跃状态）
-SESSION_SAVE_EVERY_REQUEST = True
+# 注意：性能优化 - 避免每次请求都写数据库
+SESSION_SAVE_EVERY_REQUEST = False
 
 # 会话Cookie的名称
 SESSION_COOKIE_NAME = 'procurement_sessionid'
 
 # 会话引擎（默认使用数据库存储）
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Session安全设置
+SESSION_COOKIE_HTTPONLY = True  # 防止JavaScript访问Cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF保护（Lax允许顶级导航）
+SESSION_COOKIE_SECURE = False if DEBUG else True  # 生产环境强制HTTPS
 
 # Static files (CSS, JavaScript, Images)
 # 使用相对路径，自动适配HTTP/HTTPS
@@ -156,6 +198,66 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB - 总请求大小限制
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================================================
+# 缓存配置（多层缓存架构）
+# ============================================================================
+CACHES = {
+    # 主缓存：本地内存缓存（开发环境）
+    # 生产环境建议使用Redis: pip install django-redis
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'default-cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000,
+        },
+        'TIMEOUT': 300,  # 默认5分钟
+        'KEY_PREFIX': 'taizhang',
+        'VERSION': 1,
+    },
+    # 文件缓存（持久化备选）
+    'file': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': BASE_DIR / 'cache',
+        'TIMEOUT': 600,
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
+        }
+    },
+    # Dummy缓存（测试环境）
+    'dummy': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
+# Redis配置示例（生产环境使用）
+# 需要安装: pip install django-redis redis
+"""
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'PARSER_CLASS': 'redis.connection.HiredisParser',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'retry_on_timeout': True,
+            },
+            'SOCKET_CONNECT_TIMEOUT': 5,
+            'SOCKET_TIMEOUT': 5,
+        },
+        'KEY_PREFIX': 'taizhang',
+        'TIMEOUT': 300,
+        'VERSION': 1,
+    }
+}
+"""
+
+# 缓存中间件配置（全站缓存 - 按需启用）
+# CACHE_MIDDLEWARE_ALIAS = 'default'
+# CACHE_MIDDLEWARE_SECONDS = 600
+# CACHE_MIDDLEWARE_KEY_PREFIX = 'site'
 
 # ============================================================================
 # 登录认证配置
@@ -202,9 +304,11 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # 这样Django能正确处理HTTPS请求，避免CSRF验证失败
 SECURE_SSL_HOST = '10.168.3.240:3500'  # 开发服务器地址
 
-# Cookie安全设置（开发环境使用自签名证书时可设为False，但要信任代理头）
-SESSION_COOKIE_SECURE = False  # 在开发环境中设为False以支持自签名证书
-CSRF_COOKIE_SECURE = False     # 在开发环境中设为False以支持自签名证书
+# CSRF安全增强配置
+CSRF_COOKIE_HTTPONLY = True  # 防止JavaScript访问CSRF Cookie
+CSRF_COOKIE_SAMESITE = 'Strict'  # 严格的CSRF保护
+CSRF_COOKIE_SECURE = False if DEBUG else True  # 生产环境强制HTTPS
+CSRF_COOKIE_AGE = 31449600  # 1年（默认值）
 
 # 信任代理设置（重要：允许Django信任代理头，正确处理HTTPS请求）
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'

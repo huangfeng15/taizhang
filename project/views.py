@@ -26,7 +26,8 @@ import json
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect
+from django.contrib.auth.decorators import login_required
 from datetime import datetime, date, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 from typing import Optional, Dict, Any
@@ -393,31 +394,36 @@ def download_import_template(request):
     return _views_ops.download_import_template(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def batch_delete_contracts(request):
     return _views_ops.batch_delete_contracts(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def batch_delete_payments(request):
     return _views_ops.batch_delete_payments(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def batch_delete_procurements(request):
     return _views_ops.batch_delete_procurements(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def import_data(request):
     return _views_ops.import_data(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def batch_delete_projects(request):
     return _views_ops.batch_delete_projects(request)
@@ -428,7 +434,8 @@ def export_project_data(request):
     return _views_ops.export_project_data(request)
 
 
-@csrf_exempt
+@login_required
+@csrf_protect
 @require_POST
 def import_project_data(request):
     return _views_ops.import_project_data(request)
