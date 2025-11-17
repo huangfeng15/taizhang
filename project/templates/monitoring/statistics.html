@@ -751,8 +751,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Chart.js 图表库 -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Chart.js 图表库 (本地版本) -->
+<script src="{% static 'js/chart.umd.min.js' %}"></script>
 <script>
 // 标签页切换功能
 document.addEventListener('DOMContentLoaded', function() {

@@ -1299,32 +1299,8 @@
     <script src="{% static 'js/smart-selector.js' %}"></script>
     <script src="{% static 'js/edit-modal.js' %}"></script>
     
-    <!-- ApexCharts 图表库 - 带自动降级方案 -->
-    <script>
-    (function() {
-        // 尝试加载 CDN
-        var cdnScript = document.createElement('script');
-        cdnScript.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.45.0/dist/apexcharts.min.js';
-        cdnScript.onerror = function() {
-            console.warn('CDN 加载失败，尝试备用 CDN...');
-            // 备用 CDN
-            var backupScript = document.createElement('script');
-            backupScript.src = 'https://unpkg.com/apexcharts@3.45.0/dist/apexcharts.min.js';
-            backupScript.onerror = function() {
-                console.warn('备用 CDN 也失败，尝试本地资源...');
-                // 本地备用（如果存在）
-                var localScript = document.createElement('script');
-                localScript.src = "{% static 'js/vendor/apexcharts.min.js' %}";
-                localScript.onerror = function() {
-                    console.error('ApexCharts 所有加载方式都失败了');
-                };
-                document.head.appendChild(localScript);
-            };
-            document.head.appendChild(backupScript);
-        };
-        document.head.appendChild(cdnScript);
-    })();
-    </script>
+    <!-- ApexCharts 图表库 (本地版本) -->
+    <script src="{% static 'js/apexcharts.min.js' %}"></script>
     
     {% block extra_js %}{% endblock %}
 </body>
