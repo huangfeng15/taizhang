@@ -818,7 +818,7 @@ def get_payment_details(year=None, project_codes=None):
         'contract__project'
     ).only(
         'payment_code', 'payment_amount', 'payment_date', 
-        'is_settled', 'settlement_amount',
+        'is_settled', 'settlement_amount', 'settlement_completion_date',
         'contract__contract_code', 'contract__contract_sequence', 
         'contract__contract_name', 'contract__party_b',
         'contract__project__project_code', 'contract__project__project_name'
@@ -844,6 +844,7 @@ def get_payment_details(year=None, project_codes=None):
             'payment_date': payment.payment_date,
             'is_settled': payment.is_settled,
             'settlement_amount': float(settlement_amount) if settlement_amount else 0,  # 元
+            'settlement_completion_date': payment.settlement_completion_date,
             'contract_code': payment.contract.contract_code if payment.contract else '',
             'contract_sequence': payment.contract.contract_sequence if payment.contract else '',
             'contract_name': payment.contract.contract_name if payment.contract else '',
@@ -885,7 +886,7 @@ def get_settlement_details(year=None, project_codes=None):
         'contract__project', 
         'contract__parent_contract'
     ).only(
-        'payment_code', 'settlement_amount', 'payment_date',
+        'payment_code', 'settlement_amount', 'payment_date', 'settlement_completion_date',
         'contract__contract_code', 'contract__contract_name',
         'contract__contract_amount', 'contract__file_positioning',
         'contract__party_b', 'contract__signing_date',
@@ -924,7 +925,13 @@ def get_settlement_details(year=None, project_codes=None):
                 'contract': main_contract,
                 'settlement_amount': payment.settlement_amount or Decimal('0'),
                 'payment_date': payment.payment_date,
+                'settlement_completion_date': payment.settlement_completion_date,
             }
+        else:
+            # 如果已有记录但当前付款的结算完成时间更新且不为空，则使用更新后的值
+            existing = settlement_by_contract[main_contract_code]
+            if not existing.get('settlement_completion_date') and payment.settlement_completion_date:
+                existing['settlement_completion_date'] = payment.settlement_completion_date
     
     # 构建详情列表
     details = []
@@ -949,6 +956,7 @@ def get_settlement_details(year=None, project_codes=None):
             'variance': float(variance),  # 元
             'variance_rate': round(variance_rate, 2),  # 百分比
             'payment_date': data['payment_date'],
+            'settlement_completion_date': data.get('settlement_completion_date'),
             'project_code': contract.project.project_code if contract.project else '',
             'project_name': contract.project.project_name if contract.project else '',
         })

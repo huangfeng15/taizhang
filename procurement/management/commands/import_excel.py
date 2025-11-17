@@ -605,13 +605,17 @@ class Command(BaseCommand):
                 value_name='value'
             )
         else:
-            # 付款：第1列=合同编号，第2列=结算价，第3列=是否已结算
+            # 付款：第1列=合同编号，第2列=结算价，第3列=是否已结算，第4列=结算完成时间，第5列=结算资料归档时间
             id_cols = [df.columns[0]]
             # 检查是否有结算相关列
             if len(df.columns) > 1 and '结算价' in df.columns[1]:
                 id_cols.append(df.columns[1])
             if len(df.columns) > 2 and '是否' in df.columns[2]:
                 id_cols.append(df.columns[2])
+            if len(df.columns) > 3 and '结算完成时间' in df.columns[3]:
+                id_cols.append(df.columns[3])
+            if len(df.columns) > 4 and '结算资料归档时间' in df.columns[4]:
+                id_cols.append(df.columns[4])
             # 模板说明列已被删除，无需检查
             
             group_col = id_cols[0]
@@ -735,6 +739,14 @@ class Command(BaseCommand):
             is_settled = False
             if len(id_cols) > 2:
                 is_settled = self._parse_settlement_flag(record.get(id_cols[2]))
+            
+            settlement_completion_date = None
+            if len(id_cols) > 3:
+                settlement_completion_date = self._parse_date(record.get(id_cols[3]))
+            
+            settlement_archive_date = None
+            if len(id_cols) > 4:
+                settlement_archive_date = self._parse_date(record.get(id_cols[4]))
 
             period_label = record.get('period')
             if not period_label:
@@ -778,6 +790,8 @@ class Command(BaseCommand):
                 'payment_date': payment_date,
                 'settlement_amount': settlement_amount,
                 'is_settled': is_settled,
+                'settlement_completion_date': settlement_completion_date,
+                'settlement_archive_date': settlement_archive_date,
                 'source_index': idx,
                 'base_identifier': base_identifier,
             })
@@ -829,6 +843,8 @@ class Command(BaseCommand):
                         'payment_date': payment_date,
                         'settlement_amount': record['settlement_amount'],
                         'is_settled': record['is_settled'],
+                        'settlement_completion_date': record['settlement_completion_date'],
+                        'settlement_archive_date': record['settlement_archive_date'],
                         'is_update': True,  # 标记为更新操作
                     })
                 else:
@@ -840,6 +856,8 @@ class Command(BaseCommand):
                         'payment_date': payment_date,
                         'settlement_amount': record['settlement_amount'],
                         'is_settled': record['is_settled'],
+                        'settlement_completion_date': record['settlement_completion_date'],
+                        'settlement_archive_date': record['settlement_archive_date'],
                         'is_update': False,  # 标记为新增操作
                     })
 
@@ -860,6 +878,8 @@ class Command(BaseCommand):
                     existing.payment_date = entry['payment_date']
                     existing.settlement_amount = entry['settlement_amount']
                     existing.is_settled = entry['is_settled']
+                    existing.settlement_completion_date = entry['settlement_completion_date']
+                    existing.settlement_archive_date = entry['settlement_archive_date']
                     existing.updated_at = now
                     to_update.append(existing)
                     stats['updated'] += 1
@@ -872,6 +892,8 @@ class Command(BaseCommand):
                     payment_date=entry['payment_date'],
                     settlement_amount=entry['settlement_amount'],
                     is_settled=entry['is_settled'],
+                    settlement_completion_date=entry['settlement_completion_date'],
+                    settlement_archive_date=entry['settlement_archive_date'],
                     created_at=now,
                     updated_at=now,
                 )
@@ -884,7 +906,8 @@ class Command(BaseCommand):
                 if to_update:
                     Payment.objects.bulk_update(
                         to_update,
-                        ['contract', 'payment_amount', 'payment_date', 'settlement_amount', 'is_settled', 'updated_at'],
+                        ['contract', 'payment_amount', 'payment_date', 'settlement_amount', 'is_settled',
+                         'settlement_completion_date', 'settlement_archive_date', 'updated_at'],
                     )
                     logger.info(f'成功更新 {len(to_update)} 条付款记录')
 
@@ -1398,6 +1421,8 @@ class Command(BaseCommand):
         settlement_amount = self._parse_decimal(row.get('结算价（元）'))
         is_settled_str = row.get('是否办理结算', '').strip()
         is_settled = is_settled_str in ['是', '已结算', 'True', 'true', '1', 'Y', 'y']
+        settlement_completion_date = self._parse_date(row.get('结算完成时间'))
+        settlement_archive_date = self._parse_date(row.get('结算资料归档时间'))
         
         # 增量导入去重逻辑改进：
         # 问题：付款编号是自动生成的，每次导入会生成不同编号导致重复
@@ -1427,6 +1452,8 @@ class Command(BaseCommand):
                 existing.payment_date = payment_date
                 existing.settlement_amount = settlement_amount
                 existing.is_settled = is_settled
+                existing.settlement_completion_date = settlement_completion_date
+                existing.settlement_archive_date = settlement_archive_date
                 existing.save()
                 return 'updated'
         else:
@@ -1439,6 +1466,8 @@ class Command(BaseCommand):
                     payment_date=payment_date,
                     settlement_amount=settlement_amount,
                     is_settled=is_settled,
+                    settlement_completion_date=settlement_completion_date,
+                    settlement_archive_date=settlement_archive_date,
                 )
                 return 'created'
             else:

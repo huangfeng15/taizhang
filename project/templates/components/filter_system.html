@@ -296,14 +296,16 @@
                             
                             {% elif filter.type == 'daterange' %}
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="date" 
-                                           name="{{ filter.name }}_start" 
+                                    <input type="date"
+                                           name="{{ filter.name }}_start"
                                            class="form-input"
+                                           placeholder="yyyy/mm/dd"
                                            value="{{ filter.start_value|default:'' }}">
                                     <span>至</span>
-                                    <input type="date" 
-                                           name="{{ filter.name }}_end" 
+                                    <input type="date"
+                                           name="{{ filter.name }}_end"
                                            class="form-input"
+                                           placeholder="yyyy/mm/dd"
                                            value="{{ filter.end_value|default:'' }}">
                                 </div>
                             

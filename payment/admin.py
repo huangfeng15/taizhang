@@ -18,7 +18,7 @@ class PaymentAdmin(BusinessModelAdmin):
     
     list_display = [
         'payment_code', 'contract_link', 'payment_amount', 'payment_date', 
-        'is_settled', 'settlement_archive_date'
+        'is_settled', 'settlement_amount', 'settlement_completion_date', 'settlement_archive_date'
     ]
     
     search_fields = [
@@ -40,7 +40,7 @@ class PaymentAdmin(BusinessModelAdmin):
                 'fields': ('payment_amount', 'payment_date')
             }),
             ('结算信息', {
-                'fields': ('is_settled', 'settlement_amount', 'settlement_archive_date')
+                'fields': ('is_settled', 'settlement_amount', 'settlement_completion_date', 'settlement_archive_date')
             }),
         )
     

@@ -55,9 +55,9 @@ window.AdvancedFilter = {
                     const endValue = urlParams.get(`${field.name}_end`) || '';
                     inputHtml = `
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="date" name="${field.name}_start" class="form-input" placeholder="开始日期" value="${startValue}">
+                            <input type="date" name="${field.name}_start" class="form-input" placeholder="yyyy/mm/dd" value="${startValue}">
                             <span>至</span>
-                            <input type="date" name="${field.name}_end" class="form-input" placeholder="结束日期" value="${endValue}">
+                            <input type="date" name="${field.name}_end" class="form-input" placeholder="yyyy/mm/dd" value="${endValue}">
                         </div>
                     `;
                 } else if (field.type === 'number') {

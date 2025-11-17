@@ -426,6 +426,7 @@ def statistics_detail_export(request, module):
                 ('付款日期', 'payment_date'),
                 ('是否结算', 'is_settled'),
                 ('结算金额(元)', 'settlement_amount'),
+                ('结算完成时间', 'settlement_completion_date'),
                 ('对应合同号', 'contract_code'),
                 ('对应合同序号', 'contract_sequence'),
                 ('合同名称', 'contract_name'),
@@ -446,6 +447,7 @@ def statistics_detail_export(request, module):
                 ('差异额(元)', 'variance'),
                 ('差异率(%)', 'variance_rate'),
                 ('最后支付日期', 'payment_date'),
+                ('结算完成时间', 'settlement_completion_date'),
                 ('项目编号', 'project_code'),
                 ('项目名称', 'project_name'),
             ]

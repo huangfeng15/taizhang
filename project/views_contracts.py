@@ -17,6 +17,7 @@ from django.db.models import (
     F,
     BooleanField,
     ExpressionWrapper,
+    DateField,
 )
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse, HttpResponse
@@ -158,6 +159,24 @@ def contract_list(request):
         Settlement.objects.filter(main_contract=OuterRef('pk')).values('final_amount')[:1]
     )
 
+    settlement_payment_completion_subquery = (
+        Payment.objects.filter(
+            contract=OuterRef('pk'),
+            is_settled=True,
+            settlement_completion_date__isnull=False,
+        )
+        .order_by('-settlement_completion_date', '-payment_date')
+        .values('settlement_completion_date')[:1]
+    )
+
+    settlement_record_completion_subquery = (
+        Settlement.objects.filter(
+            main_contract=OuterRef('pk'),
+            completion_date__isnull=False,
+        )
+        .values('completion_date')[:1]
+    )
+
     contracts = contracts.annotate(
         supplements_total=Coalesce(
             Subquery(
@@ -173,6 +192,14 @@ def contract_list(request):
         settlement_payment_amount=Subquery(
             settlement_payment_subquery,
             output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        settlement_record_completion_date=Subquery(
+            settlement_record_completion_subquery,
+            output_field=DateField(),
+        ),
+        settlement_payment_completion_date=Subquery(
+            settlement_payment_completion_subquery,
+            output_field=DateField(),
         ),
         has_settlement_record=Exists(Settlement.objects.filter(main_contract=OuterRef('pk'))),
         has_settlement_payment=Exists(
@@ -190,6 +217,11 @@ def contract_list(request):
             F('settlement_final_amount'),
             F('settlement_payment_amount'),
             output_field=DecimalField(max_digits=18, decimal_places=2),
+        ),
+        settlement_completion_date=Coalesce(
+            F('settlement_record_completion_date'),
+            F('settlement_payment_completion_date'),
+            output_field=DateField(),
         ),
         has_settlement=Case(
             When(has_settlement_record=True, then=Value(True)),
@@ -282,6 +314,7 @@ def contract_list(request):
                 'payment_count': contract.payment_count or 0,
                 'has_settlement': bool(contract.has_settlement),
                 'settlement_amount': contract.settlement_amount,
+                'settlement_completion_date': contract.settlement_completion_date,
                 'payment_ratio': contract.payment_ratio or Decimal('0'),
             }
         )

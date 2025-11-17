@@ -67,6 +67,13 @@ class Payment(BaseModel):
         blank=True,
         help_text=get_help_text('payment', 'settlement_archive_date')
     )
+
+    settlement_completion_date = models.DateField(
+        '结算完成时间',
+        null=True,
+        blank=True,
+        help_text=get_help_text('payment', 'settlement_completion_date')
+    )
     
     class Meta:
         verbose_name = '付款信息'

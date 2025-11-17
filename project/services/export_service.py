@@ -405,9 +405,9 @@ def generate_project_excel(
         df_payment.to_excel(writer, sheet_name='付款表', index=False)
 
         # ========== 4. 结算表 ==========
-        # 需求：包含全部合同（已结算和未结算），包含字段：序号、关联合同名称、关联合同序号、是否已结算、最终结算金额(元)
+        # 需求：包含全部合同（已结算和未结算），包含字段：序号、关联合同名称、关联合同序号、是否已结算、最终结算金额(元)、结算完成时间、结算资料归档时间
         settlement_headers = [
-            '序号', '关联合同名称', '关联合同序号', '是否已结算', '最终结算金额(元)'
+            '序号', '关联合同名称', '关联合同序号', '是否已结算', '最终结算金额(元)', '结算完成时间', '结算资料归档时间'
         ]
         settlement_rows = []
 
@@ -447,6 +447,28 @@ def generate_project_excel(
             .order_by('-payment_date')
             .values('settlement_amount')[:1]
         )
+        
+        # 获取结算完成时间（从付款记录中）
+        settlement_completion_date_subquery = (
+            Payment.objects.filter(
+                contract=OuterRef('pk'),
+                is_settled=True,
+                settlement_completion_date__isnull=False,
+            )
+            .order_by('-payment_date')
+            .values('settlement_completion_date')[:1]
+        )
+        
+        # 获取结算归档时间（从付款记录中）
+        settlement_archive_date_subquery = (
+            Payment.objects.filter(
+                contract=OuterRef('pk'),
+                is_settled=True,
+                settlement_archive_date__isnull=False,
+            )
+            .order_by('-payment_date')
+            .values('settlement_archive_date')[:1]
+        )
 
         main_contracts_qs = main_contracts_qs.annotate(
             settlement_final_amount=Subquery(
@@ -456,6 +478,12 @@ def generate_project_excel(
             settlement_payment_amount=Subquery(
                 settlement_payment_subquery,
                 output_field=DecimalField(max_digits=15, decimal_places=2),
+            ),
+            settlement_completion_date_value=Subquery(
+                settlement_completion_date_subquery,
+            ),
+            settlement_archive_date_value=Subquery(
+                settlement_archive_date_subquery,
             ),
             has_settlement_record=Exists(
                 Settlement.objects.filter(main_contract=OuterRef('pk'))
@@ -481,12 +509,18 @@ def generate_project_excel(
                 settlement_amount = getattr(contract, 'settlement_payment_amount', None)
             final_amount = float(settlement_amount) if settlement_amount is not None else ''
 
+            # 获取结算完成时间和归档时间
+            completion_date = getattr(contract, 'settlement_completion_date_value', None)
+            archive_date = getattr(contract, 'settlement_archive_date_value', None)
+            
             settlement_rows.append({
                 '序号': idx,
                 '关联合同名称': contract.contract_name,
                 '关联合同序号': contract.contract_sequence or contract.contract_code,
                 '是否已结算': is_settled,
                 '最终结算金额(元)': final_amount,
+                '结算完成时间': completion_date.strftime('%Y-%m-%d') if completion_date else '',
+                '结算资料归档时间': archive_date.strftime('%Y-%m-%d') if archive_date else '',
             })
 
         if settlement_rows:

@@ -52,6 +52,7 @@
                     <th data-column="payment_amount">付款金额(元)</th>
                     <th data-column="payment_date">付款日期</th>
                     <th data-column="is_settled">是否结算</th>
+                    <th data-column="settlement_completion_date">结算完成时间</th>
                     <th data-column="settlement_archive_date">结算归档时间</th>
                     <th data-column="operations">操作</th>
                 </tr>
@@ -101,6 +102,7 @@
                             <span class="badge badge-warning">未结算</span>
                         {% endif %}
                     </td>
+                    <td data-column="settlement_completion_date">{{ payment.settlement_completion_date|date:"Y-m"|default:"-" }}</td>
                     <td data-column="settlement_archive_date">{{ payment.settlement_archive_date|date:"Y-m"|default:"-" }}</td>
                     <td data-column="operations">
                         <a href="{% url 'payment_detail' payment.payment_code %}" class="btn btn-primary" style="padding: 4px 12px; font-size: 12px; margin-right: 5px;">
@@ -159,12 +161,13 @@
         { key: 'payment_amount', label: '付款金额', required: false },
         { key: 'payment_date', label: '付款日期', required: false },
         { key: 'is_settled', label: '是否结算', required: false },
+        { key: 'settlement_completion_date', label: '结算完成时间', required: false },
         { key: 'settlement_archive_date', label: '结算归档时间', required: false },
         { key: 'operations', label: '操作', required: true }
     ];
 
     // 默认显示的字段
-    const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'settlement_archive_date', 'operations'];
+    const defaultColumns = ['row_number', 'contract_sequence', 'payment_code', 'contract', 'project', 'payment_amount', 'payment_date', 'is_settled', 'settlement_completion_date', 'settlement_archive_date', 'operations'];
 
     document.addEventListener('DOMContentLoaded', function() {
         var hasPayments = {{ payments|yesno:"true,false" }};
@@ -264,16 +267,14 @@
                                 下载模板
                             </label>
                             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                                <a href="{% url 'download_import_template' %}?module=payment&mode=long" download
-                                   class="btn btn-secondary" style="text-decoration: none;">
+                                <button type="button" class="btn btn-secondary" onclick="downloadTemplate('payment', 'long')">
                                     <i class="fas fa-file-csv"></i>
                                     CSV 长表模板
-                                </a>
-                                <a href="{% url 'download_import_template' %}?module=payment&mode=wide" download
-                                   class="btn btn-secondary" style="text-decoration: none;">
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="downloadTemplate('payment', 'wide')">
                                     <i class="fas fa-table"></i>
                                     CSV 宽表模板
-                                </a>
+                                </button>
                                 <a href="/docs/导入功能使用说明.md" target="_blank"
                                    class="btn btn-secondary" style="text-decoration: none;">
                                     <i class="fas fa-book"></i>
@@ -512,6 +513,36 @@
                     </button>
                 </div>
             `;
+        });
+    }
+    
+    // 下载模板函数
+    function downloadTemplate(module, mode) {
+        const url = `{% url 'download_import_template' %}?module=${module}&mode=${mode}`;
+        
+        fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('下载失败');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = downloadUrl;
+            a.download = `付款导入模板_${module}_${mode}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            alert('模板下载失败：' + error.message);
         });
     }
     

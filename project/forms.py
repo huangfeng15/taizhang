@@ -491,6 +491,7 @@ class PaymentForm(forms.ModelForm):
             'payment_date',
             'settlement_amount',
             'is_settled',
+            'settlement_completion_date',
             'settlement_archive_date',
         ]
         widgets = {
@@ -518,6 +519,10 @@ class PaymentForm(forms.ModelForm):
             'is_settled': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
             }),
+            'settlement_completion_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }, format='%Y-%m-%d'),
             'settlement_archive_date': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
@@ -529,6 +534,7 @@ class PaymentForm(forms.ModelForm):
             'payment_date': '付款日期',
             'settlement_amount': '结算价',
             'is_settled': '是否办理结算',
+            'settlement_completion_date': '结算完成时间',
             'settlement_archive_date': '结算资料归档时间',
         }
     

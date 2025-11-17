@@ -65,6 +65,13 @@ fields:
     data_type: "boolean"
     help_text: "是否办理结算"
     
+  - name: "结算完成时间"
+    field: "settlement_completion_date"
+    required: false
+    data_type: "date"
+    format: "%Y-%m-%d"
+    help_text: "结算完成的日期"
+    
   - name: "结算资料归档时间"
     field: "settlement_archive_date"
     required: false
