@@ -4,6 +4,7 @@ import pandas as pd
 import re
 from decimal import Decimal
 from django.db import transaction
+from django.db.models import Subquery, Exists, DecimalField, OuterRef
 
 from project.utils.excel_beautifier import beautify_worksheet
 from procurement.models import Procurement
@@ -202,33 +203,161 @@ def generate_project_excel(project, user):
             df_contract = pd.DataFrame(columns=contract_headers)
         df_contract.to_excel(writer, sheet_name='合同表', index=False)
 
-        # ========== 3. 付款表 ==========
-        # 参照payment导入模板定义的字段顺序
-        payment_headers = [
-            '项目编码', '付款编号', '关联合同编号',
-            '实付金额(元)', '付款日期', '结算价（元）', '是否办理结算'
-        ]
-        payment_rows = []
+        # ========== 3. 付款表（宽表） ==========
+        # 宽表结构：每行一个合同，列为月份/半年度 + 累计付款金额 + 累计付款比例
+        # 列顺序与历史数据宽表导入保持兼容：
+        # 第1列 = 合同序号（或合同编号），第2列 = 结算价，第3列 = 是否已结算，之后为动态期间列，最后为累计字段。
         payments_qs = (
             Payment.objects.filter(contract__project=project)
             .select_related('contract')
-            .order_by('payment_date')
+            .order_by('payment_date', 'created_at')
         )
-        for payment in payments_qs.iterator(chunk_size=1000):
-            payment_rows.append({
-                '项目编码': project.project_code,
-                '付款编号': payment.payment_code,
-                '关联合同编号': payment.contract.contract_code if payment.contract else '',
-                '实付金额(元)': float(payment.payment_amount) if payment.payment_amount else '',
-                '付款日期': payment.payment_date.strftime('%Y-%m-%d') if payment.payment_date else '',
-                '结算价（元）': float(payment.settlement_amount) if payment.settlement_amount else '',
-                '是否办理结算': '是' if payment.is_settled else '否',
-            })
 
-        if payment_rows:
-            df_payment = pd.DataFrame(payment_rows)
+        from collections import defaultdict
+
+        if payments_qs.exists():
+            # 收集所有期间（按月），并按合同汇总每个期间的付款金额
+            periods_set = set()
+            period_key_map = {}
+            contract_payments = defaultdict(lambda: defaultdict(Decimal))
+            total_paid_by_contract = defaultdict(Decimal)
+            contract_ids = set()
+
+            for payment in payments_qs.iterator(chunk_size=1000):
+                contract = payment.contract
+                if not contract or not payment.payment_date or payment.payment_amount is None:
+                    continue
+                contract_ids.add(contract.pk)
+
+                year = payment.payment_date.year
+                month = payment.payment_date.month
+                label = f'{year}年{month}月'  # 与宽表导入的日期识别规则兼容
+                periods_set.add(label)
+                period_key_map[label] = (year, month)
+
+                amount = Decimal(payment.payment_amount)
+                contract_payments[contract.pk][label] += amount
+                total_paid_by_contract[contract.pk] += amount
+
+            # 按时间顺序排序所有期间列
+            sorted_periods = (
+                sorted(periods_set, key=lambda lbl: period_key_map[lbl]) if periods_set else []
+            )
+
+            # 获取合同的结算价和结算状态、计算基数（优先结算价，其次合同价）
+            settlement_record_subquery = Settlement.objects.filter(
+                main_contract=OuterRef('pk')
+            ).values('final_amount')[:1]
+
+            settlement_payment_subquery = (
+                Payment.objects.filter(
+                    contract=OuterRef('pk'),
+                    is_settled=True,
+                    settlement_amount__isnull=False,
+                )
+                .order_by('-payment_date')
+                .values('settlement_amount')[:1]
+            )
+
+            contracts_qs = (
+                Contract.objects.filter(pk__in=contract_ids)
+                .annotate(
+                    settlement_final_amount=Subquery(
+                        settlement_record_subquery,
+                        output_field=DecimalField(max_digits=15, decimal_places=2),
+                    ),
+                    settlement_payment_amount=Subquery(
+                        settlement_payment_subquery,
+                        output_field=DecimalField(max_digits=15, decimal_places=2),
+                    ),
+                    has_settlement_record=Exists(
+                        Settlement.objects.filter(main_contract=OuterRef('pk'))
+                    ),
+                    has_settlement_payment=Exists(
+                        Payment.objects.filter(contract=OuterRef('pk'), is_settled=True)
+                    ),
+                )
+            )
+
+            contract_info = {}
+            for c in contracts_qs.iterator(chunk_size=1000):
+                settlement_amount = c.settlement_final_amount
+                if settlement_amount is None:
+                    settlement_amount = c.settlement_payment_amount
+
+                contract_amount = c.contract_amount or Decimal('0')
+                # 计算基数：优先使用结算价，其次合同价
+                base_amount = settlement_amount if settlement_amount not in (None, Decimal('0')) else contract_amount
+                if base_amount is None:
+                    base_amount = Decimal('0')
+
+                is_settled = bool(
+                    getattr(c, 'has_settlement_record', False)
+                    or getattr(c, 'has_settlement_payment', False)
+                )
+
+                contract_info[c.pk] = {
+                    'contract': c,
+                    'settlement_amount': settlement_amount,
+                    'contract_amount': contract_amount,
+                    'base_amount': base_amount,
+                    'is_settled': is_settled,
+                }
+
+            # 构造宽表表头：合同序号 / 结算价 / 是否已结算 / 合同名称 / 动态期间列 / 累计字段
+            payment_headers = [
+                '合同序号',
+                '结算价',
+                '是否已结算',
+                '合同名称',
+            ]
+            payment_headers.extend(sorted_periods)
+            payment_headers.extend(['累计付款金额', '累计付款比例'])
+
+            payment_rows = []
+            for contract_pk, period_amounts in contract_payments.items():
+                info = contract_info.get(contract_pk)
+                if not info:
+                    continue
+
+                c = info['contract']
+                identifier = (c.contract_sequence or c.contract_code or '').strip()
+                settlement_amount = info['settlement_amount']
+                base_amount = info['base_amount']
+                total_paid = total_paid_by_contract.get(contract_pk, Decimal('0'))
+
+                row = {
+                    '合同序号': identifier,
+                    '结算价': float(settlement_amount) if settlement_amount not in (None, Decimal('0')) else '',
+                    '是否已结算': '是' if info['is_settled'] else '否',
+                    '合同名称': c.contract_name or '',
+                }
+
+                # 各期间金额列
+                for label in sorted_periods:
+                    amount = period_amounts.get(label, Decimal('0'))
+                    row[label] = float(amount) if amount != 0 else ''
+
+                # 累计付款金额：始终输出数值（无付款则为0）
+                row['累计付款金额'] = float(total_paid) if total_paid is not None else 0.0
+
+                # 累计付款比例：累计付款金额 / 计算基数 × 100
+                if base_amount and base_amount > 0:
+                    ratio = (total_paid / base_amount * Decimal('100')).quantize(Decimal('0.01'))
+                    row['累计付款比例'] = float(ratio)
+                else:
+                    row['累计付款比例'] = 0.0
+
+                payment_rows.append(row)
+
+            df_payment = pd.DataFrame(payment_rows, columns=payment_headers)
         else:
+            # 无任何付款记录时，输出仅包含基础字段的空表
+            payment_headers = [
+                '合同序号', '结算价', '是否已结算', '合同名称', '累计付款金额', '累计付款比例'
+            ]
             df_payment = pd.DataFrame(columns=payment_headers)
+
         df_payment.to_excel(writer, sheet_name='付款表', index=False)
 
         # ========== 4. 结算表 ==========
@@ -248,17 +377,55 @@ def generate_project_excel(project, user):
             .order_by('contract_sequence', 'contract_code')
         )
 
+        # 为导出结算表注入结算状态和金额，保持与合同列表页的结算规则一致：
+        # - 有 Settlement 记录视为已结算
+        # - 或存在 is_settled=True 的付款记录也视为已结算
+        settlement_record_subquery = Settlement.objects.filter(
+            main_contract=OuterRef('pk')
+        ).values('final_amount')[:1]
+
+        settlement_payment_subquery = (
+            Payment.objects.filter(
+                contract=OuterRef('pk'),
+                is_settled=True,
+                settlement_amount__isnull=False,
+            )
+            .order_by('-payment_date')
+            .values('settlement_amount')[:1]
+        )
+
+        main_contracts_qs = main_contracts_qs.annotate(
+            settlement_final_amount=Subquery(
+                settlement_record_subquery,
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            ),
+            settlement_payment_amount=Subquery(
+                settlement_payment_subquery,
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            ),
+            has_settlement_record=Exists(
+                Settlement.objects.filter(main_contract=OuterRef('pk'))
+            ),
+            has_settlement_payment=Exists(
+                Payment.objects.filter(contract=OuterRef('pk'), is_settled=True)
+            ),
+        )
+
         for idx, contract in enumerate(
             main_contracts_qs.iterator(chunk_size=1000), start=1
         ):
-            # 尝试获取结算记录
-            try:
-                settlement = Settlement.objects.get(main_contract=contract)
-                is_settled = '是'
-                final_amount = float(settlement.final_amount) if settlement.final_amount else ''
-            except Settlement.DoesNotExist:
-                is_settled = '否'
-                final_amount = ''
+            # 先根据结算记录或付款记录判断是否已结算
+            has_settlement = bool(
+                getattr(contract, 'has_settlement_record', False)
+                or getattr(contract, 'has_settlement_payment', False)
+            )
+            is_settled = '是' if has_settlement else '否'
+
+            # 结算金额优先使用 Settlement.final_amount，其次使用付款中的 settlement_amount
+            settlement_amount = getattr(contract, 'settlement_final_amount', None)
+            if settlement_amount is None:
+                settlement_amount = getattr(contract, 'settlement_payment_amount', None)
+            final_amount = float(settlement_amount) if settlement_amount is not None else ''
 
             settlement_rows.append({
                 '序号': idx,
@@ -275,63 +442,74 @@ def generate_project_excel(project, user):
         df_settlement.to_excel(writer, sheet_name='结算表', index=False)
 
         # ========== 5. 供应商管理表 ==========
-        # 需求：过程履约评价和不定期履约评价字段需要动态生成
-        # 基础字段：序号、合同编号、供应商名称、履约综合评价得分、末次评价得分
-        supplier_eval_headers = ['序号', '合同编号', '供应商名称', '履约综合评价得分', '末次评价得分']
+        # 需求：导出模板与“供应商履约评价导入模板（动态年度版）”的命名规则一致，
+        #       年度评价列和不定期评价列根据实际数据动态扩展，同时保留供应商名称，便于直接查看。
+        # 基础字段：序号、合同序号、供应商名称、履约综合评价得分、末次评价得分、备注
+        supplier_eval_headers = [
+            '序号',
+            '合同序号',
+            '供应商名称',
+            '履约综合评价得分',
+            '末次评价得分',
+        ]
 
-        # 获取所有评价记录（使用 iterator 分两次遍历，避免一次性缓存大量对象）
+        # 获取所有评价记录
         evaluations_qs = (
             SupplierEvaluation.objects.filter(contract__project=project)
             .select_related('contract')
             .order_by('contract__contract_sequence', 'contract__contract_code')
         )
 
-        # 动态收集所有年度评价和不定期评价的列
+        # 动态收集所有年度评价年份和不定期评价的最大次数
         all_years = set()
         max_irregular_count = 0
-
         for evaluation in evaluations_qs.iterator(chunk_size=1000):
-            # 收集年度评价的年份
             if evaluation.annual_scores:
                 all_years.update(evaluation.annual_scores.keys())
-            # 收集不定期评价的最大次数
             if evaluation.irregular_scores:
-                irregular_indices = [int(k) for k in evaluation.irregular_scores.keys()]
-                if irregular_indices:
-                    max_irregular_count = max(max_irregular_count, max(irregular_indices))
+                indices = [int(k) for k in evaluation.irregular_scores.keys() if str(k).isdigit()]
+                if indices:
+                    max_irregular_count = max(max_irregular_count, max(indices))
 
-        # 年度评价列（按年份排序）
-        sorted_years = sorted([int(y) for y in all_years])
+        # 年度评价列（按年份排序），命名规则与导入模板一致："{年份}年度评价得分"
+        sorted_years = sorted(int(y) for y in all_years) if all_years else []
         for year in sorted_years:
-            supplier_eval_headers.append(f'{year}年度过程履约评价')
+            supplier_eval_headers.append(f'{year}年度评价得分')
 
-        # 不定期评价列
+        # 不定期评价列："第{次数}次不定期评价得分"
         for i in range(1, max_irregular_count + 1):
-            supplier_eval_headers.append(f'第{i}次不定期履约评价')
+            supplier_eval_headers.append(f'第{i}次不定期评价得分')
+
+        # 最后统一追加备注列
+        supplier_eval_headers.append('备注')
 
         supplier_eval_rows = []
         for idx, evaluation in enumerate(
             evaluations_qs.iterator(chunk_size=1000), start=1
         ):
+            contract = evaluation.contract
             row = {
                 '序号': idx,
-                '合同编号': evaluation.contract.contract_code if evaluation.contract else '',
+                '合同序号': contract.contract_code if contract else '',
                 '供应商名称': evaluation.supplier_name,
-                '履约综合评价得分': float(evaluation.comprehensive_score) if evaluation.comprehensive_score else '',
-                '末次评价得分': float(evaluation.last_evaluation_score) if evaluation.last_evaluation_score else '',
+                '履约综合评价得分': float(evaluation.comprehensive_score) if evaluation.comprehensive_score is not None else '',
+                '末次评价得分': float(evaluation.last_evaluation_score) if evaluation.last_evaluation_score is not None else '',
+                '备注': evaluation.remarks or '',
             }
 
-            # 填充年度评价得分
+            # 填充年度评价得分（动态年份）
             for year in sorted_years:
                 year_key = str(year)
                 score = evaluation.annual_scores.get(year_key) if evaluation.annual_scores else None
-                row[f'{year}年度过程履约评价'] = float(score) if score is not None else ''
+                header = f'{year}年度评价得分'
+                row[header] = float(score) if score is not None else ''
 
-            # 填充不定期评价得分
+            # 填充不定期评价得分（动态次数）
             for i in range(1, max_irregular_count + 1):
-                index_key = str(i)
-                score = evaluation.irregular_scores.get(index_key) if evaluation.irregular_scores else None
-                row[f'第{i}次不定期履约评价'] = float(score) if score is not None else ''
+                key = str(i)
+                header = f'第{i}次不定期评价得分'
+                score = evaluation.irregular_scores.get(key) if evaluation.irregular_scores else None
+                row[header] = float(score) if score is not None else ''
 
             supplier_eval_rows.append(row)
 
