@@ -395,28 +395,49 @@ def contract_detail(request, contract_code):
 
 @require_http_methods(['GET', 'POST'])
 def contract_create(request):
-    """
-    合同新增视图 - AJAX接口
-    GET: 返回表单HTML
-    POST: 保存数据
+    """合同新增视图。
+
+    - 普通请求: 渲染全页表单，支持从任意页面跳回（通过 return_url 维护来源）。
+    - AJAX 请求: 保持原有行为，返回用于模态框的 HTML 或 JSON 结果。
     """
     from project.forms import ContractForm
+    from django.urls import reverse
+
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if request.method == 'POST':
         form = ContractForm(request.POST)
         if form.is_valid():
             try:
                 contract = form.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': '合同创建成功',
-                    'contract_code': contract.contract_code
-                })
+
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': '合同创建成功',
+                        'contract_code': contract.contract_code
+                    })
+
+                # 非 AJAX 场景: 表单提交成功后跳转回来源页面或详情页
+                return_url = request.POST.get('return_url') or request.GET.get('return_url')
+                if return_url:
+                    return redirect(return_url)
+                return redirect('contract_detail', contract_code=contract.contract_code)
+
             except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'保存失败: {str(e)}'
-                }, status=400)
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'保存失败: {str(e)}'
+                    }, status=400)
+
+                context = {
+                    'form': form,
+                    'submit_url': reverse('contract_create'),
+                    'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+                    'initial_display': {},
+                }
+                return render(request, 'contract_create.html', context, status=400)
         else:
             error_messages = []
             for field, errors in form.errors.items():
@@ -424,11 +445,20 @@ def contract_create(request):
                 for error in errors:
                     error_messages.append(f"{field_label}: {error}")
 
-            return JsonResponse({
-                'success': False,
-                'message': '表单验证失败：\n' + '\n'.join(error_messages),
-                'errors': form.errors
-            }, status=400)
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                    'errors': form.errors
+                }, status=400)
+
+            context = {
+                'form': form,
+                'submit_url': reverse('contract_create'),
+                'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+                'initial_display': {},
+            }
+            return render(request, 'contract_create.html', context, status=400)
 
     # GET请求 - 返回表单HTML
     from project.forms import ContractForm as _ContractForm
@@ -436,12 +466,24 @@ def contract_create(request):
     form.fields['contract_code'].widget.attrs.pop('readonly', None)
     form.fields['contract_code'].disabled = False
 
-    return render(request, 'components/edit_form.html', {
+    if is_ajax:
+        return render(request, 'components/edit_form.html', {
+            'form': form,
+            'title': '新增合同',
+            'submit_url': '/contracts/create/',
+            'module_type': 'contract',
+        })
+
+    submit_url = reverse('contract_create')
+    return_url = request.GET.get('return_url') or request.META.get('HTTP_REFERER', '')
+
+    context = {
         'form': form,
-        'title': '新增合同',
-        'submit_url': '/contracts/create/',
-        'module_type': 'contract',
-    })
+        'submit_url': submit_url,
+        'return_url': return_url,
+        'initial_display': {},
+    }
+    return render(request, 'contract_create.html', context)
 
 
 @require_http_methods(['GET', 'POST'])

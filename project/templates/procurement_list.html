@@ -32,10 +32,10 @@
                 <i class="fas fa-columns"></i>
                 选择字段
             </button>
-            <button type="button" class="btn btn-primary" data-create-url="{% url 'procurement_create' %}" data-title="新增采购项目">
+            <a href="{% url 'procurement_create' %}?return_url={{ request.get_full_path|urlencode }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 新增采购
-            </button>
+            </a>
         </div>
     </div>
     
@@ -163,10 +163,10 @@
     <div class="empty-state">
         <i class="fas fa-shopping-cart"></i>
         <p>暂无采购数据</p>
-        <button type="button" class="btn btn-primary" style="margin-top: 16px;" data-create-url="{% url 'procurement_create' %}" data-title="新增采购项目">
+        <a href="{% url 'procurement_create' %}?return_url={{ request.get_full_path|urlencode }}" class="btn btn-primary" style="margin-top: 16px;">
             <i class="fas fa-plus"></i>
             创建第一个采购项目
-        </button>
+        </a>
     </div>
     {% endif %}
     

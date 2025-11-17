@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}新增采购项目 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+{% include 'components/content_header_simple.html' with title='新增采购项目' section='采购管理' %}
+
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 10px; padding: 16px;">
+        <a href="{% if return_url %}{{ return_url }}{% else %}{% url 'procurement_list' %}{% endif %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            返回原页面
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-shopping-cart"></i>
+            采购信息填写
+        </h2>
+    </div>
+    <div class="card-body" style="padding: 20px;">
+        {% include 'components/edit_form.html' with form=form submit_url=submit_url module_type='procurement' return_url=return_url initial_display=initial_display %}
+        <div class="mt-3" style="text-align: right;">
+            <button type="submit" form="editForm" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                保存
+            </button>
+            <a href="{% if return_url %}{{ return_url }}{% else %}{% url 'procurement_list' %}{% endif %}" class="btn btn-secondary">
+                取消
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}新增约谈记录 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">新增约谈记录</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <a href="{% url 'supplier_eval:supplier_interview_list' %}">约谈记录</a>
+        <span>/</span>
+        <span>新增</span>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 10px; padding: 16px;">
+        <a href="{% if return_url %}{{ return_url }}{% else %}{% url 'supplier_eval:supplier_interview_list' %}{% endif %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            返回原页面
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-comments"></i>
+            约谈信息填写
+        </h2>
+    </div>
+    <div class="card-body" style="padding: 20px;">
+        {% include 'components/edit_form.html' with form=form submit_url=submit_url module_type='supplier_interview' return_url=return_url %}
+        <div class="mt-3" style="text-align: right;">
+            <button type="submit" form="editForm" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                保存
+            </button>
+            <a href="{% if return_url %}{{ return_url }}{% else %}{% url 'supplier_eval:supplier_interview_list' %}{% endif %}" class="btn btn-secondary">
+                取消
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

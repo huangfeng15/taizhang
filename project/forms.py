@@ -205,7 +205,8 @@ class ContractForm(forms.ModelForm):
             }),
             'signing_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'duration': forms.Textarea(attrs={
                 'class': 'form-control',
@@ -223,11 +224,13 @@ class ContractForm(forms.ModelForm):
             }),
             'performance_guarantee_return_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'archive_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
         }
     
@@ -367,39 +370,48 @@ class ProcurementForm(forms.ModelForm):
             }),
             'planned_completion_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'requirement_approval_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'announcement_release_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'registration_deadline': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'bid_opening_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'candidate_publicity_end_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'result_publicity_release_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'notice_issue_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'archive_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
             }, format='%Y-%m-%d'),
             'evaluation_committee': forms.Textarea(attrs={
                 'class': 'form-control',

@@ -461,13 +461,16 @@ def supplier_interview_detail(request, interview_id):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def supplier_interview_create(request):
-    """
-    创建供应商约谈记录 - AJAX接口
-    GET: 返回表单HTML
-    POST: 保存数据
+    """创建供应商约谈记录。
+
+    - 普通请求: 渲染全页表单，支持从任意页面跳回（通过 return_url 维护来源）。
+    - AJAX 请求: 保持原有行为，返回用于模态框的 HTML 或 JSON 结果。
     """
     from supplier_eval.forms import SupplierInterviewForm
-    
+    from django.urls import reverse
+
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         form = SupplierInterviewForm(request.POST)
         if form.is_valid():
@@ -476,17 +479,34 @@ def supplier_interview_create(request):
                 if request.user.is_authenticated:
                     interview.created_by = request.user.username
                 interview.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': '约谈记录创建成功',
-                    'interview_id': interview.id
-                })
+
+                if is_ajax:
+                    # 兼容旧的模态框创建逻辑
+                    return JsonResponse({
+                        'success': True,
+                        'message': '约谈记录创建成功',
+                        'interview_id': interview.id
+                    })
+
+                # 非 AJAX 场景: 表单提交成功后跳转回来源页面或详情页
+                return_url = request.POST.get('return_url') or request.GET.get('return_url')
+                if return_url:
+                    return redirect(return_url)
+                return redirect('supplier_eval:supplier_interview_detail', interview_id=interview.id)
+
             except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'保存失败: {str(e)}'
-                }, status=400)
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'保存失败: {str(e)}'
+                    }, status=400)
+                # 普通请求: 回到表单页面并展示错误信息
+                context = {
+                    'form': form,
+                    'submit_url': reverse('supplier_eval:supplier_interview_create'),
+                    'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+                }
+                return render(request, 'supplier/interview_create.html', context, status=400)
         else:
             # 构建详细的错误信息
             error_messages = []
@@ -494,22 +514,45 @@ def supplier_interview_create(request):
                 field_label = form.fields[field].label if field in form.fields else field
                 for error in errors:
                     error_messages.append(f"{field_label}: {error}")
-            
-            return JsonResponse({
-                'success': False,
-                'message': '表单验证失败:\n' + '\n'.join(error_messages),
-                'errors': form.errors
-            }, status=400)
-    
-    # GET请求 - 返回表单HTML
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': '表单验证失败:\n' + '\n'.join(error_messages),
+                    'errors': form.errors
+                }, status=400)
+
+            # 普通请求: 回到表单页面并展示错误
+            context = {
+                'form': form,
+                'submit_url': reverse('supplier_eval:supplier_interview_create'),
+                'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+            }
+            return render(request, 'supplier/interview_create.html', context, status=400)
+
+    # GET 请求
     form = SupplierInterviewForm()
-    
-    return render(request, 'components/edit_form.html', {
+
+    if is_ajax:
+        # 维持原有模态框表单行为
+        return render(request, 'components/edit_form.html', {
+            'form': form,
+            'title': '新增约谈记录',
+            'submit_url': '/supplier/interviews/create/',
+            'module_type': 'supplier_interview',
+        })
+
+    # 普通请求: 渲染全页创建页面
+    from django.urls import reverse
+    submit_url = reverse('supplier_eval:supplier_interview_create')
+    return_url = request.GET.get('return_url') or request.META.get('HTTP_REFERER', '')
+
+    context = {
         'form': form,
-        'title': '新增约谈记录',
-        'submit_url': '/supplier/interviews/create/',
-        'module_type': 'supplier_interview',
-    })
+        'submit_url': submit_url,
+        'return_url': return_url,
+    }
+    return render(request, 'supplier/interview_create.html', context)
 
 
 @login_required

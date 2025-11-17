@@ -218,28 +218,49 @@ def procurement_detail(request, procurement_code):
 
 @require_http_methods(['GET', 'POST'])
 def procurement_create(request):
-    """
-    采购新增视图 - AJAX接口
-    GET: 返回表单HTML
-    POST: 保存数据
+    """采购新增视图。
+
+    - 普通请求: 渲染全页表单，支持从任意页面跳回（通过 return_url 维护来源）。
+    - AJAX 请求: 保持原有行为，返回用于模态框的 HTML 或 JSON 结果。
     """
     from project.forms import ProcurementForm
+    from django.urls import reverse
+
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if request.method == 'POST':
         form = ProcurementForm(request.POST)
         if form.is_valid():
             try:
                 procurement = form.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': '采购项目创建成功',
-                    'procurement_code': procurement.procurement_code
-                })
+
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': '采购项目创建成功',
+                        'procurement_code': procurement.procurement_code
+                    })
+
+                # 非 AJAX 场景: 表单提交成功后跳转回来源页面或详情页
+                return_url = request.POST.get('return_url') or request.GET.get('return_url')
+                if return_url:
+                    return redirect(return_url)
+                return redirect('procurement_detail', procurement_code=procurement.procurement_code)
+
             except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'保存失败: {str(e)}'
-                }, status=400)
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'保存失败: {str(e)}'
+                    }, status=400)
+
+                context = {
+                    'form': form,
+                    'submit_url': reverse('procurement_create'),
+                    'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+                    'initial_display': {},
+                }
+                return render(request, 'procurement_create.html', context, status=400)
         else:
             error_messages = []
             for field, errors in form.errors.items():
@@ -247,22 +268,46 @@ def procurement_create(request):
                 for error in errors:
                     error_messages.append(f"{field_label}: {error}")
 
-            return JsonResponse({
-                'success': False,
-                'message': '表单验证失败：\n' + '\n'.join(error_messages),
-                'errors': form.errors
-            }, status=400)
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': '表单验证失败：\n' + '\n'.join(error_messages),
+                    'errors': form.errors
+                }, status=400)
 
+            context = {
+                'form': form,
+                'submit_url': reverse('procurement_create'),
+                'return_url': request.POST.get('return_url') or request.GET.get('return_url') or request.META.get('HTTP_REFERER', ''),
+                'initial_display': {},
+            }
+            return render(request, 'procurement_create.html', context, status=400)
+
+    # GET 请求
     form = ProcurementForm()
     form.fields['procurement_code'].widget.attrs.pop('readonly', None)
     form.fields['procurement_code'].disabled = False
 
-    return render(request, 'components/edit_form.html', {
+    if is_ajax:
+        # 保持原有模态框表单行为
+        return render(request, 'components/edit_form.html', {
+            'form': form,
+            'title': '新增采购项目',
+            'submit_url': '/procurements/create/',
+            'module_type': 'procurement',
+        })
+
+    # 普通请求: 渲染全页创建页面
+    submit_url = reverse('procurement_create')
+    return_url = request.GET.get('return_url') or request.META.get('HTTP_REFERER', '')
+
+    context = {
         'form': form,
-        'title': '新增采购项目',
-        'submit_url': '/procurements/create/',
-        'module_type': 'procurement',
-    })
+        'submit_url': submit_url,
+        'return_url': return_url,
+        'initial_display': {},
+    }
+    return render(request, 'procurement_create.html', context)
 
 
 @require_http_methods(['GET', 'POST'])

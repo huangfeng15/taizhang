@@ -55,7 +55,8 @@ class SupplierInterviewForm(forms.ModelForm):
             }),
             'interview_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'date',
+                'type': 'text',
+                'placeholder': 'YYYY-MM-DD',
                 'required': True,
             }, format='%Y-%m-%d'),
             'interviewer': forms.TextInput(attrs={

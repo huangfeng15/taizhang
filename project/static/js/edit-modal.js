@@ -559,5 +559,12 @@ class EditModal {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-    new EditModal();
+    // 在全局挂载实例，便于其他脚本按需复用（例如全页表单初始化智能选择器）
+    const editModal = new EditModal();
+    window.editModal = editModal;
+
+    // 如果当前页面直接包含编辑表单（全页表单场景），则初始化智能选择器
+    if (document.getElementById('editForm')) {
+        editModal.initializeSmartSelectors();
+    }
 });
