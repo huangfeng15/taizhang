@@ -464,7 +464,7 @@ class FieldExtractor:
                 print(f"[警告] PDF文件不存在: {pdf_path}")
                 continue
             
-            print(f"\n📄 处理 {pdf_type}: {Path(pdf_path).name}")
+            print(f"\n[处理] {pdf_type}: {Path(pdf_path).name}")
             
             # 重要：清空缓存，确保每个文件独立处理
             self._pdf_cache.clear()
@@ -488,10 +488,10 @@ class FieldExtractor:
                 # 打印提取到的字段
                 for field_name, value in filtered_extracted.items():
                     if value is not None:
-                        print(f"  ✓ {field_name}: {value}")
+                        print(f"  [成功] {field_name}: {value}")
                 
             except Exception as e:
-                print(f"  ❌ 提取失败: {e}")
+                print(f"  [错误] 提取失败: {e}")
                 extraction_results[pdf_type] = {}
         
         # 智能合并数据（字段级优先级策略）
@@ -509,7 +509,7 @@ class FieldExtractor:
                 if value is not None and (field_name not in merged_data or merged_data.get(field_name) is None):
                     merged_data[field_name] = value
                     field_sources[field_name] = pdf_type
-                    print(f"  → {field_name} 采用自 {pdf_type}")
+                    print(f"  -> {field_name} 采用自 {pdf_type}")
         
         # 特殊处理：control_price的fallback逻辑
         # 如果procurement_notice中没有提取到control_price，尝试从control_price_approval提取
@@ -517,7 +517,7 @@ class FieldExtractor:
             if 'control_price_approval' in pdf_files:
                 control_price_path = pdf_files['control_price_approval']
                 if Path(control_price_path).exists() and 'control_price_approval' not in extraction_results:
-                    print(f"\n🔄 采购公告中未找到控制价，尝试从控制价审批(2-21)提取...")
+                    print(f"\n[Fallback] 采购公告中未找到控制价，尝试从控制价审批(2-21)提取...")
                     
                     # 清空缓存，独立处理
                     self._pdf_cache.clear()
@@ -529,14 +529,14 @@ class FieldExtractor:
                         if fallback_extracted.get('control_price'):
                             merged_data['control_price'] = fallback_extracted['control_price']
                             field_sources['control_price'] = 'control_price_approval (fallback)'
-                            print(f"  ✓ control_price (from 2-21): {merged_data['control_price']}")
+                            print(f"  [成功] control_price (from 2-21): {merged_data['control_price']}")
                     except Exception as e:
-                        print(f"  ❌ Fallback提取失败: {e}")
+                        print(f"  [错误] Fallback提取失败: {e}")
         
         # 打印最终合并摘要
-        print(f"\n📊 合并摘要:")
-        print(f"  • 处理文件数: {len(extraction_results)}")
-        print(f"  • 提取字段数: {len(merged_data)}")
-        print(f"  • 有效字段数: {len([v for v in merged_data.values() if v])}")
+        print(f"\n[合并摘要]")
+        print(f"  * 处理文件数: {len(extraction_results)}")
+        print(f"  * 提取字段数: {len(merged_data)}")
+        print(f"  * 有效字段数: {len([v for v in merged_data.values() if v])}")
         
         return merged_data, requires_confirmation

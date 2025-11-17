@@ -121,14 +121,14 @@ class PDFFileFilter:
             格式化的摘要字符串
         """
         summary_lines = [
-            f'📊 文件过滤摘要：',
-            f'  • 总文件数：{total_count}',
-            f'  • 允许处理：{allowed_count}',
-            f'  • 已过滤：{filtered_count}',
+            f'[文件过滤摘要]',
+            f'  * 总文件数：{total_count}',
+            f'  * 允许处理：{allowed_count}',
+            f'  * 已过滤：{filtered_count}',
         ]
         
         if allowed_count > 0:
-            summary_lines.append(f'  ✅ 将处理包含以下编号的PDF：{", ".join(cls.ALLOWED_NUMBERS)}')
+            summary_lines.append(f'  [成功] 将处理包含以下编号的PDF：{", ".join(cls.ALLOWED_NUMBERS)}')
         
         return '\n'.join(summary_lines)
     

@@ -193,12 +193,12 @@ class ProcurementConfirmForm(forms.ModelForm):
         
         if winning and control and winning > control:
             self.add_error('winning_amount',
-                f'❌ 中标金额（{winning:,.2f}元）不能超过控制价（{control:,.2f}元）')
+                f'[错误] 中标金额（{winning:,.2f}元）不能超过控制价（{control:,.2f}元）')
             errors.append('中标金额超过控制价')
         
         if control and budget and control > budget:
             self.add_error('control_price',
-                f'❌ 控制价（{control:,.2f}元）不能超过预算金额（{budget:,.2f}元）')
+                f'[错误] 控制价（{control:,.2f}元）不能超过预算金额（{budget:,.2f}元）')
             errors.append('控制价超过预算金额')
         
         # 2. 验证日期逻辑
@@ -214,32 +214,32 @@ class ProcurementConfirmForm(forms.ModelForm):
         # 日期顺序验证
         if req_approval and announcement and announcement < req_approval:
             self.add_error('announcement_release_date',
-                '❌ 公告发布时间不能早于需求书审批完成日期')
+                '[错误] 公告发布时间不能早于需求书审批完成日期')
             errors.append('公告发布时间早于需求书审批')
         
         if announcement and registration and registration < announcement:
             self.add_error('registration_deadline',
-                '❌ 报名截止时间不能早于公告发布时间')
+                '[错误] 报名截止时间不能早于公告发布时间')
             errors.append('报名截止时间早于公告发布')
         
         if registration and bid_opening and bid_opening < registration:
             self.add_error('bid_opening_date',
-                '❌ 开标时间不能早于报名截止时间')
+                '[错误] 开标时间不能早于报名截止时间')
             errors.append('开标时间早于报名截止')
         
         if bid_opening and candidate_end and candidate_end < bid_opening:
             self.add_error('candidate_publicity_end_date',
-                '❌ 候选人公示结束时间不能早于开标时间')
+                '[错误] 候选人公示结束时间不能早于开标时间')
             errors.append('候选人公示结束时间早于开标')
         
         if candidate_end and result_pub and result_pub < candidate_end:
             self.add_error('result_publicity_release_date',
-                '❌ 结果公示发布时间不能早于候选人公示结束时间')
+                '[错误] 结果公示发布时间不能早于候选人公示结束时间')
             errors.append('结果公示发布时间顺序错误')
         
         if result_pub and notice_issue and notice_issue < result_pub:
             self.add_error('notice_issue_date',
-                '❌ 中标通知书发放日期不能早于结果公示发布时间')
+                '[错误] 中标通知书发放日期不能早于结果公示发布时间')
             errors.append('中标通知书发放日期顺序错误')
         
         # 3. 验证必要字段的组合
@@ -258,7 +258,7 @@ class ProcurementConfirmForm(forms.ModelForm):
             raise ValidationError({
                 '__all__': [
                     f'发现 {len(errors)} 个验证错误，请修正后重新提交：',
-                    *[f'• {err}' for err in errors]
+                    *[f'* {err}' for err in errors]
                 ]
             })
         

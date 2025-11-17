@@ -141,9 +141,9 @@ def upload_pdf(request):
         if not allowed_files:
             messages.warning(
                 request,
-                f'❌ 未找到符合条件的PDF文件！\n\n'
+                f'[错误] 未找到符合条件的PDF文件！\n\n'
                 f'{filter_summary}\n\n'
-                f'💡 系统仅处理包含以下编号的PDF文件：\n'
+                f'[提示] 系统仅处理包含以下编号的PDF文件：\n'
                 f'{PDFFileFilter.get_allowed_numbers_display()}'
             )
             session.delete()
@@ -159,14 +159,14 @@ def upload_pdf(request):
             more_text = f' 等 {filtered_count} 个文件' if filtered_count > 5 else ''
             messages.info(
                 request,
-                f'ℹ️ 已自动过滤 {filtered_count} 个不符合条件的文件：\n'
+                f'[信息] 已自动过滤 {filtered_count} 个不符合条件的文件：\n'
                 f'{", ".join(filtered_names)}{more_text}\n\n'
-                f'✅ 将处理 {allowed_count} 个符合条件的文件'
+                f'[成功] 将处理 {allowed_count} 个符合条件的文件'
             )
         else:
             messages.success(
                 request,
-                f'✅ 所有 {allowed_count} 个文件均符合处理条件！'
+                f'[成功] 所有 {allowed_count} 个文件均符合处理条件！'
             )
         
         # 保存允许处理的文件列表到会话
@@ -309,7 +309,7 @@ def preview_data(request, session_id):
                     
                     messages.success(
                         request,
-                        f'✅ 成功导入采购信息！招采编号：{procurement.procurement_code}'
+                        f'[成功] 成功导入采购信息！招采编号：{procurement.procurement_code}'
                     )
                     return redirect('pdf_import:success', session_id=session_id)
                     
@@ -317,13 +317,13 @@ def preview_data(request, session_id):
                 import traceback
                 error_detail = traceback.format_exc()
                 print(f"保存数据错误: {error_detail}")
-                messages.error(request, f'❌ 保存失败: {str(e)}')
+                messages.error(request, f'[错误] 保存失败: {str(e)}')
         else:
             # 表单验证失败 - 显示详细错误
             error_count = len(form.errors)
             messages.error(
                 request,
-                f'❌ 表单验证失败，发现 {error_count} 个错误，请查看下方详细信息并修正'
+                f'[错误] 表单验证失败，发现 {error_count} 个错误，请查看下方详细信息并修正'
             )
     else:
         # GET请求：显示提取的数据
