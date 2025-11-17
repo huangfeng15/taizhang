@@ -1,5 +1,5 @@
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 import re
 from decimal import Decimal
@@ -106,10 +106,34 @@ def sort_contract_list(contracts):
     return sorted(contracts, key=sort_key)
 
 
-def generate_project_excel(project, user):
-    """为单个项目生成 Excel 文件,返回 BytesIO。包含采购、合同、付款、结算、供应商管理五个工作表。"""
+def generate_project_excel(
+    project,
+    user,
+    year_filter: int | None = None,
+    business_start_date: date | None = None,
+    business_end_date: date | None = None,
+):
+    """为单个项目生成 Excel 文件,返回 BytesIO。
+
+    业务时间过滤规则：
+    - 如果提供 business_start_date / business_end_date，则按该时间段筛选各业务表中的“业务发生时间”字段；
+    - 否则若提供 year_filter，则默认使用该年份的 1 月 1 日至 12 月 31 日；
+    - 若两者均为空，则导出该项目下的全部业务数据。
+
+    不同业务表的“业务发生时间”字段：
+    - 采购表：结果公示发布时间（result_publicity_release_date）
+    - 合同表：合同签订日期（signing_date）
+    - 付款表：付款日期（payment_date）
+    - 结算表：结算完成日期（Settlement.completion_date）
+    - 供应商管理表：履约评价记录创建时间（SupplierEvaluation.created_at）
+    """
     from settlement.models import Settlement
     from supplier_eval.models import SupplierEvaluation
+
+    # 若未显式传入业务时间段，但有年度筛选，则自动转换为当年的完整日期区间
+    if business_start_date is None and business_end_date is None and year_filter is not None:
+        business_start_date = date(year_filter, 1, 1)
+        business_end_date = date(year_filter, 12, 31)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -127,6 +151,15 @@ def generate_project_excel(project, user):
         procurement_rows = []
         # 使用 iterator 分批获取记录，降低大项目导出时的内存占用
         procurements_qs = Procurement.objects.filter(project=project)
+        # 按业务发生时间（结果公示发布时间）应用业务时间段筛选
+        if business_start_date is not None:
+            procurements_qs = procurements_qs.filter(
+                result_publicity_release_date__gte=business_start_date
+            )
+        if business_end_date is not None:
+            procurements_qs = procurements_qs.filter(
+                result_publicity_release_date__lte=business_end_date
+            )
         sorted_procurements = sort_procurement_list(
             procurements_qs.iterator(chunk_size=1000)
         )
@@ -177,6 +210,11 @@ def generate_project_excel(project, user):
         contracts_qs = Contract.objects.filter(project=project).select_related(
             'project', 'procurement', 'parent_contract'
         )
+        # 按业务发生时间（合同签订日期）应用业务时间段筛选
+        if business_start_date is not None:
+            contracts_qs = contracts_qs.filter(signing_date__gte=business_start_date)
+        if business_end_date is not None:
+            contracts_qs = contracts_qs.filter(signing_date__lte=business_end_date)
         sorted_contracts = sort_contract_list(
             contracts_qs.iterator(chunk_size=1000)
         )
@@ -212,6 +250,11 @@ def generate_project_excel(project, user):
             .select_related('contract')
             .order_by('payment_date', 'created_at')
         )
+        # 按业务发生时间（付款日期）应用业务时间段筛选
+        if business_start_date is not None:
+            payments_qs = payments_qs.filter(payment_date__gte=business_start_date)
+        if business_end_date is not None:
+            payments_qs = payments_qs.filter(payment_date__lte=business_end_date)
 
         from collections import defaultdict
 
@@ -304,15 +347,16 @@ def generate_project_excel(project, user):
                     'is_settled': is_settled,
                 }
 
-            # 构造宽表表头：合同序号 / 结算价 / 是否已结算 / 合同名称 / 动态期间列 / 累计字段
+            # 构造宽表表头：合同序号 / 合同名称 / 是否已结算 / 结算价 / 累计字段 / 动态期间列
             payment_headers = [
                 '合同序号',
-                '结算价',
-                '是否已结算',
                 '合同名称',
+                '是否已结算',
+                '结算价',
+                '累计付款金额',
+                '累计付款比例',
             ]
             payment_headers.extend(sorted_periods)
-            payment_headers.extend(['累计付款金额', '累计付款比例'])
 
             payment_rows = []
             for contract_pk, period_amounts in contract_payments.items():
@@ -354,7 +398,7 @@ def generate_project_excel(project, user):
         else:
             # 无任何付款记录时，输出仅包含基础字段的空表
             payment_headers = [
-                '合同序号', '结算价', '是否已结算', '合同名称', '累计付款金额', '累计付款比例'
+                '合同序号', '合同名称', '是否已结算', '结算价', '累计付款金额', '累计付款比例'
             ]
             df_payment = pd.DataFrame(columns=payment_headers)
 
@@ -376,6 +420,16 @@ def generate_project_excel(project, user):
             .select_related('project')
             .order_by('contract_sequence', 'contract_code')
         )
+
+        # 如果指定业务时间段，则仅导出在该时间段内完成结算的主合同
+        if business_start_date is not None:
+            main_contracts_qs = main_contracts_qs.filter(
+                settlement__completion_date__gte=business_start_date
+            )
+        if business_end_date is not None:
+            main_contracts_qs = main_contracts_qs.filter(
+                settlement__completion_date__lte=business_end_date
+            )
 
         # 为导出结算表注入结算状态和金额，保持与合同列表页的结算规则一致：
         # - 有 Settlement 记录视为已结算
@@ -444,10 +498,11 @@ def generate_project_excel(project, user):
         # ========== 5. 供应商管理表 ==========
         # 需求：导出模板与“供应商履约评价导入模板（动态年度版）”的命名规则一致，
         #       年度评价列和不定期评价列根据实际数据动态扩展，同时保留供应商名称，便于直接查看。
-        # 基础字段：序号、合同序号、供应商名称、履约综合评价得分、末次评价得分、备注
+        # 基础字段：序号、合同序号、合同名称、供应商名称、履约综合评价得分、末次评价得分、备注
         supplier_eval_headers = [
             '序号',
             '合同序号',
+            '合同名称',
             '供应商名称',
             '履约综合评价得分',
             '末次评价得分',
@@ -459,6 +514,11 @@ def generate_project_excel(project, user):
             .select_related('contract')
             .order_by('contract__contract_sequence', 'contract__contract_code')
         )
+        # 按业务发生时间（评价创建时间）应用业务时间段筛选
+        if business_start_date is not None:
+            evaluations_qs = evaluations_qs.filter(created_at__gte=business_start_date)
+        if business_end_date is not None:
+            evaluations_qs = evaluations_qs.filter(created_at__lte=business_end_date)
 
         # 动态收集所有年度评价年份和不定期评价的最大次数
         all_years = set()
@@ -491,6 +551,7 @@ def generate_project_excel(project, user):
             row = {
                 '序号': idx,
                 '合同序号': contract.contract_code if contract else '',
+                '合同名称': contract.contract_name if contract else '',
                 '供应商名称': evaluation.supplier_name,
                 '履约综合评价得分': float(evaluation.comprehensive_score) if evaluation.comprehensive_score is not None else '',
                 '末次评价得分': float(evaluation.last_evaluation_score) if evaluation.last_evaluation_score is not None else '',

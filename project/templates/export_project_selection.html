@@ -135,7 +135,7 @@
         </div>
     </div>
 
-    <form id="exportForm" method="post" action="{% url 'export_project_data' %}">
+    <form id="exportForm" method="post" action="{% url 'export_project_data' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
         {% csrf_token %}
         
         <div class="selection-card">
@@ -143,6 +143,23 @@
                 <div class="selection-title">
                     <i class="fas fa-tasks"></i> 选择要导出的项目
                 </div>
+            </div>
+
+            <!-- 业务发生时间筛选：默认使用全局年度，可自定义日期范围 -->
+            <div class="business-date-filter">
+                <label class="business-date-label">
+                    <i class="fas fa-calendar"></i>
+                    业务发生时间
+                </label>
+                <div class="business-date-inputs">
+                    <input type="date" name="business_start_date" value="{{ business_start_date }}">
+                    <span class="separator">至</span>
+                    <input type="date" name="business_end_date" value="{{ business_end_date }}">
+                </div>
+                <div class="business-date-help">
+                    默认根据全局筛选年度填充（如 2025-01-01 至 2025-12-31），如需跨年度或自定义时间段，请在此调整。
+                </div>
+            </div>
                 <div class="selection-actions">
                     <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">
                         <i class="fas fa-check-square"></i> 全选

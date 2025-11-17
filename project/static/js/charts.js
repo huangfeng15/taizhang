@@ -46,7 +46,8 @@ function createPieChart(canvasId, labels, data, title = '') {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
             plugins: {
                 title: {
                     display: title !== '',

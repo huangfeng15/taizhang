@@ -4,7 +4,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import datetime
+from datetime import datetime, date
 from io import StringIO, BytesIO
 from pathlib import Path
 from urllib.parse import quote
@@ -32,7 +32,7 @@ from project.services.export_service import (
 )
 from project.tasks import generate_project_export_zip_async
 
-from .views_helpers import _get_page_size
+from .views_helpers import _get_page_size, _resolve_global_filters
 
 def _format_import_summary(stats: dict) -> str:
     return (
@@ -551,8 +551,30 @@ def batch_delete_projects(request):
 def export_project_data(request):
     """导出项目数据为Excel或ZIP。"""
     if request.method == 'GET':
-        projects = Project.objects.all().order_by('project_name')
-        context = {'projects': projects, 'page_title': '导出项目数据'}
+        global_filters = _resolve_global_filters(request)
+        projects = Project.objects.all()
+
+        # 按全局项目筛选（支持多选 global_project）
+        project_codes = global_filters.get('project_list') or []
+        if project_codes:
+            projects = projects.filter(project_code__in=project_codes)
+
+        # 全局年度仅用于默认业务时间范围，不再直接过滤项目列表，
+        # 避免因为项目创建时间与业务发生时间不一致导致导出混乱。
+        year_filter = global_filters.get('year_filter')
+        business_start_date = ''
+        business_end_date = ''
+        if year_filter is not None:
+            business_start_date = f"{year_filter}-01-01"
+            business_end_date = f"{year_filter}-12-31"
+
+        projects = projects.order_by('project_name')
+        context = {
+            'projects': projects,
+            'page_title': '导出项目数据',
+            'business_start_date': business_start_date,
+            'business_end_date': business_end_date,
+        }
         return render(request, 'export_project_selection.html', context)
 
     try:
@@ -563,6 +585,26 @@ def export_project_data(request):
         if not projects.exists():
             return JsonResponse({'success': False, 'message': '未找到选中的项目'}, status=404)
 
+        # 解析业务发生时间筛选区间（前端为 YYYY-MM-DD 格式的日期输入）
+        business_start_date_str = request.POST.get('business_start_date') or ''
+        business_end_date_str = request.POST.get('business_end_date') or ''
+        business_start_date: date | None = None
+        business_end_date: date | None = None
+
+        try:
+            if business_start_date_str:
+                business_start_date = date.fromisoformat(business_start_date_str)
+            if business_end_date_str:
+                business_end_date = date.fromisoformat(business_end_date_str)
+        except ValueError:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': '业务发生时间格式不正确，请使用有效的日期（例如：2025-01-01）。',
+                },
+                status=400,
+            )
+
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         if len(projects) == 1:
@@ -570,7 +612,12 @@ def export_project_data(request):
             project = projects.first()
             if project is None:
                 return JsonResponse({'success': False, 'message': '项目不存在'}, status=404)
-            excel_file = generate_project_excel(project, request.user)
+            excel_file = generate_project_excel(
+                project,
+                request.user,
+                business_start_date=business_start_date,
+                business_end_date=business_end_date,
+            )
 
             # 生成清晰的中文文件名，但限制长度避免问题
             project_name_clean = project.project_name.replace('/', '_').replace('\\', '_').replace(':', '_')
@@ -602,6 +649,9 @@ def export_project_data(request):
             generate_project_export_zip_async.delay(
                 list(projects.values_list('project_code', flat=True)),
                 request.user.id,
+                False,
+                business_start_date,
+                business_end_date,
             )
             return JsonResponse(
                 {
@@ -613,7 +663,12 @@ def export_project_data(request):
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for project in projects:
-                excel_file = generate_project_excel(project, request.user)
+                excel_file = generate_project_excel(
+                    project,
+                    request.user,
+                    business_start_date=business_start_date,
+                    business_end_date=business_end_date,
+                )
                 # ZIP内部的文件名使用中文（ZIP格式本身支持UTF-8）
                 filename = f"{project.project_name}_{timestamp}.xlsx"
                 zip_file.writestr(filename, excel_file.getvalue())

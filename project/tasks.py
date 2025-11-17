@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import List, Optional
 
 from django.contrib.auth import get_user_model
@@ -16,7 +17,11 @@ User = get_user_model()
 
 @job("low")
 def generate_project_export_zip_async(
-    project_codes: List[str], user_id: int, export_all: bool = False
+    project_codes: List[str],
+    user_id: int,
+    export_all: bool = False,
+    business_start_date: Optional[date] = None,
+    business_end_date: Optional[date] = None,
 ) -> Optional[str]:
     """
     异步生成多项目导出 ZIP 文件，并通过邮件通知用户。
@@ -40,7 +45,12 @@ def generate_project_export_zip_async(
         # 复用现有的导出逻辑为每个项目生成 Excel，
         # 这里只是模拟处理流程，实际持久化可以根据业务再扩展。
         for project in projects:
-            _ = generate_project_excel(project, user)  # 生成 BytesIO，但不直接返回给浏览器
+            _ = generate_project_excel(
+                project,
+                user,
+                business_start_date=business_start_date,
+                business_end_date=business_end_date,
+            )  # 生成 BytesIO，但不直接返回给浏览器
 
         # 发送完成通知邮件（如果用户配置了邮箱）
         if user_email:
@@ -64,4 +74,3 @@ def generate_project_export_zip_async(
     except Exception as exc:
         logger.exception("异步导出任务执行失败: %s", exc)
         return None
-
