@@ -468,7 +468,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="{% static 'js/scatter-chart-optimizer.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -769,10 +768,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // 确保在模态框显示时渲染趋势图
+    // 确保在模态框显示时渲染趋势图（等待 ApexCharts 加载完成）
     if (detailModalEl) {
         detailModalEl.addEventListener('shown.bs.modal', function() {
-            renderDetailTrend();
+            waitForApexCharts(function() {
+                renderDetailTrend();
+            });
         });
     }
     {% endif %}

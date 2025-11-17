@@ -123,6 +123,7 @@ class ContractForm(forms.ModelForm):
             'contract_code',
             'contract_name',
             'file_positioning',
+            'contract_type',
             'contract_source',
             'parent_contract',
             'contract_sequence',
@@ -153,6 +154,9 @@ class ContractForm(forms.ModelForm):
                 'required': True,
             }),
             'file_positioning': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+            'contract_type': forms.Select(attrs={
                 'class': 'form-control',
             }),
             'contract_source': forms.Select(attrs={

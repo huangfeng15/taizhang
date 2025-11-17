@@ -767,7 +767,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="{% static 'js/scatter-chart-optimizer.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -1216,18 +1215,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 100);
     }
 
-    // 详情模态框打开时渲染趋势图
+    // 详情模态框打开时渲染趋势图（等待 ApexCharts 加载完成）
     {% if target_code and detail_data %}
     if (detailModalEl) {
         detailModalEl.addEventListener('shown.bs.modal', function () {
-            waitForApexCharts(renderDetailTrend);
+            waitForApexCharts(function() {
+                renderDetailTrend();
+            });
         });
     }
     {% endif %}
 
-    // 主页面趋势图
+    // 主页面趋势图（等待 ApexCharts 加载完成）
     if (document.getElementById('mainTrendChart')) {
-        waitForApexCharts(renderMainTrend);
+        waitForApexCharts(function() {
+            renderMainTrend();
+        });
     }
 });
 </script>

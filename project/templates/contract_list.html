@@ -70,6 +70,7 @@
                     <th data-column="contract_name">合同名称</th>
                     <th data-column="project">所属项目</th>
                     <th data-column="file_positioning">文件定位</th>
+                    <th data-column="contract_type">合同类型</th>
                     <th data-column="contract_source">合同来源</th>
                     <th data-column="party_a">甲方</th>
                     <th data-column="party_b">乙方</th>
@@ -119,6 +120,7 @@
                             <span class="badge badge-error">{{ contract.file_positioning }}</span>
                         {% endif %}
                     </td>
+                    <td data-column="contract_type">{{ contract.contract_type|default:"-" }}</td>
                     <td data-column="contract_source">
                         {% if contract.contract_source == '采购合同' %}
                             <span class="badge badge-success">{{ contract.contract_source }}</span>
@@ -273,6 +275,7 @@
         { key: 'contract_name', label: '合同名称', required: true },
         { key: 'project', label: '所属项目', required: false },
         { key: 'file_positioning', label: '文件定位', required: false },
+        { key: 'contract_type', label: '合同类型', required: false },
         { key: 'contract_source', label: '合同来源', required: false },
         { key: 'party_a', label: '甲方', required: false },
         { key: 'party_b', label: '乙方', required: false },
@@ -297,7 +300,7 @@
     ];
 
     // 默认显示的字段
-    const defaultColumns = ['row_number', 'contract_sequence', 'contract_name', 'project', 'file_positioning', 'contract_source', 'party_b', 'contract_amount', 'total_paid_amount', 'has_settlement', 'settlement_amount', 'payment_ratio', 'signing_date', 'operations'];
+    const defaultColumns = ['row_number', 'contract_sequence', 'contract_name', 'project', 'file_positioning', 'contract_type', 'contract_source', 'party_b', 'contract_amount', 'total_paid_amount', 'has_settlement', 'settlement_amount', 'payment_ratio', 'signing_date', 'operations'];
 
     // 初始化批量操作
     document.addEventListener('DOMContentLoaded', function() {
