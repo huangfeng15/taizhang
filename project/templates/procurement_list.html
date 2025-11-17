@@ -377,11 +377,10 @@
                                 下载模板
                             </label>
                             <div style="display: flex; gap: 12px;">
-                                <a href="{% url 'download_import_template' %}?module=procurement&mode=long" download
-                                   class="btn btn-secondary" style="text-decoration: none;">
+                                <button type="button" class="btn btn-secondary" onclick="downloadTemplate('procurement', 'long')">
                                     <i class="fas fa-file-csv"></i>
                                     CSV 长表模板
-                                </a>
+                                </button>
                                 <a href="/docs/导入功能使用说明.md" target="_blank"
                                    class="btn btn-secondary" style="text-decoration: none;">
                                     <i class="fas fa-book"></i>
@@ -641,6 +640,38 @@
                     </button>
                 </div>
             `;
+        });
+    }
+    
+    // 下载模板函数
+    function downloadTemplate(module, mode) {
+        const url = `{% url 'download_import_template' %}?module=${module}&mode=${mode}`;
+        
+        // 使用fetch API下载文件
+        fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('下载失败');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // 创建下载链接
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = downloadUrl;
+            a.download = `采购导入模板_${module}_${mode}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            alert('模板下载失败：' + error.message);
         });
     }
 </script>

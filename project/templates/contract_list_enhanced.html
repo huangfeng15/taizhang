@@ -375,11 +375,10 @@
                             下载模板
                         </label>
                         <div style="display: flex; gap: 12px;">
-                            <a href="{% url 'download_import_template' %}?module=contract&mode=long" download
-                               class="btn btn-secondary" style="text-decoration: none;">
+                            <button type="button" class="btn btn-secondary" @click="downloadTemplate('contract', 'long')">
                                 <i class="fas fa-file-csv"></i>
                                 CSV 长表模板
-                            </a>
+                            </button>
                             <a href="/docs/导入功能使用说明.md" target="_blank"
                                class="btn btn-secondary" style="text-decoration: none;">
                                 <i class="fas fa-book"></i>
@@ -716,6 +715,34 @@ createApp({
             this.selectedFile = null;
             this.conflictMode = 'update';
             this.dryRun = false;
+        },
+        downloadTemplate(module, mode) {
+            const url = `/api/import/template/?module=${module}&mode=${mode}`;
+            
+            fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('下载失败');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = `合同导入模板_${module}_${mode}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                alert('模板下载失败：' + error.message);
+            });
         }
     },
     mounted() {

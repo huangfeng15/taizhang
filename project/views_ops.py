@@ -336,12 +336,23 @@ def download_import_template(request):
     csv_bytes = buffer.getvalue().encode('utf-8-sig')
     
     filename = template_config["filename"]
+    
+    # 使用更兼容的Content-Disposition头，支持中文文件名
     response = HttpResponse(csv_bytes, content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    # 使用RFC 5987编码，兼容更多浏览器
+    encoded_filename = quote(filename.encode('utf-8'))
+    response['Content-Disposition'] = (
+        f'attachment; '
+        f'filename="{filename}"; '
+        f"filename*=UTF-8''{encoded_filename}"
+    )
     response['Content-Length'] = str(len(csv_bytes))
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
+    response['X-Content-Type-Options'] = 'nosniff'
+    
     return response
 
 
