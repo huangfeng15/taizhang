@@ -74,7 +74,7 @@ class PaymentDataRepairer:
                 contracts_with_gaps.append(contract)
         
         if contracts_with_gaps:
-            print(f"   ⚠️  发现 {len(contracts_with_gaps)} 个合同的付款编号不连续")
+            print(f"   [警告] 发现 {len(contracts_with_gaps)} 个合同的付款编号不连续")
         else:
             print(f"   ✓ 所有合同的付款编号都是连续的")
     
@@ -90,7 +90,7 @@ class PaymentDataRepairer:
                      .filter(count__gt=1))
         
         if duplicates:
-            print(f"   ⚠️  发现 {len(duplicates)} 个重复的付款编号")
+            print(f"   [警告] 发现 {len(duplicates)} 个重复的付款编号")
             for dup in duplicates:
                 self.issues.append({
                     'type': 'duplicate_code',
@@ -108,7 +108,7 @@ class PaymentDataRepairer:
         count = orphaned.count()
         
         if count > 0:
-            print(f"   ⚠️  发现 {count} 条孤立的付款记录（合同不存在）")
+            print(f"   [警告] 发现 {count} 条孤立的付款记录（合同不存在）")
             self.issues.append({
                 'type': 'orphaned',
                 'count': count,
@@ -143,7 +143,7 @@ class PaymentDataRepairer:
             })
         
         if issues_found:
-            print(f"   ⚠️  数据完整性问题:")
+            print(f"   [警告] 数据完整性问题:")
             for issue in issues_found:
                 print(f"      - {issue}")
         else:

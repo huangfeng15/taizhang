@@ -247,11 +247,11 @@ class ProcurementConfirmForm(forms.ModelForm):
         
         if winning and not winning_bidder:
             self.add_error('winning_bidder',
-                '⚠️ 填写了中标金额，建议同时填写中标单位')
+                '[警告] 填写了中标金额，建议同时填写中标单位')
         
         if winning_bidder and not winning:
             self.add_error('winning_amount',
-                '⚠️ 填写了中标单位，建议同时填写中标金额')
+                '[警告] 填写了中标单位，建议同时填写中标金额')
         
         # 如果有错误，在表单顶部显示汇总
         if errors:

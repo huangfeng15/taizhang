@@ -146,7 +146,7 @@ Project (项目)
 
 **数据导出**:
 - **export_service.py** - 项目数据导出服务
-- **word_formatter.py** - Word文档格式化工具
+
 
 ### PDF智能识别模块（pdf_import/）
 

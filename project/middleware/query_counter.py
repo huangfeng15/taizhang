@@ -36,7 +36,7 @@ class QueryCountDebugMiddleware:
 
         # 查询超标警告
         if num_queries > self.QUERY_WARNING_THRESHOLD:
-            print(f'\n⚠️  查询次数警告: {request.path}')
+            print(f'\n[警告] 查询次数警告: {request.path}')
             print(f'   数据库查询次数: {num_queries} 次')
             print(f'   建议: 使用select_related()或prefetch_related()优化\n')
 

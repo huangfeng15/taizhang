@@ -43,7 +43,7 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
             # 开发环境在控制台输出
             from django.conf import settings
             if settings.DEBUG and duration > 0.5:
-                print(f'⚠️  {request.path}: {duration:.2f}s')
+                print(f'[警告] {request.path}: {duration:.2f}s')
 
         return response
 

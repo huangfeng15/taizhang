@@ -106,7 +106,7 @@ class Command(BaseCommand):
             try:
                 project = Project.objects.get(project_code=project_code)
                 self.stdout.write(self.style.WARNING(
-                    f'\n⚠️  警告：即将清空项目【{project.project_name}】({project_code})的所有{self._get_module_name(module)}数据！'
+                    f'\n[警告] 即将清空项目【{project.project_name}】({project_code})的所有{self._get_module_name(module)}数据！'
                 ))
                 if not dry_run:
                     self.stdout.write(self.style.ERROR('此操作不可恢复！'))

@@ -110,7 +110,7 @@ def validate_config():
             print(f"  - {issue}")
     
     if warnings:
-        print("\n⚠️  发现以下警告：")
+        print("\n[警告] 发现以下警告：")
         for warning in warnings:
             print(f"  - {warning}")
     
@@ -141,7 +141,7 @@ def main():
         if success:
             print("🎉 验证成功！帮助文案配置正确。")
         else:
-            print("⚠️  验证完成，但存在问题需要修复。")
+            print("[警告] 验证完成，但存在问题需要修复。")
         print("=" * 60 + "\n")
         sys.exit(0 if success else 1)
     except Exception as e:

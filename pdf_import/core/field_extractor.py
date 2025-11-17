@@ -461,7 +461,7 @@ class FieldExtractor:
             pdf_path = pdf_files[pdf_type]
             
             if not Path(pdf_path).exists():
-                print(f"⚠️ 警告: PDF文件不存在: {pdf_path}")
+                print(f"[警告] PDF文件不存在: {pdf_path}")
                 continue
             
             print(f"\n📄 处理 {pdf_type}: {Path(pdf_path).name}")

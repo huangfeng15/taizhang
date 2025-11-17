@@ -30,11 +30,11 @@ def validate_constants():
         current_year = datetime.now().year
         
         if BASE_YEAR < 2000 or BASE_YEAR > current_year:
-            print(f"   ⚠️  警告: BASE_YEAR ({BASE_YEAR}) 不在合理范围内")
+            print(f"   [警告] BASE_YEAR ({BASE_YEAR}) 不在合理范围内")
             return False
         
         if YEAR_WINDOW < 0 or YEAR_WINDOW > 5:
-            print(f"   ⚠️  警告: YEAR_WINDOW ({YEAR_WINDOW}) 不在合理范围内")
+            print(f"   [警告] YEAR_WINDOW ({YEAR_WINDOW}) 不在合理范围内")
             return False
         
         print("\n   ✅ 业务常量配置正确")
@@ -65,7 +65,7 @@ def main():
         print("\n🎉 业务常量配置验证通过！\n")
         return 0
     else:
-        print("\n⚠️  配置验证失败，请检查上述错误并修正。\n")
+        print("\n[警告] 配置验证失败，请检查上述错误并修正。\n")
         return 1
 
 

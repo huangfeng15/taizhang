@@ -21,7 +21,7 @@ def get_base_year() -> int:
             raise ValueError(f"基准年份必须在 2000 到 {current_year} 之间")
         return base_year
     except ValueError as e:
-        print(f"⚠️  警告: SYSTEM_BASE_YEAR 配置无效 ({year_str})，使用默认值 2019")
+        print(f"[警告] SYSTEM_BASE_YEAR 配置无效 ({year_str})，使用默认值 2019")
         return 2019
 
 
@@ -38,7 +38,7 @@ def get_year_window() -> int:
             raise ValueError("年份窗口必须在 0 到 5 之间")
         return window
     except ValueError:
-        print(f"⚠️  警告: SYSTEM_YEAR_WINDOW 配置无效 ({window_str})，使用默认值 1")
+        print(f"[警告] SYSTEM_YEAR_WINDOW 配置无效 ({window_str})，使用默认值 1")
         return 1
 
 
@@ -52,7 +52,7 @@ def get_default_monitor_start_date() -> date:
     try:
         return datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        print(f"⚠️  警告: MONITOR_START_DATE 配置无效 ({date_str})，使用默认值 2025-10-01")
+        print(f"[警告] MONITOR_START_DATE 配置无效 ({date_str})，使用默认值 2025-10-01")
         return date(2025, 10, 1)
 
 
