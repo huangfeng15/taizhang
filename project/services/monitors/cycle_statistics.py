@@ -141,8 +141,10 @@ class CycleStatisticsService:
         # 获取所有经办人名单
         person_names = set()
         
-        # 采购经办人
-        procurement_qs = Procurement.objects.filter(procurement_officer__isnull=False)
+        # 采购经办人 - 排除NULL和空字符串
+        procurement_qs = Procurement.objects.filter(
+            procurement_officer__isnull=False
+        ).exclude(procurement_officer='')
         if year_filter and year_filter != 'all':
             procurement_qs = procurement_qs.filter(requirement_approval_date__year=int(year_filter))
         if project_filter:
@@ -151,16 +153,19 @@ class CycleStatisticsService:
             procurement_qs = procurement_qs.filter(procurement_method=procurement_method)
         person_names.update(procurement_qs.values_list('procurement_officer', flat=True).distinct())
         
-        # 合同经办人
+        # 合同经办人 - 排除NULL和空字符串
         contract_qs = Contract.objects.filter(
             contract_officer__isnull=False,
             file_positioning=FilePositioning.MAIN_CONTRACT.value
-        )
+        ).exclude(contract_officer='')
         if year_filter and year_filter != 'all':
             contract_qs = contract_qs.filter(signing_date__year=int(year_filter))
         if project_filter:
             contract_qs = contract_qs.filter(project_id=project_filter)
         person_names.update(contract_qs.values_list('contract_officer', flat=True).distinct())
+        
+        # 额外保障：过滤掉可能的空白字符串
+        person_names = {name.strip() for name in person_names if name and name.strip()}
         
         persons_data = []
         total_procurement_count = 0
@@ -744,7 +749,10 @@ class CycleStatisticsService:
         if project_code:
             qs = qs.filter(project_id=project_code)
         if person_name:
-            qs = qs.filter(procurement_officer=person_name)
+            # 当按人查询时，必须确保经办人字段匹配且非空
+            qs = qs.filter(
+                procurement_officer=person_name
+            ).exclude(procurement_officer='')
         if global_project:
             qs = qs.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
@@ -803,7 +811,10 @@ class CycleStatisticsService:
         if project_code:
             qs = qs.filter(project_id=project_code)
         if person_name:
-            qs = qs.filter(contract_officer=person_name)
+            # 当按人查询时，必须确保经办人字段匹配且非空
+            qs = qs.filter(
+                contract_officer=person_name
+            ).exclude(contract_officer='')
         if global_project:
             qs = qs.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
