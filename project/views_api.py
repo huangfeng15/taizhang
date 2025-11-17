@@ -6,8 +6,37 @@ from django.http import JsonResponse
 from .models import Project
 from procurement.models import Procurement
 from contract.models import Contract
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 
+@extend_schema(
+    summary="项目列表",
+    description="根据搜索关键字与分页参数获取项目列表。",
+    parameters=[
+        OpenApiParameter(
+            name="search",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="按项目编码或名称模糊搜索",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="页码（从1开始）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="每页数量",
+            required=False,
+        ),
+    ],
+    tags=["基础数据"],
+)
 def api_projects_list(request):
     """项目列表API - 支持搜索与分页。"""
     search = request.GET.get('search', '')
@@ -44,6 +73,41 @@ def api_projects_list(request):
     )
 
 
+@extend_schema(
+    summary="采购列表",
+    description="根据项目与关键字获取采购列表，用于前端级联选择器。",
+    parameters=[
+        OpenApiParameter(
+            name="search",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="按采购编号或项目名称模糊搜索",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="project",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="过滤指定项目编码下的采购",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="页码（从1开始）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="每页数量",
+            required=False,
+        ),
+    ],
+    tags=["基础数据"],
+)
 def api_procurements_list(request):
     """采购列表API - 支持项目筛选与搜索。"""
     search = request.GET.get('search', '')
@@ -84,6 +148,62 @@ def api_procurements_list(request):
     )
 
 
+@extend_schema(
+    summary="合同列表",
+    description="根据项目、采购和文件定位获取合同列表，用于合同选择器。",
+    parameters=[
+        OpenApiParameter(
+            name="search",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="按合同编号、名称或序号模糊搜索",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="project",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="项目编码（与 project_id 兼容）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="project_id",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="历史参数名，等同于 project",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="procurement",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="关联的采购编号",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="file_positioning",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="文件定位（主合同/补充协议等枚举值）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="页码（从1开始）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="每页数量",
+            required=False,
+        ),
+    ],
+    tags=["基础数据"],
+)
 def api_contracts_list(request):
     """合同列表API - 支持项目与采购筛选。"""
     search = request.GET.get('search', '')

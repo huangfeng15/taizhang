@@ -9,6 +9,7 @@ from django.db.models.functions import Coalesce
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from contract.models import Contract
 from project.enums import FilePositioning, PROCUREMENT_METHODS_COMMON_LABELS
@@ -186,6 +187,34 @@ def ranking_view(request):
     return render(request, 'monitoring/ranking.html', context)
 
 
+@extend_schema(
+    summary="统计详情（JSON）",
+    description="按模块（采购/合同/付款/结算）返回统计详情数据与汇总信息，用于前端表格和图表。",
+    parameters=[
+        OpenApiParameter(
+            name="module",
+            type=str,
+            location=OpenApiParameter.PATH,
+            description="统计模块：procurement/contract/payment/settlement",
+            required=True,
+        ),
+        OpenApiParameter(
+            name="page",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="页码（从1开始）",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=int,
+            location=OpenApiParameter.QUERY,
+            description="每页数量，默认50，最大100",
+            required=False,
+        ),
+    ],
+    tags=["统计"],
+)
 def statistics_detail_api(request, module):
     """统计详情数据API，返回JSON格式的表格数据。"""
     try:

@@ -25,7 +25,12 @@ from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
-from project.services.export_service import generate_project_excel, import_project_excel, ProjectDataImportError
+from project.services.export_service import (
+    generate_project_excel,
+    import_project_excel,
+    ProjectDataImportError,
+)
+from project.tasks import generate_project_export_zip_async
 
 from .views_helpers import _get_page_size
 
@@ -592,6 +597,19 @@ def export_project_data(request):
             return response
 
         # 多项目导出为zip
+        # 当项目数量较大时，改为异步导出，避免长时间阻塞请求
+        if len(projects) > 50:
+            generate_project_export_zip_async.delay(
+                list(projects.values_list('project_code', flat=True)),
+                request.user.id,
+            )
+            return JsonResponse(
+                {
+                    'success': True,
+                    'message': '导出任务已提交到后台队列，完成后将通过邮件通知您。',
+                }
+            )
+
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for project in projects:

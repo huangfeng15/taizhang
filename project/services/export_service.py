@@ -124,8 +124,11 @@ def generate_project_excel(project, user):
             '评标谈判方式', '定标方法', '公告发布时间'
         ]
         procurement_rows = []
-        procurements = Procurement.objects.filter(project=project)
-        sorted_procurements = sort_procurement_list(procurements)
+        # 使用 iterator 分批获取记录，降低大项目导出时的内存占用
+        procurements_qs = Procurement.objects.filter(project=project)
+        sorted_procurements = sort_procurement_list(
+            procurements_qs.iterator(chunk_size=1000)
+        )
 
         for procurement in sorted_procurements:
             procurement_rows.append({
@@ -170,8 +173,12 @@ def generate_project_excel(project, user):
             '含税签约合同价（元）', '合同签订日期'
         ]
         contract_rows = []
-        contracts = Contract.objects.filter(project=project).select_related('project', 'procurement', 'parent_contract')
-        sorted_contracts = sort_contract_list(contracts)
+        contracts_qs = Contract.objects.filter(project=project).select_related(
+            'project', 'procurement', 'parent_contract'
+        )
+        sorted_contracts = sort_contract_list(
+            contracts_qs.iterator(chunk_size=1000)
+        )
 
         for contract in sorted_contracts:
             contract_rows.append({
@@ -202,7 +209,12 @@ def generate_project_excel(project, user):
             '实付金额(元)', '付款日期', '结算价（元）', '是否办理结算'
         ]
         payment_rows = []
-        for payment in Payment.objects.filter(contract__project=project).select_related('contract').order_by('payment_date'):
+        payments_qs = (
+            Payment.objects.filter(contract__project=project)
+            .select_related('contract')
+            .order_by('payment_date')
+        )
+        for payment in payments_qs.iterator(chunk_size=1000):
             payment_rows.append({
                 '项目编码': project.project_code,
                 '付款编号': payment.payment_code,
@@ -227,12 +239,18 @@ def generate_project_excel(project, user):
         settlement_rows = []
 
         # 获取所有主合同（结算只能关联主合同）
-        main_contracts = Contract.objects.filter(
-            project=project,
-            file_positioning=FilePositioning.MAIN_CONTRACT.value
-        ).select_related('project').order_by('contract_sequence', 'contract_code')
+        main_contracts_qs = (
+            Contract.objects.filter(
+                project=project,
+                file_positioning=FilePositioning.MAIN_CONTRACT.value,
+            )
+            .select_related('project')
+            .order_by('contract_sequence', 'contract_code')
+        )
 
-        for idx, contract in enumerate(main_contracts, start=1):
+        for idx, contract in enumerate(
+            main_contracts_qs.iterator(chunk_size=1000), start=1
+        ):
             # 尝试获取结算记录
             try:
                 settlement = Settlement.objects.get(main_contract=contract)
@@ -261,16 +279,18 @@ def generate_project_excel(project, user):
         # 基础字段：序号、合同编号、供应商名称、履约综合评价得分、末次评价得分
         supplier_eval_headers = ['序号', '合同编号', '供应商名称', '履约综合评价得分', '末次评价得分']
 
-        # 获取所有评价记录
-        evaluations = SupplierEvaluation.objects.filter(
-            contract__project=project
-        ).select_related('contract').order_by('contract__contract_sequence', 'contract__contract_code')
+        # 获取所有评价记录（使用 iterator 分两次遍历，避免一次性缓存大量对象）
+        evaluations_qs = (
+            SupplierEvaluation.objects.filter(contract__project=project)
+            .select_related('contract')
+            .order_by('contract__contract_sequence', 'contract__contract_code')
+        )
 
         # 动态收集所有年度评价和不定期评价的列
         all_years = set()
         max_irregular_count = 0
 
-        for evaluation in evaluations:
+        for evaluation in evaluations_qs.iterator(chunk_size=1000):
             # 收集年度评价的年份
             if evaluation.annual_scores:
                 all_years.update(evaluation.annual_scores.keys())
@@ -290,7 +310,9 @@ def generate_project_excel(project, user):
             supplier_eval_headers.append(f'第{i}次不定期履约评价')
 
         supplier_eval_rows = []
-        for idx, evaluation in enumerate(evaluations, start=1):
+        for idx, evaluation in enumerate(
+            evaluations_qs.iterator(chunk_size=1000), start=1
+        ):
             row = {
                 '序号': idx,
                 '合同编号': evaluation.contract.contract_code if evaluation.contract else '',

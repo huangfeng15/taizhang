@@ -55,10 +55,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # HTTPS支持（开发测试用）
     'django_extensions',
-    
+
+    # Django REST Framework 与 OpenAPI 文档
+    'rest_framework',
+    'drf_spectacular',
+
     # 业务应用
     'project.apps.ProjectConfig',
     'procurement.apps.ProcurementConfig',
@@ -67,6 +71,9 @@ INSTALLED_APPS = [
     'settlement.apps.SettlementConfig',
     'pdf_import.apps.PdfImportConfig',  # PDF智能导入
     'supplier_eval.apps.SupplierEvalConfig',
+
+    # 异步任务队列（大报表等后台处理；需搭配Redis和 django-rq）
+    'django_rq',
 ]
 
 MIDDLEWARE = [
@@ -107,6 +114,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': '项目采购与成本管理系统 API',
+    'DESCRIPTION': '基于Django的项目采购与成本管理系统接口文档',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
 
 # ============================================================================
 # 数据库配置（优化连接池和性能）
@@ -228,6 +246,31 @@ CACHES = {
     'dummy': {
         'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
     }
+}
+
+# RQ 队列配置（示例配置，需在生产环境提供可用的 Redis 服务）
+RQ_QUEUES = {
+    'default': {
+        'HOST': os.environ.get('REDIS_HOST', 'localhost'),
+        'PORT': int(os.environ.get('REDIS_PORT', '6379')),
+        'DB': int(os.environ.get('REDIS_DB', '0')),
+        'PASSWORD': os.environ.get('REDIS_PASSWORD', ''),
+        'DEFAULT_TIMEOUT': 360,
+    },
+    'high': {
+        'HOST': os.environ.get('REDIS_HOST', 'localhost'),
+        'PORT': int(os.environ.get('REDIS_PORT', '6379')),
+        'DB': int(os.environ.get('REDIS_DB', '0')),
+        'PASSWORD': os.environ.get('REDIS_PASSWORD', ''),
+        'DEFAULT_TIMEOUT': 500,
+    },
+    'low': {
+        'HOST': os.environ.get('REDIS_HOST', 'localhost'),
+        'PORT': int(os.environ.get('REDIS_PORT', '6379')),
+        'DB': int(os.environ.get('REDIS_DB', '0')),
+        'PASSWORD': os.environ.get('REDIS_PASSWORD', ''),
+        'DEFAULT_TIMEOUT': 1000,
+    },
 }
 
 # Redis配置示例（生产环境使用）

@@ -5,12 +5,13 @@ from django.urls import path, include
 from django.contrib import admin
 from django.conf import settings
 from django.contrib.auth import views as auth_views
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from project import views
 from project.views_workload import workload_statistics_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
+
     # 认证路由
     path('accounts/login/', auth_views.LoginView.as_view(
         template_name='registration/login.html',
@@ -50,7 +51,7 @@ urlpatterns = [
     path('api/projects/', views.api_projects_list, name='api_projects_list'),
     path('api/procurements/', views.api_procurements_list, name='api_procurements_list'),
     path('api/contracts/', views.api_contracts_list, name='api_contracts_list'),
-    
+
     # 统计数据详情查看API
     path('api/statistics/<str:module>/details/', views.statistics_detail_api, name='statistics_detail_api'),
     path('monitoring/statistics/<str:module>/details/', views.statistics_detail_page, name='statistics_detail_page'),
@@ -64,14 +65,14 @@ urlpatterns = [
     
     # 数据导入API
     path('api/import/template/', views.download_import_template, name='download_import_template'),
-    
+
     # PDF智能导入路由
     path('pdf-import/', include('pdf_import.urls')),
     path('api/import/', views.import_data, name='import_data'),
     
     # 供应商管理路由
     path('supplier/', include('supplier_eval.urls')),
-    
+
     # 数据导出/导入API
     path('api/export/project-data/', views.export_project_data, name='export_project_data'),
     path('api/import/project-data/', views.import_project_data, name='import_project_data'),
@@ -87,7 +88,15 @@ urlpatterns = [
     path('procurements/create/', views.procurement_create, name='procurement_create'),
     path('contracts/create/', views.contract_create, name='contract_create'),
     path('payments/create/', views.payment_create, name='payment_create'),
-    
+
+    # OpenAPI schema & Swagger 文档
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path(
+        'api/docs/',
+        SpectacularSwaggerView.as_view(url_name='schema'),
+        name='api_docs',
+    ),
+
     # 用户使用手册
     path('user-manual/', views.user_manual, name='user_manual'),
 ]
