@@ -440,9 +440,12 @@ def update_monitor(request):
     return render(request, "monitoring/update.html", context)
 
 
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+@ensure_csrf_cookie
 def completeness_check(request):
-    """
-    齐全性检查监控 - 双视图模式（项目视图/个人视图）
+    """齐全性检查监控 - 双视图模式（项目视图/个人视图）
     参照归档监控的成功设计模式
     """
     from project.services.monitors.completeness_statistics import CompletenessStatisticsService

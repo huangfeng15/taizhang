@@ -695,7 +695,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)
             },
             markers: {
-                size: chartSeries.map(s => s.type === 'scatter' ? 6 : 0)
+                size: chartSeries.map(s => s.type === 'scatter' ? 8 : 0),  // 增大散点尺寸
+                hover: {
+                    size: chartSeries.map(s => s.type === 'scatter' ? 14 : 0),  // 悬停时显著增大
+                    sizeOffset: 6
+                },
+                strokeWidth: 2,  // 添加描边
+                strokeOpacity: 0.9,
+                fillOpacity: 0.9
             },
             dataLabels: {
                 enabled: false
@@ -739,6 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 enabled: true,
                 shared: false,
                 intersect: true,
+                followCursor: false,  // 固定在数据点附近
                 x: {
                     format: 'yyyy年MM月dd日'
                 },

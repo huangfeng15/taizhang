@@ -573,6 +573,24 @@ def api_contracts_list(request):
     return _views_api.api_contracts_list(request)
 
 
+# ==================== 齐全性检查快速编辑API ====================
+
+def api_procurement_detail_for_edit(request, procurement_code):
+    return _views_api.api_procurement_detail_for_edit(request, procurement_code)
+
+
+def api_procurement_quick_update(request, procurement_code):
+    return _views_api.api_procurement_quick_update(request, procurement_code)
+
+
+def api_contract_detail_for_edit(request, contract_code):
+    return _views_api.api_contract_detail_for_edit(request, contract_code)
+
+
+def api_contract_quick_update(request, contract_code):
+    return _views_api.api_contract_quick_update(request, contract_code)
+
+
 @staff_member_required
 def completeness_field_config(request):
     return _views_monitoring.completeness_field_config(request)

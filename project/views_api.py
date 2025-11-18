@@ -2,10 +2,16 @@ from django.core.paginator import Paginator
 from project.utils.pagination import apply_pagination
 from django.db.models import Q
 from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+import json
 
 from .models import Project
 from procurement.models import Procurement
 from contract.models import Contract
+from project.services.completeness import get_enabled_fields
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 
@@ -256,3 +262,163 @@ def api_contracts_list(request):
             },
         }
     )
+
+
+# ==================== 齐全性检查快速编辑API ====================
+
+def _format_field_value(value):
+    """格式化字段值"""
+    if value is None or value == '':
+        return ''
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif hasattr(value, 'strftime'):
+        # 确保日期格式为 YYYY-MM-DD（补零）
+        return value.strftime('%Y-%m-%d')
+    return str(value)
+
+
+def _parse_field_value(value, field_type):
+    """解析字段值"""
+    from datetime import datetime
+    
+    if value == '' or value is None:
+        return None
+    
+    if field_type == 'DateField':
+        if isinstance(value, str):
+            return datetime.strptime(value, '%Y-%m-%d').date()
+    elif field_type in ['DecimalField', 'FloatField']:
+        return float(value) if value else None
+    elif field_type == 'IntegerField':
+        return int(value) if value else None
+    
+    return value
+
+
+def _get_record_detail_for_edit(model_class, code_field, code_value, model_type):
+    """通用获取记录详情方法"""
+    try:
+        record = get_object_or_404(model_class, **{code_field: code_value})
+        enabled_fields = get_enabled_fields(model_type)
+        
+        field_data = {}
+        missing_fields = []
+        
+        for field_name in enabled_fields:
+            try:
+                field = model_class._meta.get_field(field_name)
+                value = getattr(record, field_name, None)
+                formatted_value = _format_field_value(value)
+                
+                if formatted_value == '':
+                    missing_fields.append(field.verbose_name)
+                
+                field_info = {
+                    'value': formatted_value,
+                    'label': field.verbose_name,
+                    'field_type': field.get_internal_type(),
+                    'is_required': not field.blank,
+                }
+                
+                # 如果字段有choices，添加选项列表
+                if hasattr(field, 'choices') and field.choices:
+                    field_info['choices'] = [
+                        {'value': choice[0], 'label': choice[1]}
+                        for choice in field.choices
+                    ]
+                
+                field_data[field_name] = field_info
+            except Exception:
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                code_field: code_value,
+                'fields': field_data,
+                'missing_fields': missing_fields,
+                'missing_count': len(missing_fields)
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'获取详情失败: {str(e)}'
+        }, status=400)
+
+
+def _quick_update_record(request, model_class, code_field, code_value, model_type):
+    """通用快速更新记录方法"""
+    try:
+        record = get_object_or_404(model_class, **{code_field: code_value})
+        data = json.loads(request.body)
+        enabled_fields = get_enabled_fields(model_type)
+        
+        updated_fields = []
+        for field_name, value in data.items():
+            if field_name in enabled_fields and hasattr(record, field_name):
+                try:
+                    field = model_class._meta.get_field(field_name)
+                    parsed_value = _parse_field_value(value, field.get_internal_type())
+                    setattr(record, field_name, parsed_value)
+                    if parsed_value:
+                        updated_fields.append(field.verbose_name)
+                except Exception:
+                    continue
+        
+        record.save()
+        
+        # 重新计算缺失字段
+        missing_fields = []
+        for field_name in enabled_fields:
+            value = getattr(record, field_name, None)
+            if value is None or value == '':
+                field = model_class._meta.get_field(field_name)
+                missing_fields.append(field.verbose_name)
+        
+        completeness = ((len(enabled_fields) - len(missing_fields)) / len(enabled_fields) * 100) if enabled_fields else 100
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'成功更新 {len(updated_fields)} 个字段',
+            'updated_fields': updated_fields,
+            'missing_count': len(missing_fields),
+            'completeness': round(completeness, 2),
+            'is_complete': len(missing_fields) == 0
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'更新失败: {str(e)}'
+        }, status=400)
+
+
+@require_http_methods(["GET"])
+@login_required
+@ensure_csrf_cookie
+def api_procurement_detail_for_edit(request, procurement_code):
+    """获取采购记录详情（用于编辑模态框）"""
+    return _get_record_detail_for_edit(Procurement, 'procurement_code', procurement_code, 'procurement')
+
+
+@require_http_methods(["POST"])
+@login_required
+def api_procurement_quick_update(request, procurement_code):
+    """快速更新采购记录"""
+    return _quick_update_record(request, Procurement, 'procurement_code', procurement_code, 'procurement')
+
+
+@require_http_methods(["GET"])
+@login_required
+@ensure_csrf_cookie
+def api_contract_detail_for_edit(request, contract_code):
+    """获取合同记录详情（用于编辑模态框）"""
+    return _get_record_detail_for_edit(Contract, 'contract_code', contract_code, 'contract')
+
+
+@require_http_methods(["POST"])
+@login_required
+def api_contract_quick_update(request, contract_code):
+    """快速更新合同记录"""
+    return _quick_update_record(request, Contract, 'contract_code', contract_code, 'contract')

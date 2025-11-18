@@ -1,3 +1,22 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 ## always response in  Chinese.
 
 \- 在Windows PowerShell中，ripgrep命令请统一使用外层单引号包围，内层双引号包围搜索词和文件路径，避免引号转义冲突。创建JavaScript文件时请确保语法正确且字符串引号匹配，PowerShell的Here-String必须完整闭合（@"......"@），不要截断命令。

@@ -175,10 +175,10 @@ function generateOptimizedScatterConfig(params) {
     const colors = getOptimizedColors(personCount);
     const legendConfig = calculateLegendLayout(personCount, containerWidth);
     
-    // 计算散点大小（人数越多，点越小）
-    let markerSize = 6;
-    if (personCount > 15) markerSize = 5;
-    if (personCount > 25) markerSize = 4;
+    // 计算散点大小（人数越多，点越小，但保持最小可交互尺寸）
+    let markerSize = 8;  // 增大基础尺寸
+    if (personCount > 15) markerSize = 7;
+    if (personCount > 25) markerSize = 6;
     
     // 基础配置
     const config = {
@@ -247,9 +247,12 @@ function generateOptimizedScatterConfig(params) {
         markers: {
             size: seriesData.map(s => s.type === 'scatter' ? markerSize : 0),
             hover: {
-                size: seriesData.map(s => s.type === 'scatter' ? markerSize + 3 : 0),
-                sizeOffset: 3
-            }
+                size: seriesData.map(s => s.type === 'scatter' ? markerSize + 6 : 0),  // 悬停时显著增大
+                sizeOffset: 6  // 增大悬停偏移量
+            },
+            strokeWidth: 2,  // 添加描边使散点更明显
+            strokeOpacity: 0.9,
+            fillOpacity: 0.9
         },
         dataLabels: {
             enabled: false
@@ -280,8 +283,20 @@ function generateOptimizedScatterConfig(params) {
         tooltip: {
             enabled: true,
             shared: false,
-            intersect: true,
-            followCursor: true,
+            intersect: true,  // 必须精确交叉才显示tooltip
+            followCursor: false,  // 不跟随鼠标，固定在数据点附近
+            custom: undefined,  // 使用默认tooltip
+            fillSeriesColor: false,
+            theme: 'light',
+            style: {
+                fontSize: '13px'
+            },
+            onDatasetHover: {
+                highlightDataSeries: true  // 悬停时高亮整个系列
+            },
+            marker: {
+                show: true  // 在tooltip中显示标记
+            },
             x: {
                 format: 'yyyy年MM月dd日'
             },

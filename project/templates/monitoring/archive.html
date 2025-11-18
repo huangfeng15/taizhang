@@ -584,11 +584,26 @@ document.addEventListener('DOMContentLoaded', function() {
             yaxis: {title: {text: '归档周期（天）'}, max: yMax, labels: {formatter: v => v ? Math.round(v) : ''}},
             title: {text: '归档周期散点分布图', align: 'left', style: {fontSize: '16px', fontWeight: 600}},
             stroke: {width: chartSeries.map(s => s.type === 'line' ? 3 : 0), dashArray: chartSeries.map(s => s.type === 'line' ? 5 : 0)},
-            markers: {size: chartSeries.map(s => s.type === 'scatter' ? 6 : 0)},
+            markers: {
+                size: chartSeries.map(s => s.type === 'scatter' ? 8 : 0),  // 增大散点尺寸
+                hover: {
+                    size: chartSeries.map(s => s.type === 'scatter' ? 14 : 0),  // 悬停时显著增大
+                    sizeOffset: 6
+                },
+                strokeWidth: 2,  // 添加描边
+                strokeOpacity: 0.9,
+                fillOpacity: 0.9
+            },
             dataLabels: {enabled: false},
             annotations: {yaxis: [{y: 0, y2: Math.max(PROCUREMENT_ARCHIVE_DEADLINE, CONTRACT_ARCHIVE_DEADLINE), fillColor: '#d4edda', opacity: 0.3}, {y: Math.max(PROCUREMENT_ARCHIVE_DEADLINE, CONTRACT_ARCHIVE_DEADLINE), y2: yMax, fillColor: '#f8d7da', opacity: 0.3}]},
             legend: {show: true, position: 'top', horizontalAlign: 'right'},
-            tooltip: {enabled: true, shared: false, intersect: true, x: {format: 'yyyy年MM月dd日'}, y: {formatter: function(value, {seriesIndex, dataPointIndex, w}) {
+            tooltip: {
+                enabled: true,
+                shared: false,
+                intersect: true,
+                followCursor: false,  // 固定在数据点附近
+                x: {format: 'yyyy年MM月dd日'},
+                y: {formatter: function(value, {seriesIndex, dataPointIndex, w}) {
                 const s = w.config.series[seriesIndex];
                 if (s.type === 'scatter' && s.data[dataPointIndex]) {
                     const p = s.data[dataPointIndex];

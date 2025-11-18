@@ -47,6 +47,12 @@ urlpatterns = [
     path('monitoring/completeness/field-config/', views.completeness_field_config, name='completeness_field_config'),
     path('api/completeness/field-config/update/', views.update_completeness_field_config, name='update_completeness_field_config'),
 
+    # 齐全性检查快速编辑API
+    path('api/procurement/<str:procurement_code>/detail-for-edit/', views.api_procurement_detail_for_edit, name='api_procurement_detail_for_edit'),
+    path('api/procurement/<str:procurement_code>/quick-update/', views.api_procurement_quick_update, name='api_procurement_quick_update'),
+    path('api/contract/<str:contract_code>/detail-for-edit/', views.api_contract_detail_for_edit, name='api_contract_detail_for_edit'),
+    path('api/contract/<str:contract_code>/quick-update/', views.api_contract_quick_update, name='api_contract_quick_update'),
+
     # 级联选择器数据API
     path('api/projects/', views.api_projects_list, name='api_projects_list'),
     path('api/procurements/', views.api_procurements_list, name='api_procurements_list'),

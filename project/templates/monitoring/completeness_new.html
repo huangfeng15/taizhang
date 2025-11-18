@@ -263,6 +263,31 @@
     transform: translateY(-2px);
 }
 
+/* 编辑按钮 - 统一风格 */
+.btn-edit-record {
+    padding: 6px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-edit-record:hover {
+    background: #40a9ff;
+    transform: translateY(-2px);
+    color: white;
+}
+
+.btn-edit-record i {
+    font-size: 12px;
+}
+
 /* 空状态 */
 .empty-state {
     text-align: center;
@@ -686,25 +711,34 @@
                 <div class="tab-content border border-top-0 p-3">
                     <div class="tab-pane fade show active" id="proc-incomplete" role="tabpanel">
                         {% if detail_data.procurement_incomplete %}
-                        <table class="table table-sm">
+                        <table class="table table-sm table-hover">
                             <thead>
                                 <tr>
-                                    <th>编号</th>
-                                    <th>名称</th>
-                                    <th>齐全率</th>
-                                    <th>缺失字段</th>
+                                    <th style="width: 15%;">编号</th>
+                                    <th style="width: 25%;">名称</th>
+                                    <th style="width: 10%;">齐全率</th>
+                                    <th style="width: 40%;">缺失字段</th>
+                                    <th style="width: 10%;">操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for record in detail_data.procurement_incomplete %}
-                                <tr>
+                                <tr data-record-type="procurement" data-record-code="{{ record.code }}">
                                     <td>{{ record.code }}</td>
                                     <td>{{ record.name }}</td>
-                                    <td>{{ record.completeness }}%</td>
+                                    <td><span class="badge bg-warning">{{ record.completeness }}%</span></td>
                                     <td>
-                                        <small>{{ record.missing_fields|join:", " }}
+                                        <small class="text-muted">{{ record.missing_fields|join:", " }}
                                         {% if record.missing_count > 5 %}等{{ record.missing_count }}个{% endif %}
                                         </small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary btn-edit-record"
+                                                data-record-type="procurement"
+                                                data-record-code="{{ record.code }}"
+                                                title="快速编辑">
+                                            <i class="fas fa-edit"></i> 编辑
+                                        </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -716,25 +750,34 @@
                     </div>
                     <div class="tab-pane fade" id="cont-incomplete" role="tabpanel">
                         {% if detail_data.contract_incomplete %}
-                        <table class="table table-sm">
+                        <table class="table table-sm table-hover">
                             <thead>
                                 <tr>
-                                    <th>编号</th>
-                                    <th>名称</th>
-                                    <th>齐全率</th>
-                                    <th>缺失字段</th>
+                                    <th style="width: 15%;">编号</th>
+                                    <th style="width: 25%;">名称</th>
+                                    <th style="width: 10%;">齐全率</th>
+                                    <th style="width: 40%;">缺失字段</th>
+                                    <th style="width: 10%;">操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for record in detail_data.contract_incomplete %}
-                                <tr>
+                                <tr data-record-type="contract" data-record-code="{{ record.code }}">
                                     <td>{{ record.code }}</td>
                                     <td>{{ record.name }}</td>
-                                    <td>{{ record.completeness }}%</td>
+                                    <td><span class="badge bg-warning">{{ record.completeness }}%</span></td>
                                     <td>
-                                        <small>{{ record.missing_fields|join:", " }}
+                                        <small class="text-muted">{{ record.missing_fields|join:", " }}
                                         {% if record.missing_count > 5 %}等{{ record.missing_count }}个{% endif %}
                                         </small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary btn-edit-record"
+                                                data-record-type="contract"
+                                                data-record-code="{{ record.code }}"
+                                                title="快速编辑">
+                                            <i class="fas fa-edit"></i> 编辑
+                                        </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -753,6 +796,51 @@
     </div>
 </div>
 {% endif %}
+
+<!-- 快速编辑模态框 -->
+<div class="modal fade" id="quickEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit"></i> 快速编辑 - <span id="editRecordCode"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editFormLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2 text-muted">正在加载数据...</p>
+                </div>
+                <div id="editFormContainer" style="display: none;">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>提示：</strong>只需填写缺失的字段，填写完成后点击"保存"即可快速完善记录。
+                    </div>
+                    <form id="quickEditForm">
+                        <div id="editFieldsContainer" class="row g-3">
+                            <!-- 动态生成的表单字段将插入这里 -->
+                        </div>
+                    </form>
+                </div>
+                <div id="editFormError" class="alert alert-danger" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="editErrorMessage"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-primary" id="btnSaveEdit">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -779,19 +867,330 @@ document.addEventListener('DOMContentLoaded', function() {
     // 将函数暴露到全局作用域
     window.viewDetail = viewDetail;
 
-    // 详情模态框：自动弹出与URL清理
+    // 详情模态框：自动弹出、滚动到不完整记录区域，并在关闭时清理URL
     {% if target_code %}
     const detailModalEl = document.getElementById('detailModal');
     if (detailModalEl && window.bootstrap) {
         const detailModal = new bootstrap.Modal(detailModalEl);
+
+        // 在模态框完全显示后，根据URL锚点或默认规则滚动到不完整记录区域
+        detailModalEl.addEventListener('shown.bs.modal', function() {
+            const hash = window.location.hash;
+            let targetId = null;
+
+            if (hash === '#proc-incomplete' || hash === '#cont-incomplete') {
+                targetId = hash.substring(1);
+            } else {
+                // 没有明确锚点时，优先滚到采购不完整记录，其次合同不完整记录
+                if (document.getElementById('proc-incomplete')) {
+                    targetId = 'proc-incomplete';
+                } else if (document.getElementById('cont-incomplete')) {
+                    targetId = 'cont-incomplete';
+                }
+            }
+
+            if (targetId) {
+                // 如果需要切换tab（特别是合同不完整记录），先切换tab再滚动
+                if (targetId === 'cont-incomplete') {
+                    const contTabTrigger = document.querySelector('#cont-incomplete-tab');
+                    if (contTabTrigger && window.bootstrap && bootstrap.Tab) {
+                        const contTab = new bootstrap.Tab(contTabTrigger);
+                        contTab.show();
+                    }
+                } else if (targetId === 'proc-incomplete') {
+                    const procTabTrigger = document.querySelector('#proc-incomplete-tab');
+                    if (procTabTrigger && window.bootstrap && bootstrap.Tab) {
+                        const procTab = new bootstrap.Tab(procTabTrigger);
+                        procTab.show();
+                    }
+                }
+
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+                }
+            }
+        });
+
         detailModal.show();
+
         detailModalEl.addEventListener('hidden.bs.modal', function() {
             const url = new URL(window.location.href);
             url.searchParams.delete('target_code');
+            url.hash = '';
             history.replaceState({}, '', url.toString());
         });
     }
     {% endif %}
+
+    // ==================== 快速编辑功能 ====================
+    
+    const quickEditModal = new bootstrap.Modal(document.getElementById('quickEditModal'));
+    let currentEditType = null;
+    let currentEditCode = null;
+    
+    // 监听编辑按钮点击
+    document.querySelectorAll('.btn-edit-record').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const recordType = this.dataset.recordType;
+            const recordCode = this.dataset.recordCode;
+            openEditModal(recordType, recordCode);
+        });
+    });
+    
+    // 打开编辑模态框
+    function openEditModal(recordType, recordCode) {
+        currentEditType = recordType;
+        currentEditCode = recordCode;
+        
+        // 显示模态框和loading
+        document.getElementById('editFormLoading').style.display = 'block';
+        document.getElementById('editFormContainer').style.display = 'none';
+        document.getElementById('editFormError').style.display = 'none';
+        document.getElementById('editRecordCode').textContent = recordCode;
+        
+        quickEditModal.show();
+        
+        // 加载数据
+        const apiUrl = recordType === 'procurement'
+            ? `/api/procurement/${recordCode}/detail-for-edit/`
+            : `/api/contract/${recordCode}/detail-for-edit/`;
+        
+        fetch(apiUrl)
+            .then(response => {
+                // 先检查HTTP状态
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+                }
+                // 检查content-type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`服务器返回了非JSON数据，可能是HTML页面。URL: ${apiUrl}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    renderEditForm(data.data);
+                    document.getElementById('editFormLoading').style.display = 'none';
+                    document.getElementById('editFormContainer').style.display = 'block';
+                } else {
+                    showError(data.message || '加载失败');
+                }
+            })
+            .catch(error => {
+                console.error('API调用错误:', error);
+                showError('加载失败: ' + error.message + '\n请检查控制台获取详细信息');
+            });
+    }
+    
+    // 渲染编辑表单
+    function renderEditForm(data) {
+        const container = document.getElementById('editFieldsContainer');
+        container.innerHTML = '';
+        
+        const fields = data.fields;
+        const missingFields = data.missing_fields || [];
+        
+        // 只显示缺失的字段
+        Object.keys(fields).forEach(fieldName => {
+            const field = fields[fieldName];
+            
+            // 只渲染缺失的字段
+            if (field.value === '' || field.value === null) {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-md-6';
+                
+                const formGroup = document.createElement('div');
+                formGroup.className = 'mb-3';
+                
+                const label = document.createElement('label');
+                label.className = 'form-label';
+                label.textContent = field.label;
+                if (field.is_required) {
+                    const required = document.createElement('span');
+                    required.className = 'text-danger';
+                    required.textContent = ' *';
+                    label.appendChild(required);
+                }
+                
+                let input;
+                
+                // 优先检查是否有枚举选项
+                if (field.choices && field.choices.length > 0) {
+                    input = document.createElement('select');
+                    input.className = 'form-select';
+                    input.name = fieldName;
+                    
+                    // 添加空选项
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = '';
+                    emptyOption.textContent = '-- 请选择 --';
+                    input.appendChild(emptyOption);
+                    
+                    // 添加枚举选项
+                    field.choices.forEach(choice => {
+                        const option = document.createElement('option');
+                        option.value = choice.value;
+                        option.textContent = choice.label;
+                        if (field.value === choice.value) {
+                            option.selected = true;
+                        }
+                        input.appendChild(option);
+                    });
+                } else if (field.field_type === 'DateField') {
+                    input = document.createElement('input');
+                    input.type = 'date';
+                    input.className = 'form-control';
+                    input.name = fieldName;
+                    input.value = field.value;
+                } else if (field.field_type === 'DecimalField' || field.field_type === 'FloatField') {
+                    input = document.createElement('input');
+                    input.type = 'number';
+                    input.step = '0.01';
+                    input.className = 'form-control';
+                    input.name = fieldName;
+                    input.value = field.value;
+                } else if (field.field_type === 'TextField') {
+                    input = document.createElement('textarea');
+                    input.className = 'form-control';
+                    input.name = fieldName;
+                    input.rows = 2;
+                    input.value = field.value;
+                } else {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'form-control';
+                    input.name = fieldName;
+                    input.value = field.value;
+                }
+                
+                formGroup.appendChild(label);
+                formGroup.appendChild(input);
+                colDiv.appendChild(formGroup);
+                container.appendChild(colDiv);
+            }
+        });
+        
+        if (container.children.length === 0) {
+            container.innerHTML = '<div class="col-12"><div class="alert alert-success"><i class="fas fa-check-circle"></i> 所有字段都已填写完整！</div></div>';
+            document.getElementById('btnSaveEdit').style.display = 'none';
+        } else {
+            document.getElementById('btnSaveEdit').style.display = 'inline-block';
+        }
+    }
+    
+    // 保存编辑
+    document.getElementById('btnSaveEdit').addEventListener('click', function() {
+        const form = document.getElementById('quickEditForm');
+        const formData = new FormData(form);
+        const data = {};
+        
+        formData.forEach((value, key) => {
+            if (value) {
+                data[key] = value;
+            }
+        });
+        
+        if (Object.keys(data).length === 0) {
+            showError('请至少填写一个字段');
+            return;
+        }
+        
+        // 禁用保存按钮
+        const btnSave = this;
+        btnSave.disabled = true;
+        btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+        
+        const apiUrl = currentEditType === 'procurement'
+            ? `/api/procurement/${currentEditCode}/quick-update/`
+            : `/api/contract/${currentEditCode}/quick-update/`;
+        
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            const contentType = response.headers.get('content-type') || '';
+
+            // 如果后端返回JSON，即使是400/500，也优先解析出具体错误信息
+            if (contentType.includes('application/json')) {
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        // 将后端的 message 暴露出来，便于用户看到具体失败原因
+                        const msg = data && data.message
+                            ? data.message
+                            : `HTTP错误: ${response.status} ${response.statusText}`;
+                        throw new Error(msg);
+                    }
+                    return data;
+                });
+            }
+
+            // 非JSON响应的错误情况
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+            }
+            throw new Error(`服务器返回了非JSON数据。URL: ${apiUrl}`);
+        })
+        .then(result => {
+            if (result.success) {
+                // 恢复按钮状态
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="fas fa-save"></i> 保存';
+
+                // 交互期望：保存后关闭快速编辑模态框，并重新加载项目详情模态框，且停留在不完整记录区域
+                quickEditModal.hide();
+
+                const url = new URL(window.location.href);
+                // 根据当前编辑的是采购还是合同，设置锚点，方便详情模态框滚动到对应的不完整记录区域
+                if (currentEditType === 'procurement') {
+                    url.hash = '#proc-incomplete';
+                } else if (currentEditType === 'contract') {
+                    url.hash = '#cont-incomplete';
+                }
+                window.location.href = url.toString();
+            } else {
+                showError(result.message || '保存失败');
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="fas fa-save"></i> 保存';
+            }
+        })
+        .catch(error => {
+            console.error('保存错误:', error);
+            showError('保存失败: ' + error.message + '\n请检查浏览器控制台获取详细信息');
+            btnSave.disabled = false;
+            btnSave.innerHTML = '<i class="fas fa-save"></i> 保存';
+        });
+    });
+    
+    // 显示错误信息
+    function showError(message) {
+        document.getElementById('editFormLoading').style.display = 'none';
+        document.getElementById('editFormContainer').style.display = 'none';
+        document.getElementById('editFormError').style.display = 'block';
+        document.getElementById('editErrorMessage').textContent = message;
+    }
+    
+    // 获取CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 });
 </script>
 {% endblock %}

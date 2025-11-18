@@ -348,7 +348,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_HOST = '10.168.3.240:3500'  # 开发服务器地址
 
 # CSRF安全增强配置
-CSRF_COOKIE_HTTPONLY = True  # 防止JavaScript访问CSRF Cookie
+# 注意：前端大量使用 fetch + X-CSRFToken + document.cookie 读取 CSRF Token
+# 如果将 CSRF Cookie 设置为 HttpOnly=True，JavaScript 无法读取，所有这类请求都会 403
+# 因此这里必须保持为 False，避免与现有前端模式冲突。
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Strict'  # 严格的CSRF保护
 CSRF_COOKIE_SECURE = False if DEBUG else True  # 生产环境强制HTTPS
 CSRF_COOKIE_AGE = 31449600  # 1年（默认值）

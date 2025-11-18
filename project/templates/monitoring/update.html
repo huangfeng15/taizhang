@@ -1077,6 +1077,16 @@ document.addEventListener('DOMContentLoaded', function () {
             containerWidth: el.offsetWidth,
             enableInteraction: true
         });
+        
+        // 增强散点的可交互性
+        config.markers.size = chartSeries.map(s => s.type === 'scatter' ? 8 : 0);
+        config.markers.hover = {
+            size: chartSeries.map(s => s.type === 'scatter' ? 14 : 0),
+            sizeOffset: 6
+        };
+        config.markers.strokeWidth = 2;
+        config.markers.strokeOpacity = 0.9;
+        config.markers.fillOpacity = 0.9;
 
         // 计算X轴范围
         const allX = allPoints.map(p => p.x);
