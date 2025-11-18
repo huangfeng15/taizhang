@@ -241,7 +241,20 @@ def project_edit(request, project_code):
         form = ProjectForm(request.POST, instance=project)
         if form.is_valid():
             try:
-                form.save()
+                # 计算字段级变更并将结果传递给操作日志中间件
+                from project.utils.operation_log_helpers import capture_model_changes
+
+                updated_project, changes = capture_model_changes(project, form)
+                if changes:
+                    # 仅在确有字段变化时记录，避免产生噪声日志
+                    request.operation_log_meta = {
+                        "changes": changes,
+                    }
+
+                updated_project.save()
+                # 若表单包含多对多字段，确保关系一并保存
+                if hasattr(form, "save_m2m"):
+                    form.save_m2m()
                 return JsonResponse({
                     'success': True,
                     'message': '项目信息更新成功'

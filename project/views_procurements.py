@@ -331,7 +331,18 @@ def procurement_edit(request, procurement_code):
         form = ProcurementForm(request.POST, instance=procurement)
         if form.is_valid():
             try:
-                form.save()
+                # 计算字段级变更并将结果传递给操作日志中间件
+                from project.utils.operation_log_helpers import capture_model_changes
+
+                updated_procurement, changes = capture_model_changes(procurement, form)
+                if changes:
+                    request.operation_log_meta = {
+                        "changes": changes,
+                    }
+
+                updated_procurement.save()
+                if hasattr(form, "save_m2m"):
+                    form.save_m2m()
                 return JsonResponse({
                     'success': True,
                     'message': '采购信息更新成功'

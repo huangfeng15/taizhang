@@ -25,8 +25,8 @@
                     <th style="width: 150px;">操作时间</th>
                     <th style="width: 100px;">用户</th>
                     <th style="width: 500px;">操作描述</th>
-                    <th style="width: 120px;">IP地址</th>
                     {% if is_superuser %}
+                    <th style="width: 120px;">IP地址</th>
                     <th style="width: 80px;">操作</th>
                     {% endif %}
                 </tr>
@@ -43,8 +43,8 @@
                         <span class="badge badge-secondary">{{ log.get_object_type_display }}</span>
                         <div style="margin-top: 5px;">{{ log.description|default:log.object_repr|default:log.object_id }}</div>
                     </td>
-                    <td>{{ log.ip_address|default:"-" }}</td>
                     {% if is_superuser %}
+                    <td>{{ log.ip_address|default:"-" }}</td>
                     <td>
                         <button class="btn btn-sm btn-danger" onclick="deleteLog({{ log.id }})">
                             <i class="fas fa-trash"></i> 删除
@@ -54,7 +54,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if is_superuser %}6{% else %}5{% endif %}" class="empty-state">
+                    <td colspan="{% if is_superuser %}5{% else %}3{% endif %}" class="empty-state">
                         <i class="fas fa-inbox"></i>
                         <p>暂无操作日志</p>
                     </td>

@@ -25,6 +25,8 @@ from .models import Project
 from contract.models import Contract
 from procurement.models import Procurement
 from payment.models import Payment
+from project.models_operation_log import OperationLog
+from project.utils.operation_log_helpers import get_client_ip
 from project.services.export_service import (
     generate_project_excel,
     import_project_excel,
@@ -511,7 +513,31 @@ def batch_delete_contracts(request):
         if not contract_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的合同'})
         try:
-            deleted_count = Contract.objects.filter(contract_code__in=contract_codes).delete()[0]
+            qs = Contract.objects.filter(contract_code__in=contract_codes)
+            targets = list(qs)
+            deleted_count = qs.delete()[0]
+
+            # 为非超级用户记录删除操作日志(日志写入失败不影响主流程)
+            if deleted_count and request.user.is_authenticated and not request.user.is_superuser:
+                try:
+                    ip = get_client_ip(request)
+                    logs = [
+                        OperationLog(
+                            user=request.user,
+                            operation_type="delete",
+                            object_type="contract",
+                            object_id=obj.contract_code,
+                            object_repr=str(obj),
+                            description=f"用户 {request.user.username} 删除了合同: {obj}",
+                            ip_address=ip,
+                            changes=None,
+                        )
+                        for obj in targets
+                    ]
+                    OperationLog.objects.bulk_create(logs)
+                except Exception:
+                    pass
+
             return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条合同', 'deleted_count': deleted_count})
         except ProtectedError:
             return JsonResponse({
@@ -532,7 +558,31 @@ def batch_delete_payments(request):
         if not payment_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的付款记录'})
         try:
-            deleted_count = Payment.objects.filter(payment_code__in=payment_codes).delete()[0]
+            qs = Payment.objects.filter(payment_code__in=payment_codes)
+            targets = list(qs)
+            deleted_count = qs.delete()[0]
+
+            # 为非超级用户记录删除操作日志(日志写入失败不影响主流程)
+            if deleted_count and request.user.is_authenticated and not request.user.is_superuser:
+                try:
+                    ip = get_client_ip(request)
+                    logs = [
+                        OperationLog(
+                            user=request.user,
+                            operation_type="delete",
+                            object_type="payment",
+                            object_id=obj.payment_code,
+                            object_repr=str(obj),
+                            description=f"用户 {request.user.username} 删除了付款记录: {obj}",
+                            ip_address=ip,
+                            changes=None,
+                        )
+                        for obj in targets
+                    ]
+                    OperationLog.objects.bulk_create(logs)
+                except Exception:
+                    pass
+
             return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条付款记录', 'deleted_count': deleted_count})
         except ProtectedError:
             return JsonResponse({
@@ -553,7 +603,31 @@ def batch_delete_procurements(request):
         if not procurement_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的采购项目'})
         try:
-            deleted_count = Procurement.objects.filter(procurement_code__in=procurement_codes).delete()[0]
+            qs = Procurement.objects.filter(procurement_code__in=procurement_codes)
+            targets = list(qs)
+            deleted_count = qs.delete()[0]
+
+            # 为非超级用户记录删除操作日志(日志写入失败不影响主流程)
+            if deleted_count and request.user.is_authenticated and not request.user.is_superuser:
+                try:
+                    ip = get_client_ip(request)
+                    logs = [
+                        OperationLog(
+                            user=request.user,
+                            operation_type="delete",
+                            object_type="procurement",
+                            object_id=obj.procurement_code,
+                            object_repr=str(obj),
+                            description=f"用户 {request.user.username} 删除了采购项目: {obj}",
+                            ip_address=ip,
+                            changes=None,
+                        )
+                        for obj in targets
+                    ]
+                    OperationLog.objects.bulk_create(logs)
+                except Exception:
+                    pass
+
             return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个采购项目', 'deleted_count': deleted_count})
         except ProtectedError:
             return JsonResponse({
@@ -574,7 +648,31 @@ def batch_delete_projects(request):
         if not project_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的项目'})
         try:
-            deleted_count = Project.objects.filter(project_code__in=project_codes).delete()[0]
+            qs = Project.objects.filter(project_code__in=project_codes)
+            targets = list(qs)
+            deleted_count = qs.delete()[0]
+
+            # 为非超级用户记录删除操作日志(日志写入失败不影响主流程)
+            if deleted_count and request.user.is_authenticated and not request.user.is_superuser:
+                try:
+                    ip = get_client_ip(request)
+                    logs = [
+                        OperationLog(
+                            user=request.user,
+                            operation_type="delete",
+                            object_type="project",
+                            object_id=obj.project_code,
+                            object_repr=str(obj),
+                            description=f"用户 {request.user.username} 删除了项目: {obj}",
+                            ip_address=ip,
+                            changes=None,
+                        )
+                        for obj in targets
+                    ]
+                    OperationLog.objects.bulk_create(logs)
+                except Exception:
+                    pass
+
             return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个项目', 'deleted_count': deleted_count})
         except ProtectedError:
             return JsonResponse({

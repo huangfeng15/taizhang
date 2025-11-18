@@ -542,7 +542,18 @@ def contract_edit(request, contract_code):
         form = ContractForm(request.POST, instance=contract)
         if form.is_valid():
             try:
-                form.save()
+                # 计算字段级变更并将结果传递给操作日志中间件
+                from project.utils.operation_log_helpers import capture_model_changes
+
+                updated_contract, changes = capture_model_changes(contract, form)
+                if changes:
+                    request.operation_log_meta = {
+                        "changes": changes,
+                    }
+
+                updated_contract.save()
+                if hasattr(form, "save_m2m"):
+                    form.save_m2m()
                 return JsonResponse({
                     'success': True,
                     'message': '合同信息更新成功'

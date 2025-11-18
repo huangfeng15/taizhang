@@ -354,6 +354,12 @@ def _quick_update_record(request, model_class, code_field, code_value, model_typ
         record = get_object_or_404(model_class, **{code_field: code_value})
         data = json.loads(request.body)
         enabled_fields = get_enabled_fields(model_type)
+
+        # 记录原始值，用于后续构造字段级变更日志
+        original_values = {}
+        for field_name in enabled_fields:
+            if hasattr(record, field_name):
+                original_values[field_name] = getattr(record, field_name, None)
         
         updated_fields = []
         for field_name, value in data.items():
@@ -368,6 +374,23 @@ def _quick_update_record(request, model_class, code_field, code_value, model_typ
                     continue
         
         record.save()
+
+        # 构造字段级变更信息，供操作日志中间件使用
+        changes = {}
+        for field_name in enabled_fields:
+            if not hasattr(record, field_name):
+                continue
+            old_value = original_values.get(field_name)
+            new_value = getattr(record, field_name, None)
+            if old_value != new_value:
+                changes[field_name] = {
+                    "old": str(old_value) if old_value is not None else None,
+                    "new": str(new_value) if new_value is not None else None,
+                }
+
+        if changes:
+            # 中间件会优先使用此结构化 diff 生成更精确的操作日志
+            request.operation_log_meta = {"changes": changes}
         
         # 重新计算缺失字段
         missing_fields = []

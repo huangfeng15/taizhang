@@ -10,6 +10,7 @@ class OperationLog(models.Model):
     OPERATION_TYPE_CHOICES = [
         ('create', '新增'),
         ('update', '修改'),
+        ('delete', '删除'),
     ]
     
     OBJECT_TYPE_CHOICES = [
@@ -30,7 +31,7 @@ class OperationLog(models.Model):
         '操作类型',
         max_length=10,
         choices=OPERATION_TYPE_CHOICES,
-        help_text='新增或修改'
+        help_text='新增、修改或删除'
     )
     
     object_type = models.CharField(

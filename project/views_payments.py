@@ -174,7 +174,18 @@ def payment_edit(request, payment_code):
         form = PaymentForm(request.POST, instance=payment)
         if form.is_valid():
             try:
-                form.save()
+                # 计算字段级变更并将结果传递给操作日志中间件
+                from project.utils.operation_log_helpers import capture_model_changes
+
+                updated_payment, changes = capture_model_changes(payment, form)
+                if changes:
+                    request.operation_log_meta = {
+                        "changes": changes,
+                    }
+
+                updated_payment.save()
+                if hasattr(form, "save_m2m"):
+                    form.save_m2m()
                 return JsonResponse({
                     'success': True,
                     'message': '付款信息更新成功'
