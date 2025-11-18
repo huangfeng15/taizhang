@@ -9,6 +9,7 @@ from project.models_base import AuditBaseModel
 from project.validators import validate_code_field, validate_and_clean_code
 from project.enums import ProjectStatus
 from project.models_completeness_config import CompletenessFieldConfig
+from project.models_operation_log import OperationLog
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

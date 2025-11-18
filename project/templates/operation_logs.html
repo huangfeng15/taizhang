@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}操作日志 - 项目采购与成本管理系统{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">操作日志</h1>
+    <div class="breadcrumb">
+        <a href="{% url 'dashboard' %}">首页</a>
+        <span>/</span>
+        <span>操作日志</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">日志记录</h2>
+    </div>
+    
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 150px;">操作时间</th>
+                    <th style="width: 100px;">用户</th>
+                    <th style="width: 500px;">操作描述</th>
+                    <th style="width: 120px;">IP地址</th>
+                    {% if is_superuser %}
+                    <th style="width: 80px;">操作</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ log.user.username }}</td>
+                    <td style="text-align: left; white-space: pre-line;">
+                        <span class="badge {% if log.operation_type == 'create' %}badge-success{% else %}badge-info{% endif %}">
+                            {{ log.get_operation_type_display }}
+                        </span>
+                        <span class="badge badge-secondary">{{ log.get_object_type_display }}</span>
+                        <div style="margin-top: 5px;">{{ log.description|default:log.object_repr|default:log.object_id }}</div>
+                    </td>
+                    <td>{{ log.ip_address|default:"-" }}</td>
+                    {% if is_superuser %}
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteLog({{ log.id }})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if is_superuser %}6{% else %}5{% endif %}" class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>暂无操作日志</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if logs.has_other_pages %}
+    <div class="pagination">
+        <span class="pagination-info">
+            第 {{ logs.number }} 页，共 {{ logs.paginator.num_pages }} 页
+        </span>
+        
+        {% if logs.has_previous %}
+        <a href="?page=1" class="pagination-prev">首页</a>
+        <a href="?page={{ logs.previous_page_number }}" class="pagination-prev">上一页</a>
+        {% else %}
+        <span class="pagination-prev disabled">首页</span>
+        <span class="pagination-prev disabled">上一页</span>
+        {% endif %}
+        
+        {% if logs.has_next %}
+        <a href="?page={{ logs.next_page_number }}" class="pagination-next">下一页</a>
+        <a href="?page={{ logs.paginator.num_pages }}" class="pagination-next">末页</a>
+        {% else %}
+        <span class="pagination-next disabled">下一页</span>
+        <span class="pagination-next disabled">末页</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function deleteLog(logId) {
+    const confirmed = await CustomDialog.confirm({
+        title: '确认删除',
+        message: '确定要删除这条操作日志吗？',
+        type: 'warning'
+    });
+    
+    if (!confirmed) return;
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch('/api/operation-logs/delete/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({ log_id: logId })
+    })
+    .then(response => response.json())
+    .then(async data => {
+        if (data.success) {
+            await CustomDialog.alert({
+                title: '删除成功',
+                message: data.message,
+                type: 'success'
+            });
+            window.location.reload();
+        } else {
+            await CustomDialog.alert({
+                title: '删除失败',
+                message: data.message,
+                type: 'error'
+            });
+        }
+    })
+    .catch(async error => {
+        await CustomDialog.alert({
+            title: '删除失败',
+            message: error.message,
+            type: 'error'
+        });
+    });
+}
+</script>
+{% endblock %}

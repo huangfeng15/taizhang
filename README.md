@@ -1,8 +1,8 @@
 # 项目采购与成本管理系统
 
-**版本：** v3.0
+**版本：** v3.5+
 **状态：** 生产就绪
-**技术栈：** Python 3.10+ | Django 4.2 | SQLite | Bootstrap 5 | Chart.js
+**技术栈：** Python 3.10+ | Django 5.2 | SQLite | Bootstrap 5 | Chart.js | RESTful API
 
 ---
 
@@ -32,18 +32,25 @@
 
 ## 🎯 系统简介
 
-项目采购与成本管理系统是一套专为企业内部设计的轻量级数据管理平台。它采用 **"Django Admin + 自定义前端"** 的混合架构，旨在将分散在Excel中的采购、合同、付款、结算及供应商评价数据进行集中化、结构化管理，并提供强大的数据监控与统计分析能力。
+项目采购与成本管理系统是一套专为企业内部设计的轻量级数据管理平台。它采用 **"Django Admin + 自定义前端 + RESTful API"** 的混合架构，旨在将分散在Excel中的采购、合同、付款、结算及供应商评价数据进行集中化、结构化管理，并提供强大的数据监控与统计分析能力。
 
 ### ✨ 核心特性
 
-- **五大核心模块**: 覆盖从采购到结算的全业务流程。
-- **智能数据导入**: 支持Excel长/宽表格式，内置数据校验。
+- **六大业务模块**: 覆盖从采购到结算、供应商评价的全业务流程。
+- **PDF智能识别**: 自动识别5种采购文档类型，提取32+个字段，成功率100%。
+- **智能数据导入**: 支持Excel长/宽表格式，内置数据校验和批量导入。
 - **监控驾驶舱**: 实时洞察归档进度、数据完整性与更新动态。
-- **深度统计分析**: 提供多维度的数据透视与图表可视化。
+- **深度统计分析**: 提供多维度的数据透视、图表可视化与排名统计。
+- **RESTful API**: 提供完整的API接口，支持OpenAPI/Swagger文档。
+- **异步任务处理**: 支持大报表等耗时任务的后台异步处理。
 - **现代化前端交互**:
   - **智能选择器**: 支持搜索、分页与级联筛选。
   - **前端编辑/新增**: 通过模态框实现流畅的数据操作体验。
   - **全局筛选**: 跨页面的年份、项目联动筛选。
+  - **工作负载统计**: 可视化展示团队工作量分布。
+- **多环境部署**: 支持Git分支隔离、HTTPS部署、局域网访问。
+- **数据完整性**: 内置20+项完整性检查规则，支持动态配置。
+- **安全性增强**: 支持CSRF保护、XSS防护、SQL注入防护。
 
 ---
 
@@ -124,33 +131,50 @@ restart_server.bat
 
 ```
 taizhang/
-├── config/              # Django全局配置 (settings.py, urls.py)
-├── project/             # 核心主应用
-│   ├── services/        # ★ 业务服务层 (统计、监控、报表逻辑)
-│   ├── templates/       # ★ 自定义前端页面
-│   ├── static/          # ★ CSS/JS等静态资源
-│   ├── views.py         # 视图聚合入口，统一注册URL与跨模块调用
-│   ├── views_helpers.py # 公共过滤、分页等视图辅助函数
-│   ├── views_projects.py        # 仪表盘、项目列表/详情视图
-│   ├── views_procurements.py    # 采购业务视图
-│   ├── views_contracts.py       # 合同视图与批量操作
-│   ├── views_payments.py        # 付款与结算视图
-│   ├── views_monitoring.py      # 档案归档、监测面板视图
-│   ├── views_statistics.py      # 统计分析与图表接口
-│   ├── views_ops.py             # 数据导入/清理等运维视图
-│   ├── views_api.py             # JSON API 及异步接口
-│   └── models.py        # 项目模型
-├── procurement/         # 采购应用
-├── contract/            # 合同应用
-├── payment/             # 付款应用
-├── settlement/          # 结算应用
-├── supplier_eval/       # 供应商评价应用
-├── docs/                # 项目文档
-├── scripts/             # 辅助脚本
-├── db.sqlite3           # 数据库文件
-├── manage.py            # Django管理入口
-├── requirements.txt     # Python依赖
-└── DEVELOPMENT.md       # ★ 开发与贡献指南
+├── config/                   # Django全局配置 (settings.py, urls.py, wsgi.py)
+├── project/                  # 核心主应用（领域聚合）
+│   ├── services/             # ★ 业务服务层（统计、监控、导出、安全性）
+│   │   ├── export_service.py # 统一报表导出服务
+│   │   ├── statistics.py     # 统计计算服务
+│   │   ├── archive_monitor.py # 归档监控服务
+│   │   ├── completeness.py   # 数据完整性检查
+│   │   └── security/         # 安全配置（会话、密码策略）
+│   ├── templates/            # ★ 自定义前端页面（Bootstrap 5 + Chart.js）
+│   ├── static/               # ★ CSS/JS等静态资源
+│   │   ├── css/              # 样式文件
+│   │   └── js/               # JavaScript组件
+│   ├── views_*.py            # 模块化视图（按业务功能拆分）
+│   │   ├── views_projects.py # 项目相关视图
+│   │   ├── views_monitoring.py # 监控面板视图
+│   │   ├── views_statistics.py # 统计分析视图
+│   │   └── views_api.py      # REST API接口
+│   ├── models.py             # Project模型
+│   ├── middleware/           # 自定义中间件（登录验证、性能监控）
+│   └── management/commands/  # 自定义管理命令
+├── procurement/              # 采购管理（Procurement模型）
+├── contract/                 # 合同管理（Contract模型）
+├── payment/                  # 付款管理（Payment模型）
+├── settlement/               # 结算管理（Settlement模型）
+├── supplier_eval/            # 供应商评价（SupplierEvaluation模型）
+├── pdf_import/               # ★ PDF智能识别导入模块（独立可运行）
+│   ├── core/                 # 核心引擎（检测器、提取器、配置加载器）
+│   ├── config/               # YAML配置文件
+│   ├── utils/                # 工具类（文本解析、日期/金额解析）
+│   └── standalone_extract.py # 独立验证脚本
+├── docs/                     # 项目文档和指南
+├── scripts/                  # 运维和数据处理脚本
+├── analytics/                # 性能分析数据
+├── cache/                    # 文件缓存目录
+├── ssl_certs/                # SSL证书（自签名）
+├── backups/                  # 数据库备份
+├── media/                    # 用户上传文件
+├── logs/                     # 日志文件
+├── db.sqlite3                # SQLite数据库
+├── manage.py                 # Django管理入口
+├── requirements.txt          # Python依赖清单
+├── start_server.bat          # 启动HTTPS服务器脚本
+├── stop_server.bat           # 停止服务器脚本
+└── CLAUDE.md                 # Claude开发配置指南
 ```
 
 ---
@@ -164,6 +188,11 @@ taizhang/
 | **开发与贡献指南** | [`DEVELOPMENT.md`](DEVELOPMENT.md) | 项目结构、开发命令、代码规范。 |
 | **系统架构分析** | [`docs/系统架构分析文档.md`](docs/系统架构分析文档.md) | 技术架构、模块设计、数据流。 |
 | **数据模型手册** | [`docs/数据模型使用手册.md`](docs/数据模型使用手册.md) | 模型字段、关系图、业务规则。 |
+| **环境隔离指南** | [`docs/Git分支环境隔离指南.md`](docs/Git分支环境隔离指南.md) | Git分支策略、环境管理。 |
+| **HTTPS配置指南** | [`docs/HTTPS配置指南.md`](docs/HTTPS配置指南.md) | SSL证书、局域网部署说明。 |
+| **PDF提取说明** | [`pdf_import/README.md`](pdf_import/README.md) | PDF智能识别模块详细文档。 |
+| **PDF校验配置** | [`docs/PDF校验依赖配置说明.md`](docs/PDF校验依赖配置说明.md) | PDF提取模块安装配置。 |
+| **OpenAPI使用指南** | [`docs/OpenSpec使用指南.md`](docs/OpenSpec使用指南.md) | OpenAPI测试规范。 |
 | **局域网部署说明** | [`docs/局域网部署说明.md`](docs/局域网部署说明.md) | 防火墙配置、网络设置。 |
 | **性能优化指南** | [`docs/性能优化说明.md`](docs/性能优化说明.md) | 查询优化、缓存策略、前端性能。 |
 | **专业术语词汇表** | [`docs/专业术语词汇表.md`](docs/专业术语词汇表.md) | 统一的业务与技术术语定义。 |
@@ -172,48 +201,276 @@ taizhang/
 
 ## 💡 常用命令
 
-### 数据导入
+### 快速开发
 ```bash
-# 导入采购数据 (支持 .xlsx 和 .csv)
-python manage.py import_excel data/imports/procurement.xlsx
-```
+# 1. 安装依赖（推荐在虚拟环境中）
+pip install -r requirements.txt
 
-### 系统维护
-```bash
-# 数据库迁移
+# 2. 数据库迁移
 python manage.py makemigrations
 python manage.py migrate
 
-# 清理所有数据 (危险操作，会清空数据库！)
+# 3. 创建管理员
+python manage.py createsuperuser
+
+# 4. 启动开发服务器
+python manage.py runserver 0.0.0.0:8000
+
+# 5. 启动生产HTTPS服务器
+start_server.bat
+```
+
+### PDF智能识别
+```bash
+# 独立验证PDF提取（无需Django运行）
+python pdf_import/standalone_extract.py
+
+# 测试PDF类型检测
+python -c "from pdf_import.core import PDFDetector; d=PDFDetector(); print(d.detect('path/to/file.pdf'))"
+```
+
+### 数据导入/导出
+```bash
+# 从Excel导入采购数据
+python manage.py import_excel data/imports/procurement.xlsx
+
+# 下载导入模板
+python manage.py download_import_template
+
+# 导出为Word报告
+python manage.py export_project_report
+```
+
+### 系统运维
+```bash
+# 数据库查询工具
+python scripts/query_database.py
+
+# 配置验证
+python scripts/validate_config.py
+
+# 修复付款数据
+python scripts/repair_payment_data.py
+
+# 准备导入数据
+python scripts/prepare_import_data.py
+```
+
+### 测试与质量检查
+```bash
+# 运行所有测试
+python manage.py test
+
+# 运行特定应用测试
+python manage.py test project payment
+
+# 代码格式检查
+black --check .
+isort --check-only .
+flake8 .
+
+# 安全性扫描
+bandit -r .
+mypy .
+
+# 系统健康检查
+python manage.py check
+python manage.py check --deploy
+```
+
+### 自定义管理命令
+```bash
+# 确保默认管理员存在
+python manage.py ensure_default_admin
+
+# 设置员工权限
+python manage.py set_staff_permission
+
+# 清理所有数据（危险！）
 python manage.py clear_all_data
+```
+
+### API文档
+```bash
+# 访问OpenAPI/Swagger文档
+# 本地: https://127.0.0.1:3500/api/docs/
+# 局域网: https://10.168.3.240:3500/api/docs/
 ```
 
 ---
 
-## ❓ 常见问题
+## 🔧 开发环境配置
 
-**Q: 局域网其他电脑无法访问？**
-A: 1. 确保使用 `start_server.bat` 启动服务（会自动使用 `0.0.0.0:3500` 监听所有网络接口）。 2. 检查服务器的Windows防火墙是否已为TCP 3500端口添加入站规则。 3. 确保使用 `https://` 协议访问，而不是 `http://`。
+### 推荐开发工具
+- **编辑器**: VS Code + Python插件
+- **Python版本**: 3.10+
+- **虚拟环境**: venv或conda
+- **Git**: 用于版本控制和环境隔离
+
+### IDE配置（VS Code）
+```json
+{
+  "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.formatting.provider": "black",
+  "editor.formatOnSave": true,
+  "python.linting.flake8Enabled": true,
+  "python.testing.pytestEnabled": true
+}
+```
+
+### 预提交钩子
+项目使用pre-commit确保代码质量：
+```bash
+# 安装pre-commit
+pre-commit install
+
+# 手动运行所有钩子
+pre-commit run --all-files
+```
+
+### Git工作流
+```bash
+# 开发环境（dev分支）: HTTP:8000
+# 生产环境（main分支）: HTTPS:3500
+
+git switch dev        # 切换到开发分支
+git switch main       # 切换到生产分支
+git merge main        # 从main合并到dev（保持同步）
+```
+
+---
+
+## 🚀 生产环境部署
+
+### 安全部署流程
+```bash
+# 1. 创建生产备份
+python manage.py backup_database
+
+# 2. 切换到生产分支
+double-click: switch_to_main_branch.bat
+
+# 3. 安全部署到生产
+double-click: deploy_to_prod_safe.bat
+
+# 4. 验证部署
+python manage.py check --deploy
+```
+
+### 端口和服务
+- **应用服务**: HTTPS:3500 (Django)
+- **API文档**: HTTPS:3500/api/docs/
+- **数据库**: SQLite（文件级）
+- **Redis**: 6379（如果使用异步任务）
+
+### Windows服务配置
+对于Windows Server：
+```powershell
+# 创建Windows服务（可选）
+sc create "taizhang" binPath= "D:\taizhang\.venv\Scripts\python.exe D:\taizhang\manage.py runserver 0.0.0.0:3500"
+```
+
+---
+
+## 🐛 常见问题（FAQ）
+
+**Q: 局域网内其他电脑无法访问？**
+A:
+1. 确保使用 `start_server.bat` 启动服务（会自动使用 `0.0.0.0:3500` 监听所有网络接口）
+2. 检查服务器的Windows防火墙是否已为TCP 3500端口添加入站规则
+3. 确保使用 `https://` 协议访问，而不是 `http://`
+
+**Q: CSRF验证失败（403错误）？**
+A:
+1. 检查 `config/settings.py` 中的 `CSRF_TRUSTED_ORIGINS` 配置
+2. 确保请求的Origin包含在受信任列表中
+3. 确认CSRF Token已正确传递（前端会自动处理）
 
 **Q: 忘记管理员密码？**
-A: 运行 `python manage.py changepassword <你的管理员用户名>`。
+A:
+```bash
+python manage.py changepassword <用户名>
+# 或重置密码
+python manage.py createsuperuser
+```
 
 **Q: Excel导入失败？**
-A: 1. 确认文件是 `.xlsx` 格式。 2. 使用 `scripts/prepare_import_data.py` 脚本预处理数据。 3. 检查Excel的列名是否与 `project/import_templates/` 下的模板一致。
+A:
+1. 确认文件是 `.xlsx` 格式
+2. 使用 `scripts/prepare_import_data.py` 脚本预处理数据
+3. 检查Excel的列名是否与系统模板一致
+
+**Q: 数据库锁定错误（SQLite）？**
+A:
+1. My等待几秒钟后重试
+2. 避免同时运行多个长时间查询
+3. 检查 `CONN_MAX_AGE` 配置（settings.py中已设为600秒）
+
+**Q: PDF智能识别失败？**
+A:
+1. 检查PDF是否为标准文本PDF（非扫描件）
+2. 查看 `pdf_import/config/field_mapping.yml` 中的字段配置
+3. 运行独立测试：`python pdf_import/standalone_extract.py`
 
 ---
 
-## 🎯 环境管理脚本
+## 📊 技术栈详情
 
-| 脚本 | 用途 | 说明 |
-|------|------|------|
-| `switch_to_dev_branch.bat` | 切换到开发环境 | 自动处理未提交更改 |
-| `switch_to_main_branch.bat` | 切换到生产分支 | 仅用于查看生产代码 |
-| `deploy_to_prod_safe.bat` | 安全部署到生产 | 含备份、合并、迁移 |
-| `rollback_prod.bat` | 紧急回滚 | 快速恢复到上一版本 |
-| `start_dev.bat` | 启动开发服务 | HTTP:8000 |
-| `start_prod.bat` | 启动生产服务 | HTTPS:3500 |
+### 后端核心技术
+- **Web框架**: Django 5.2.7
+- **数据库**: SQLite（生产可迁移至PostgreSQL）
+- **API框架**: Django REST Framework 3.15.2
+- **文档**: drf-spectacular 0.27.2（OpenAPI/Swagger）
+
+### 前端技术
+- **UI框架**: Bootstrap 5
+- **图表库**: Chart.js
+- **JavaScript**: 原生ES6+（无框架依赖）
+
+### PDF处理
+- **PDF解析**: PyMuPDF 1.24.14 + pdfplumber 0.11.4
+- **文本提取**: 正则表达式 + 键值对算法
+- **配置管理**: PyYAML 6.0.3
+
+### 开发工具
+- **代码质量**: Black（格式化）、isort（排序）、flake8（检查）
+- **安全性**: bandit（漏洞扫描）
+- **类型检查**: mypy（静态类型）
+- **测试**: pytest（自动化测试）
+- **Git钩子**: pre-commit
+
+### 异步任务
+- **任务队列**: django-rq 2.10.1
+- **消息队列**: Redis 5.2.1
+- **应用场景**: 大报表生成、批量数据导入
 
 ---
 
-**最后更新：** 2025-11-11
+**最后更新：** 2025-11-18
+
+## 📄 许可与贡献
+
+**许可类型**: 内部项目使用
+
+**贡献指南**:
+1. 所有代码修改必须通过pull request
+2. 添加新的测试用例（如适用）
+3. 更新相关文档
+4. 运行全部测试和质量检查通过
+5. 代码审查通过后合并
+
+**代码规范**:
+- 遵循PEP 8风格指南
+- 使用Black进行代码格式化
+- 提交信息使用中文动词短语
+- 函数和变量使用英语命名，注释使用中文
+
+**Git工作流程**:
+- `main`: 生产分支（稳定版本）
+- `dev`: 开发分支（日常开发）
+- `feature/*`: 功能分支（新功能开发）
+- `hotfix/*`: 紧急修复分支
+
+---

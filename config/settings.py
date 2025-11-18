@@ -89,6 +89,8 @@ MIDDLEWARE = [
     'project.middleware.performance.PerformanceMonitoringMiddleware',
     # 查询计数中间件（仅开发环境）
     'project.middleware.query_counter.QueryCountDebugMiddleware',
+    # 操作日志中间件
+    'project.middleware.operation_log.OperationLogMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

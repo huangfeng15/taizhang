@@ -8,6 +8,7 @@ from django.contrib.auth import views as auth_views
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from project import views
 from project.views_workload import workload_statistics_view
+from project.views_logs import operation_logs_list, delete_operation_log
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -105,6 +106,10 @@ urlpatterns = [
 
     # 用户使用手册
     path('user-manual/', views.user_manual, name='user_manual'),
+    
+    # 操作日志
+    path('operation-logs/', operation_logs_list, name='operation_logs_list'),
+    path('api/operation-logs/delete/', delete_operation_log, name='delete_operation_log'),
 ]
 
 # 自定义Admin站点标题（从settings集中配置，避免硬编码重复）

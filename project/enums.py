@@ -66,6 +66,7 @@ class BidEvaluationMethod(models.TextChoices):
     COMPETITIVE_NEGOTIATION = '竞争性谈判', '竞争性谈判'
     PRICE_COMPETITION = '价格竞争法', '价格竞争法（含最低价法、经评审的合理低价法）'
     QUALITATIVE_REVIEW = '定性评审法', '定性评审法'
+    OTHER = '其他', '其他'
 
 
 class BidAwardingMethod(models.TextChoices):
@@ -73,6 +74,7 @@ class BidAwardingMethod(models.TextChoices):
     COMPETITIVE_DECISION = '竞争定标法', '竞争定标法'
     VOTING = '票决定标法', '票决定标法'
     COLLECTIVE_DELIBERATION = '集体议事法', '集体议事法'
+    APPROVAL_SUBMISSION = '上报审批（其他方式采购）', '上报审批（其他方式采购）'
 
 
 # 枚举辅助函数
@@ -260,6 +262,7 @@ BID_EVALUATION_METHODS_ALL = [
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.value,
     BidEvaluationMethod.PRICE_COMPETITION.value,
     BidEvaluationMethod.QUALITATIVE_REVIEW.value,
+    BidEvaluationMethod.OTHER.value,
 ]
 
 BID_EVALUATION_METHODS_ALL_LABELS = [
@@ -267,6 +270,7 @@ BID_EVALUATION_METHODS_ALL_LABELS = [
     BidEvaluationMethod.COMPETITIVE_NEGOTIATION.label,
     BidEvaluationMethod.PRICE_COMPETITION.label,
     BidEvaluationMethod.QUALITATIVE_REVIEW.label,
+    BidEvaluationMethod.OTHER.label,
 ]
 
 # 定标方法配置常量
@@ -274,12 +278,14 @@ BID_AWARDING_METHODS_ALL = [
     BidAwardingMethod.COMPETITIVE_DECISION.value,
     BidAwardingMethod.VOTING.value,
     BidAwardingMethod.COLLECTIVE_DELIBERATION.value,
+    BidAwardingMethod.APPROVAL_SUBMISSION.value,
 ]
 
 BID_AWARDING_METHODS_ALL_LABELS = [
     BidAwardingMethod.COMPETITIVE_DECISION.label,
     BidAwardingMethod.VOTING.label,
     BidAwardingMethod.COLLECTIVE_DELIBERATION.label,
+    BidAwardingMethod.APPROVAL_SUBMISSION.label,
 ]
 
 
