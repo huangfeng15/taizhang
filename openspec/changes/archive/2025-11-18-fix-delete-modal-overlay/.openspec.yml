@@ -1,0 +1,88 @@
+# OpenSpec 变更元数据
+
+id: fix-delete-modal-overlay
+title: 修复删除确认模态框遮罩层问题
+status: pending
+priority: high
+type: bugfix
+
+# 变更概述
+description: |
+  修复采购、合同、付款、项目列表页面在批量删除操作失败时，
+  模态框遮罩层叠加导致页面无法操作的问题。
+
+# 影响的能力/模块
+capabilities:
+  - modal-management
+  - batch-operations
+  - user-interface
+
+# 相关文件
+files:
+  - project/static/js/custom-dialog.js
+  - project/templates/base.html
+  - project/templates/procurement_list.html
+  - project/templates/contract_list.html
+  - project/templates/payment_list.html
+  - project/templates/project_list.html
+
+# 规范变更
+specs:
+  - path: specs/modal-management/spec.md
+    type: added
+    requirements:
+      - REQ-MODAL-001
+      - REQ-MODAL-002
+      - REQ-MODAL-003
+      - REQ-MODAL-004
+      - REQ-MODAL-005
+      - REQ-MODAL-006
+      - REQ-MODAL-007
+      - REQ-MODAL-008
+
+# 预计工作量（小时）
+effort:
+  development: 3
+  testing: 2
+  documentation: 1
+  total: 6
+
+# 风险评估
+risks:
+  level: low
+  mitigation: |
+    - 改动集中在模态框组件，影响范围可控
+    - 向后兼容，不破坏现有功能
+    - 易于回滚，可快速恢复
+
+# 依赖关系
+dependencies:
+  blocking: []
+  blocked_by: []
+  related: []
+
+# 测试要求
+testing:
+  unit_tests: true
+  integration_tests: true
+  manual_tests: true
+  browsers:
+    - Chrome
+    - Firefox
+    - Edge
+    - Safari
+
+# 变更历史
+history:
+  - date: 2025-01-18
+    action: created
+    author: Kilo Code
+    description: 创建提案和规范文档
+
+# 标签
+tags:
+  - bugfix
+  - ui
+  - modal
+  - user-experience
+  - high-priority

@@ -173,17 +173,45 @@
         },
 
         /**
+         * 强制关闭所有模态框（防御性清理）
+         * 用于处理异常情况，确保页面可操作
+         */
+        _forceCloseDialog: function() {
+            // 移除所有可能残留的遮罩层
+            const overlays = document.querySelectorAll('.custom-dialog-overlay');
+            overlays.forEach(overlay => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            });
+            
+            // 重置状态
+            this.activeDialog = null;
+            document.body.style.overflow = '';
+        },
+    
+        /**
          * 显示自定义弹窗
          * @param {object} config - 配置对象
          */
         _showDialog: function(config) {
-            // 如果已有弹窗，先关闭
-            if (this.activeDialog) {
-                this._closeDialog();
-            }
+            // 强制关闭所有旧模态框，确保不会出现遮罩层叠加
+            this._forceCloseDialog();
+            
+            // 短暂延迟确保 DOM 更新完成
+            setTimeout(() => {
+                this._createDialog(config);
+            }, 10);
+        },
+    
+        /**
+         * 创建并显示模态框
+         * @param {object} config - 配置对象
+         */
+        _createDialog: function(config) {
 
-            // 创建遮罩层
-            const overlay = document.createElement('div');
+                // 创建遮罩层
+                const overlay = document.createElement('div');
             overlay.className = 'custom-dialog-overlay';
             overlay.onclick = (e) => {
                 if (e.target === overlay && config.closeOnClickOutside !== false) {
@@ -313,18 +341,20 @@
         },
 
         /**
-         * 关闭当前弹窗
+         * 关闭当前弹窗（立即移除，不延迟）
          */
         _closeDialog: function() {
             if (this.activeDialog) {
+                // 可以保留淡出效果，但立即移除 DOM
                 this.activeDialog.style.opacity = '0';
-                setTimeout(() => {
-                    if (this.activeDialog && this.activeDialog.parentNode) {
-                        this.activeDialog.parentNode.removeChild(this.activeDialog);
-                    }
-                    this.activeDialog = null;
-                    document.body.style.overflow = '';
-                }, 200);
+                
+                // 立即移除，不使用延迟
+                if (this.activeDialog.parentNode) {
+                    this.activeDialog.parentNode.removeChild(this.activeDialog);
+                }
+                
+                this.activeDialog = null;
+                document.body.style.overflow = '';
             }
         }
     };
@@ -342,6 +372,22 @@
     };
 
     window.showPrompt = function(options) {
+    // 页面加载时清理可能残留的遮罩层
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            CustomDialog._forceCloseDialog();
+        });
+    } else {
+        // 如果脚本加载时 DOM 已经就绪，立即清理
+        CustomDialog._forceCloseDialog();
+    }
+
+    // ESC 键强制关闭所有模态框（全局监听）
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && CustomDialog.activeDialog) {
+            CustomDialog._forceCloseDialog();
+        }
+    });
         return CustomDialog.prompt(options);
     };
 

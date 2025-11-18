@@ -504,13 +504,20 @@ def import_data(request):
 @login_required
 @require_POST
 def batch_delete_contracts(request):
+    from django.db.models import ProtectedError
     try:
         data = json.loads(request.body)
         contract_codes = data.get('ids', [])
         if not contract_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的合同'})
-        deleted_count = Contract.objects.filter(contract_code__in=contract_codes).delete()[0]
-        return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条合同', 'deleted_count': deleted_count})
+        try:
+            deleted_count = Contract.objects.filter(contract_code__in=contract_codes).delete()[0]
+            return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条合同', 'deleted_count': deleted_count})
+        except ProtectedError:
+            return JsonResponse({
+                'success': False,
+                'message': '无法删除该合同，因为已有付款记录关联到此合同。\n\n建议操作：\n1. 先删除关联的付款记录\n2. 然后再删除该合同\n\n如需帮助，请联系系统管理员。'
+            })
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
@@ -518,13 +525,20 @@ def batch_delete_contracts(request):
 @login_required
 @require_POST
 def batch_delete_payments(request):
+    from django.db.models import ProtectedError
     try:
         data = json.loads(request.body)
         payment_codes = data.get('ids', [])
         if not payment_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的付款记录'})
-        deleted_count = Payment.objects.filter(payment_code__in=payment_codes).delete()[0]
-        return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条付款记录', 'deleted_count': deleted_count})
+        try:
+            deleted_count = Payment.objects.filter(payment_code__in=payment_codes).delete()[0]
+            return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 条付款记录', 'deleted_count': deleted_count})
+        except ProtectedError:
+            return JsonResponse({
+                'success': False,
+                'message': '无法删除该付款记录，因为存在关联的数据引用。\n\n建议操作：\n1. 检查是否有其他记录依赖此付款\n2. 先处理关联数据后再删除\n\n如需帮助，请联系系统管理员。'
+            })
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
@@ -532,13 +546,20 @@ def batch_delete_payments(request):
 @login_required
 @require_POST
 def batch_delete_procurements(request):
+    from django.db.models import ProtectedError
     try:
         data = json.loads(request.body)
         procurement_codes = data.get('ids', [])
         if not procurement_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的采购项目'})
-        deleted_count = Procurement.objects.filter(procurement_code__in=procurement_codes).delete()[0]
-        return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个采购项目', 'deleted_count': deleted_count})
+        try:
+            deleted_count = Procurement.objects.filter(procurement_code__in=procurement_codes).delete()[0]
+            return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个采购项目', 'deleted_count': deleted_count})
+        except ProtectedError:
+            return JsonResponse({
+                'success': False,
+                'message': '无法删除该采购项目，因为已有合同关联到此采购。\n\n建议操作：\n1. 先删除关联的合同记录\n2. 然后再删除该采购项目\n\n如需帮助，请联系系统管理员。'
+            })
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
@@ -546,13 +567,20 @@ def batch_delete_procurements(request):
 @login_required
 @require_POST
 def batch_delete_projects(request):
+    from django.db.models import ProtectedError
     try:
         data = json.loads(request.body)
         project_codes = data.get('ids', [])
         if not project_codes:
             return JsonResponse({'success': False, 'message': '未选择要删除的项目'})
-        deleted_count = Project.objects.filter(project_code__in=project_codes).delete()[0]
-        return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个项目', 'deleted_count': deleted_count})
+        try:
+            deleted_count = Project.objects.filter(project_code__in=project_codes).delete()[0]
+            return JsonResponse({'success': True, 'message': f'成功删除 {deleted_count} 个项目', 'deleted_count': deleted_count})
+        except ProtectedError:
+            return JsonResponse({
+                'success': False,
+                'message': '无法删除该项目，因为已有采购或合同关联到此项目。\n\n建议操作：\n1. 先删除项目下的所有采购和合同\n2. 然后再删除该项目\n\n如需帮助，请联系系统管理员。'
+            })
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
