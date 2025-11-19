@@ -640,14 +640,21 @@ def cycle_monitor(request):
         overview_data = stats_service.get_projects_cycle_overview(
             year_filter=global_filters['year_value'],
             project_filter=global_filters['project'],
-            procurement_method=procurement_method if procurement_method else None
+            procurement_method=procurement_method if procurement_method else None,
         )
     else:
         overview_data = stats_service.get_persons_cycle_overview(
             year_filter=global_filters['year_value'],
             project_filter=global_filters['project'],
-            procurement_method=procurement_method if procurement_method else None
+            procurement_method=procurement_method if procurement_method else None,
         )
+
+    # 统计完整性明细（当前筛选范围内的“纳入/未纳入统计”采购记录）
+    completeness_data = stats_service.get_procurement_completeness_detail(
+        year_filter=global_filters['year_value'],
+        project_filter=global_filters['project'],
+        procurement_method=procurement_method if procurement_method else None,
+    )
 
     detail_data = None
     if target_code:
@@ -718,6 +725,7 @@ def cycle_monitor(request):
         'target_code': target_code,
         'overview_data': overview_data,
         'detail_data': detail_data,
+        'completeness_data': completeness_data,
         'show_all': show_all,
         'procurement_method': procurement_method,
         'procurement_method_choices': procurement_method_choices,

@@ -146,7 +146,10 @@ def generate_project_excel(
             '候选人公示结束时间', '结果公示发布时间', '中标通知书发放日期',
             '采购经办人', '需求部门', '申请人联系电话（需求部门）',
             '采购需求书审批完成日期（OA）', '采购平台', '资格审查方式',
-            '评标谈判方式', '定标方法', '公告发布时间'
+            '评标谈判方式', '定标方法', '公告发布时间', '报名截止时间',
+            '开标时间', '资料归档日期', '评标委员会成员', '投标担保形式及金额（元）',
+            '投标担保退回日期', '履约担保形式及金额（元）', '候选人公示期质疑情况',
+            '应招未招说明（由公开转单一或邀请的情况）'
         ]
         procurement_rows = []
         # 使用 iterator 分批获取记录，降低大项目导出时的内存占用
@@ -190,6 +193,15 @@ def generate_project_excel(
                 '评标谈判方式': procurement.bid_evaluation_method or '',
                 '定标方法': procurement.bid_awarding_method or '',
                 '公告发布时间': procurement.announcement_release_date.strftime('%Y-%m-%d') if procurement.announcement_release_date else '',
+                '报名截止时间': procurement.registration_deadline.strftime('%Y-%m-%d') if procurement.registration_deadline else '',
+                '开标时间': procurement.bid_opening_date.strftime('%Y-%m-%d') if procurement.bid_opening_date else '',
+                '资料归档日期': procurement.archive_date.strftime('%Y-%m-%d') if procurement.archive_date else '',
+                '评标委员会成员': procurement.evaluation_committee or '',
+                '投标担保形式及金额（元）': procurement.bid_guarantee or '',
+                '投标担保退回日期': procurement.bid_guarantee_return_date.strftime('%Y-%m-%d') if procurement.bid_guarantee_return_date else '',
+                '履约担保形式及金额（元）': procurement.performance_guarantee or '',
+                '候选人公示期质疑情况': procurement.candidate_publicity_issue or '',
+                '应招未招说明（由公开转单一或邀请的情况）': procurement.non_bidding_explanation or '',
             })
 
         # 如果没有数据，创建空DataFrame但保留表头
@@ -203,8 +215,11 @@ def generate_project_excel(
         # 参照contract导入模板定义的字段顺序
         contract_headers = [
             '项目编码', '关联采购编号', '文件定位', '合同来源', '关联主合同编号',
-            '合同序号', '合同编号', '合同名称', '甲方', '乙方',
-            '含税签约合同价（元）', '合同签订日期'
+            '合同序号', '合同编号', '合同名称', '合同类型', '甲方', '乙方',
+            '含税签约合同价（元）', '合同签订日期', '甲方法定代表人及联系方式',
+            '甲方联系人及联系方式', '甲方负责人及联系方式', '乙方法定代表人及联系方式',
+            '乙方联系人及联系方式', '乙方负责人及联系方式', '合同工期/服务期限',
+            '合同签订经办人', '支付方式', '履约担保退回时间', '资料归档日期'
         ]
         contract_rows = []
         contracts_qs = Contract.objects.filter(project=project).select_related(
@@ -229,10 +244,22 @@ def generate_project_excel(
                 '合同序号': contract.contract_sequence or '',
                 '合同编号': contract.contract_code,
                 '合同名称': contract.contract_name,
+                '合同类型': contract.contract_type or '',
                 '甲方': contract.party_a or '',
                 '乙方': contract.party_b,
                 '含税签约合同价（元）': float(contract.contract_amount) if contract.contract_amount else '',
                 '合同签订日期': contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '',
+                '甲方法定代表人及联系方式': contract.party_a_legal_representative or '',
+                '甲方联系人及联系方式': contract.party_a_contact_person or '',
+                '甲方负责人及联系方式': contract.party_a_manager or '',
+                '乙方法定代表人及联系方式': contract.party_b_legal_representative or '',
+                '乙方联系人及联系方式': contract.party_b_contact_person or '',
+                '乙方负责人及联系方式': contract.party_b_manager or '',
+                '合同工期/服务期限': contract.duration or '',
+                '合同签订经办人': contract.contract_officer or '',
+                '支付方式': contract.payment_method or '',
+                '履约担保退回时间': contract.performance_guarantee_return_date.strftime('%Y-%m-%d') if contract.performance_guarantee_return_date else '',
+                '资料归档日期': contract.archive_date.strftime('%Y-%m-%d') if contract.archive_date else '',
             })
 
         if contract_rows:

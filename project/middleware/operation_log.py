@@ -187,47 +187,127 @@ class OperationLogMiddleware(MiddlewareMixin):
         return desc
 
     def _format_changes_description(self, changes):
-        """将变更内容格式化为多行中文描述。"""
-        # 字段展示名映射表(可按需扩展)
-        field_names = {
-            # 项目字段
-            "project_name": "项目名称",
-            "project_code": "项目编号",
-            "project_type": "项目类型",
-            "budget_amount": "预算金额",
+        """将变更内容格式化为紧凑的中文描述。
+        
+        策略:
+        - 少量变更(≤3个): 显示完整的 字段(旧值→新值)
+        - 中等变更(4-8个): 显示前3个 + "等N个字段"
+        - 大量变更(>8个): 仅显示关键字段摘要
+        """
+        # 字段展示名映射表及其优先级
+        field_info = {
+            # 项目字段 (优先级: 1=关键, 2=重要, 3=普通)
+            "project_name": ("项目名称", 1),
+            "project_code": ("项目编号", 1),
+            "project_type": ("项目类型", 2),
+            "budget_amount": ("预算金额", 1),
             # 采购字段
-            "procurement_code": "采购编号",
-            "procurement_method": "采购方式",
-            "winning_bidder": "中标单位",
-            "bid_amount": "中标金额",
+            "procurement_code": ("采购编号", 1),
+            "procurement_category": ("采购类别", 2),
+            "procurement_unit": ("采购单位", 3),
+            "procurement_platform": ("采购平台", 3),
+            "procurement_method": ("采购方式", 2),
+            "qualification_review_method": ("资格审查方式", 3),
+            "bid_evaluation_method": ("评标办法", 3),
+            "bid_awarding_method": ("定标方式", 3),
+            "control_price": ("控制价", 2),
+            "winning_amount": ("中标金额", 1),
+            "procurement_officer": ("采购负责人", 2),
+            "demand_department": ("需求部门", 3),
+            "demand_contact": ("需求联系人", 3),
+            "winning_bidder": ("中标单位", 1),
+            "winning_contact": ("中标联系人", 3),
+            "planned_completion_date": ("计划完成日期", 3),
+            "requirement_approval_date": ("需求批复日期", 3),
+            "announcement_release_date": ("公告发布日期", 3),
+            "registration_deadline": ("报名截止日期", 3),
+            "bid_opening_date": ("开标日期", 3),
+            "candidate_publicity_end_date": ("候选人公示结束日期", 3),
+            "result_publicity_release_date": ("结果公示发布日期", 3),
+            "notice_issue_date": ("通知书发出日期", 3),
+            "archive_date": ("归档日期", 2),
+            "evaluation_committee": ("评标委员会", 3),
+            "bid_guarantee": ("投标保证金", 3),
+            "bid_guarantee_return_date": ("投标保证金退还日期", 3),
+            "performance_guarantee": ("履约保证金", 3),
+            "candidate_publicity_issue": ("候选人公示问题", 3),
+            "non_bidding_explanation": ("未招标说明", 3),
             # 合同字段
-            "contract_code": "合同编号",
-            "contract_name": "合同名称",
-            "contract_amount": "合同金额",
-            "contract_type": "合同类型",
-            "party_b": "乙方",
+            "contract_code": ("合同编号", 1),
+            "contract_name": ("合同名称", 1),
+            "contract_amount": ("合同金额", 1),
+            "contract_type": ("合同类型", 2),
+            "party_b": ("乙方", 1),
+            "party_b_contact_person": ("乙方联系人", 3),
+            "signing_date": ("签订日期", 2),
             # 付款字段
-            "payment_code": "付款编号",
-            "payment_amount": "付款金额",
-            "payment_date": "付款日期",
+            "payment_code": ("付款编号", 1),
+            "payment_amount": ("付款金额", 1),
+            "payment_date": ("付款日期", 1),
+            # 通用字段
+            "project": ("关联项目", 2),
+            "csrfmiddlewaretoken": (None, 0),  # 跳过CSRF令牌
         }
 
         if not isinstance(changes, dict):
             return ""
 
-        lines = []
-        # 结构化 diff: {field: {"old": ..., "new": ...}}
+        # 收集所有有效变更,按优先级排序
+        valid_changes = []
         for field, value in changes.items():
-            label = field_names.get(field, field)
+            field_data = field_info.get(field, (field, 3))
+            label, priority = field_data
+            
+            # 跳过显式标记为None的字段
+            if label is None:
+                continue
+            
             if isinstance(value, dict) and "old" in value and "new" in value:
-                old_val = value.get("old")
-                new_val = value.get("new")
-                lines.append(f"变更字段【{label}】: {old_val} -> {new_val}")
+                old_val = value.get("old") or "空"
+                new_val = value.get("new") or "空"
+                # 只记录实际有变化的字段
+                if old_val != new_val:
+                    # 截断过长的值
+                    old_val = self._truncate_value(old_val)
+                    new_val = self._truncate_value(new_val)
+                    valid_changes.append((priority, f"{label}({old_val}→{new_val})"))
             else:
-                # 回退到仅展示字段名(兼容旧数据或非结构化changes)
-                lines.append(f"变更字段【{label}】")
+                # 回退到仅展示字段名(兼容旧数据)
+                valid_changes.append((priority, label))
 
-        return "\n".join(lines)
+        if not valid_changes:
+            return ""
+        
+        # 按优先级排序(优先级数字越小越靠前)
+        valid_changes.sort(key=lambda x: x[0])
+        change_texts = [c[1] for c in valid_changes]
+        total = len(change_texts)
+        
+        # 根据变更数量选择展示策略
+        if total <= 3:
+            # 少量变更: 显示全部
+            return "变更: " + ", ".join(change_texts)
+        elif total <= 8:
+            # 中等变更: 显示前3个 + 其他数量
+            shown = ", ".join(change_texts[:3])
+            return f"变更: {shown} 等{total}个字段"
+        else:
+            # 大量变更: 只显示关键字段(优先级1) + 总数
+            key_changes = [c for p, c in valid_changes if p == 1]
+            if key_changes:
+                shown = ", ".join(key_changes[:2])
+                return f"变更: {shown} 等{total}个字段"
+            else:
+                # 没有关键字段,显示前2个
+                shown = ", ".join(change_texts[:2])
+                return f"变更: {shown} 等{total}个字段"
+
+    def _truncate_value(self, value, max_length=30):
+        """截断过长的字段值"""
+        value_str = str(value)
+        if len(value_str) <= max_length:
+            return value_str
+        return value_str[:max_length] + "..."
 
     def _extract_changes(self, request, operation_type: str | None = None):
         """提取变更内容"""

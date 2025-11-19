@@ -146,7 +146,8 @@ class CycleStatisticsService:
             procurement_officer__isnull=False
         ).exclude(procurement_officer='')
         if year_filter and year_filter != 'all':
-            procurement_qs = procurement_qs.filter(requirement_approval_date__year=int(year_filter))
+            # 与采购列表保持一致：按结果公示发布时间过滤年度
+            procurement_qs = procurement_qs.filter(result_publicity_release_date__year=int(year_filter))
         if project_filter:
             procurement_qs = procurement_qs.filter(project_id=project_filter)
         if procurement_method and procurement_method != 'all':
@@ -254,10 +255,97 @@ class CycleStatisticsService:
             'overall_completion_rate': overall_rate,
             'excluded_procurement_count': excluded_procurement_count
         }
-        
+
         return {
             'summary': summary,
             'persons': persons_data
+        }
+
+    def get_procurement_completeness_detail(self, year_filter=None, project_filter=None,
+                                            procurement_method=None):
+        """
+        获取采购周期统计的纳入/排除明细，用于前端展示数据完整性说明。
+
+        说明：
+        - 年度维度与采购管理列表保持一致：
+          已完成记录按「结果公示发布时间」归属年度；
+          未完成记录（尚未公示）按「需求书审批完成日期」归属年度。
+        """
+        queryset = Procurement.objects.select_related('project')
+
+        # 项目与采购方式筛选（与 overview 保持一致）
+        if project_filter:
+            queryset = queryset.filter(project_id=project_filter)
+        if procurement_method and procurement_method != 'all':
+            queryset = queryset.filter(procurement_method=procurement_method)
+
+        # 年度筛选：已完成按结果公示时间，未完成按需求书审批日期
+        if year_filter and year_filter != 'all':
+            year_int = int(year_filter)
+            queryset = queryset.filter(
+                Q(result_publicity_release_date__year=year_int)
+                | Q(
+                    result_publicity_release_date__isnull=True,
+                    requirement_approval_date__year=year_int,
+                )
+            )
+
+        included_qs = queryset.filter(
+            requirement_approval_date__isnull=False,
+            result_publicity_release_date__isnull=False,
+        )
+        missing_start_qs = queryset.filter(
+            requirement_approval_date__isnull=True,
+            result_publicity_release_date__isnull=False,
+        )
+        missing_end_qs = queryset.filter(
+            requirement_approval_date__isnull=False,
+            result_publicity_release_date__isnull=True,
+        )
+
+        included_count = included_qs.count()
+        missing_start_count = missing_start_qs.count()
+        missing_end_count = missing_end_qs.count()
+
+        # 为避免一次性返回过多记录，这里对每类明细做上限控制
+        limit = 200
+
+        def _serialize_record(item, reason):
+            return {
+                'code': getattr(item, 'procurement_code', ''),
+                'name': getattr(item, 'project_name', ''),
+                'project_code': getattr(item.project, 'project_code', '') if item.project_id else '',
+                'project_name': getattr(item.project, 'project_name', '') if item.project_id else '',
+                'procurement_method': getattr(item, 'procurement_method', '') or '',
+                'responsible_person': getattr(item, 'procurement_officer', '') or '',
+                'start_date': item.requirement_approval_date,
+                'end_date': item.result_publicity_release_date,
+                'reason': reason,
+            }
+
+        included = [
+            _serialize_record(p, '字段完整，已纳入统计')
+            for p in included_qs[:limit]
+        ]
+        missing_start = [
+            _serialize_record(p, '缺少需求书审批完成日期（OA），未纳入统计')
+            for p in missing_start_qs[:limit]
+        ]
+        missing_end = [
+            _serialize_record(p, '缺少结果公示发布时间，未纳入统计')
+            for p in missing_end_qs[:limit]
+        ]
+
+        return {
+            'procurement': {
+                'included_count': included_count,
+                'missing_start_count': missing_start_count,
+                'missing_end_count': missing_end_count,
+                'total_excluded_count': missing_start_count + missing_end_count,
+                'included': included,
+                'missing_start': missing_start,
+                'missing_end': missing_end,
+            }
         }
 
     def _calculate_procurement_cycle_statistics(self, project_code=None, person_name=None,
@@ -276,7 +364,8 @@ class CycleStatisticsService:
         if global_project:
             queryset = queryset.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
-            queryset = queryset.filter(requirement_approval_date__year=int(year_filter))
+            # 与趋势图及采购列表保持一致：按结果公示发布时间过滤年度
+            queryset = queryset.filter(result_publicity_release_date__year=int(year_filter))
         if procurement_method and procurement_method != 'all':
             queryset = queryset.filter(procurement_method=procurement_method)
 
@@ -303,6 +392,7 @@ class CycleStatisticsService:
             if global_project:
                 excluded_qs = excluded_qs.filter(project_id=global_project)
             if year_filter and year_filter != 'all':
+                # 对于尚未公示结果的记录，仍按需求书审批日期归属年度
                 excluded_qs = excluded_qs.filter(requirement_approval_date__year=int(year_filter))
             if procurement_method and procurement_method != 'all':
                 excluded_qs = excluded_qs.filter(procurement_method=procurement_method)
@@ -338,6 +428,7 @@ class CycleStatisticsService:
         if global_project:
             excluded_qs = excluded_qs.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
+            # 对于尚未公示结果的记录，仍按需求书审批日期归属年度
             excluded_qs = excluded_qs.filter(requirement_approval_date__year=int(year_filter))
         if procurement_method and procurement_method != 'all':
             excluded_qs = excluded_qs.filter(procurement_method=procurement_method)
@@ -770,11 +861,13 @@ class CycleStatisticsService:
         if global_project:
             qs = qs.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
-            qs = qs.filter(requirement_approval_date__year=int(year_filter))
+            # 与采购列表保持一致：按结果公示发布时间过滤年度
+            qs = qs.filter(result_publicity_release_date__year=int(year_filter))
         if procurement_method and procurement_method != 'all':
             qs = qs.filter(procurement_method=procurement_method)
 
-        qs = qs.order_by('-requirement_approval_date')[:limit]
+        # 排序规则与采购管理列表保持一致：先按结果公示发布时间，再按开标日期和创建时间
+        qs = qs.order_by('-result_publicity_release_date', '-bid_opening_date', '-created_at')[:limit]
 
         today = timezone.now().date()
         records = []
@@ -881,7 +974,8 @@ class CycleStatisticsService:
         if global_project:
             queryset = queryset.filter(project_id=global_project)
         if year_filter and year_filter != 'all':
-            queryset = queryset.filter(requirement_approval_date__year=int(year_filter))
+            # 与采购列表保持一致：按结果公示发布时间过滤年度
+            queryset = queryset.filter(result_publicity_release_date__year=int(year_filter))
         if procurement_method and procurement_method != 'all':
             queryset = queryset.filter(procurement_method=procurement_method)
         
@@ -913,7 +1007,8 @@ class CycleStatisticsService:
         # 从采购中获取项目
         procurement_qs = Procurement.objects.filter(procurement_officer=person_name)
         if year_filter and year_filter != 'all':
-            procurement_qs = procurement_qs.filter(requirement_approval_date__year=int(year_filter))
+            # 与采购列表保持一致：按结果公示发布时间过滤年度
+            procurement_qs = procurement_qs.filter(result_publicity_release_date__year=int(year_filter))
         if global_project:
             procurement_qs = procurement_qs.filter(project_id=global_project)
         project_ids.update(procurement_qs.values_list('project_id', flat=True).distinct())
