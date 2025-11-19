@@ -376,26 +376,53 @@ def import_data(request):
         uploaded_file = request.FILES['file']
         module = request.POST.get('module', 'project')
         
-        if not uploaded_file.name.endswith('.csv'):
-            return JsonResponse({'success': False, 'message': '仅支持CSV文件格式'})
+        # 支持CSV和XLSX格式
+        file_extension = uploaded_file.name.lower().split('.')[-1]
+        if file_extension not in ['csv', 'xlsx', 'xls']:
+            return JsonResponse({'success': False, 'message': '仅支持CSV和Excel文件格式(.csv, .xlsx, .xls)'})
 
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as tmp_file:
+        # 保存上传文件到临时文件
+        suffix = f'.{file_extension}'
+        with tempfile.NamedTemporaryFile(mode='wb', suffix=suffix, delete=False) as tmp_file:
             for chunk in uploaded_file.chunks():
                 tmp_file.write(chunk)
             tmp_file_path = tmp_file.name
 
         try:
-            import csv as _csv
-            import chardet
-            with open(tmp_file_path, 'rb') as f:
-                raw_data = f.read(10000)
-                result = chardet.detect(raw_data)
-                detected_encoding = result.get('encoding', 'utf-8-sig')
-                if detected_encoding and result.get('confidence', 0) > 0.7:
-                    encoding_map = {'GB2312': 'gbk', 'ISO-8859-1': 'latin1', 'ascii': 'utf-8'}
-                    detected_encoding = encoding_map.get(detected_encoding, detected_encoding)
-                else:
+            # 如果是Excel文件，先转换为CSV
+            if file_extension in ['xlsx', 'xls']:
+                # 使用pandas读取Excel文件
+                try:
+                    df = pd.read_excel(tmp_file_path, dtype=str)
+                    # 创建临时CSV文件
+                    csv_tmp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8-sig')
+                    csv_tmp_path = csv_tmp_file.name
+                    csv_tmp_file.close()
+                    
+                    # 将Excel转换为CSV
+                    df.to_csv(csv_tmp_path, index=False, encoding='utf-8-sig')
+                    
+                    # 删除原Excel临时文件，使用CSV文件路径
+                    os.unlink(tmp_file_path)
+                    tmp_file_path = csv_tmp_path
                     detected_encoding = 'utf-8-sig'
+                except Exception as e:
+                    return JsonResponse({'success': False, 'message': f'Excel文件读取失败: {str(e)}'})
+            else:
+                # CSV文件，检测编码
+                import chardet
+                with open(tmp_file_path, 'rb') as f:
+                    raw_data = f.read(10000)
+                    result = chardet.detect(raw_data)
+                    detected_encoding = result.get('encoding', 'utf-8-sig')
+                    if detected_encoding and result.get('confidence', 0) > 0.7:
+                        encoding_map = {'GB2312': 'gbk', 'ISO-8859-1': 'latin1', 'ascii': 'utf-8'}
+                        detected_encoding = encoding_map.get(detected_encoding, detected_encoding)
+                    else:
+                        detected_encoding = 'utf-8-sig'
+            
+            # 读取CSV文件获取列数
+            import csv as _csv
             with open(tmp_file_path, 'r', encoding=detected_encoding) as f:
                 reader = _csv.reader(f)
                 header = next(reader)
