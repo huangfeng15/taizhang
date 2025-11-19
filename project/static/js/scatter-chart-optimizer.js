@@ -324,8 +324,8 @@ function generateOptimizedScatterConfig(params) {
             marker: {
                 show: true  // 在tooltip中显示标记
             },
-            // 增加触发延迟，让用户有时间将鼠标稳定在散点上
-            hideDelay: 200,  // 延迟隐藏tooltip
+            // 优化：增加悬停延迟，让tooltip更容易保持显示
+            hideDelay: 500,  // 增加延迟隐藏时间到500ms
             // 增大tooltip的触发范围
             inverseOrder: false,
             // 优化：增加触发距离阈值
@@ -382,9 +382,10 @@ function generateOptimizedScatterConfig(params) {
         config.legend.formatter = legendConfig.formatter;
     }
     
-    // 交互增强：点击高亮功能
+    // 交互增强：点击高亮功能 + 点击显示详情功能
     if (enableInteraction) {
         let selectedSeries = null;
+        let clickedTooltipTimer = null;  // 点击tooltip的定时器
         
         config.chart.events.legendClick = function(chartContext, seriesIndex, config) {
             if (selectedSeries === seriesIndex) {
@@ -410,6 +411,47 @@ function generateOptimizedScatterConfig(params) {
                         opacity: opacities
                     }
                 });
+            }
+        };
+        
+        // 添加数据点点击事件：点击散点后显示详细信息并驻停2秒
+        config.chart.events.dataPointSelection = function(event, chartContext, config) {
+            const { seriesIndex, dataPointIndex } = config;
+            const series = chartContext.w.config.series[seriesIndex];
+            
+            // 只处理散点图类型
+            if (series.type === 'scatter' && series.data[dataPointIndex]) {
+                const point = series.data[dataPointIndex];
+                const value = point.y;
+                
+                // 构建详细信息内容
+                let detailHtml = '<div style="padding: 12px; min-width: 200px;">';
+                detailHtml += `<div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #333;">${series.name}</div>`;
+                detailHtml += `<div style="border-top: 1px solid #e0e0e0; padding-top: 8px;">`;
+                detailHtml += `<div style="margin-bottom: 6px;"><strong>周期天数:</strong> ${Math.round(value)}天</div>`;
+                if (point.code) detailHtml += `<div style="margin-bottom: 6px;"><strong>编号:</strong> ${point.code}</div>`;
+                if (point.name) detailHtml += `<div style="margin-bottom: 6px;"><strong>名称:</strong> ${point.name}</div>`;
+                if (point.person) detailHtml += `<div style="margin-bottom: 6px;"><strong>经办人:</strong> ${point.person}</div>`;
+                if (point.x) {
+                    const date = new Date(point.x);
+                    detailHtml += `<div style="margin-bottom: 6px;"><strong>时间:</strong> ${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日</div>`;
+                }
+                detailHtml += `</div>`;
+                detailHtml += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0; font-size: 11px; color: #666; text-align: center;">信息将在2秒后自动关闭</div>`;
+                detailHtml += '</div>';
+                
+                // 创建或更新自定义tooltip
+                showPersistentTooltip(chartContext, detailHtml, event);
+                
+                // 清除之前的定时器
+                if (clickedTooltipTimer) {
+                    clearTimeout(clickedTooltipTimer);
+                }
+                
+                // 设置2秒后自动隐藏
+                clickedTooltipTimer = setTimeout(() => {
+                    hidePersistentTooltip();
+                }, 2000);
             }
         };
     }
@@ -452,6 +494,81 @@ function addLegendScrollSupport(chartContext) {
         `;
         document.head.appendChild(style);
     }, 100);
+}
+
+// ==================== 持久化Tooltip功能 ====================
+
+/**
+ * 显示持久化的tooltip（点击后驻停）
+ * @param {Object} chartContext - 图表上下文
+ * @param {string} content - tooltip内容HTML
+ * @param {Object} event - 点击事件对象
+ */
+function showPersistentTooltip(chartContext, content, event) {
+    // 移除已存在的持久化tooltip
+    hidePersistentTooltip();
+    
+    // 创建新的tooltip元素
+    const tooltip = document.createElement('div');
+    tooltip.id = 'persistent-scatter-tooltip';
+    tooltip.className = 'apexcharts-tooltip apexcharts-theme-light';
+    tooltip.style.cssText = `
+        position: fixed;
+        background: white;
+        border: 1px solid #e3e3e3;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        pointer-events: auto;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    `;
+    tooltip.innerHTML = content;
+    
+    // 添加到页面
+    document.body.appendChild(tooltip);
+    
+    // 计算位置（避免超出屏幕）
+    const rect = tooltip.getBoundingClientRect();
+    let left = event.clientX + 15;
+    let top = event.clientY - rect.height / 2;
+    
+    // 边界检查
+    if (left + rect.width > window.innerWidth) {
+        left = event.clientX - rect.width - 15;
+    }
+    if (top < 10) {
+        top = 10;
+    }
+    if (top + rect.height > window.innerHeight - 10) {
+        top = window.innerHeight - rect.height - 10;
+    }
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    
+    // 淡入效果
+    setTimeout(() => {
+        tooltip.style.opacity = '1';
+    }, 10);
+    
+    // 添加点击关闭功能
+    tooltip.addEventListener('click', hidePersistentTooltip);
+}
+
+/**
+ * 隐藏持久化的tooltip
+ */
+function hidePersistentTooltip() {
+    const tooltip = document.getElementById('persistent-scatter-tooltip');
+    if (tooltip) {
+        tooltip.style.opacity = '0';
+        setTimeout(() => {
+            if (tooltip.parentNode) {
+                tooltip.parentNode.removeChild(tooltip);
+            }
+        }, 200);
+    }
 }
 
 // ==================== 响应式调整 ====================
