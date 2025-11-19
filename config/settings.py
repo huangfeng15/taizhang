@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'settlement.apps.SettlementConfig',
     'pdf_import.apps.PdfImportConfig',  # PDF智能导入
     'supplier_eval.apps.SupplierEvalConfig',
+    'weekly_report.apps.WeeklyReportConfig',  # 周报管理
 
     # 异步任务队列（大报表等后台处理；需搭配Redis和 django-rq）
     'django_rq',

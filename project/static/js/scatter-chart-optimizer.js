@@ -176,9 +176,21 @@ function generateOptimizedScatterConfig(params) {
     const legendConfig = calculateLegendLayout(personCount, containerWidth);
     
     // 计算散点大小（人数越多，点越小，但保持最小可交互尺寸）
-    let markerSize = 8;  // 增大基础尺寸
-    if (personCount > 15) markerSize = 7;
-    if (personCount > 25) markerSize = 6;
+    // 优化：增大散点的基础尺寸和热区，提升可点击性
+    let markerSize = 10;  // 增大基础尺寸到10
+    let hoverSize = 18;   // 悬停时的尺寸
+    let hitRadius = 15;   // 点击热区半径
+    
+    if (personCount > 15) {
+        markerSize = 9;
+        hoverSize = 16;
+        hitRadius = 14;
+    }
+    if (personCount > 25) {
+        markerSize = 8;
+        hoverSize = 14;
+        hitRadius = 12;
+    }
     
     // 基础配置
     const config = {
@@ -247,12 +259,27 @@ function generateOptimizedScatterConfig(params) {
         markers: {
             size: seriesData.map(s => s.type === 'scatter' ? markerSize : 0),
             hover: {
-                size: seriesData.map(s => s.type === 'scatter' ? markerSize + 6 : 0),  // 悬停时显著增大
-                sizeOffset: 6  // 增大悬停偏移量
+                size: seriesData.map(s => s.type === 'scatter' ? hoverSize : 0),  // 悬停时显著增大
+                sizeOffset: 8  // 增大悬停偏移量，扩大热区
             },
-            strokeWidth: 2,  // 添加描边使散点更明显
-            strokeOpacity: 0.9,
-            fillOpacity: 0.9
+            strokeWidth: 3,  // 增加描边宽度使散点更明显
+            strokeOpacity: 1,
+            fillOpacity: 0.95,
+            // 增加透明边框作为隐形点击热区
+            discrete: seriesData.map((s, idx) => {
+                if (s.type === 'scatter') {
+                    return {
+                        seriesIndex: idx,
+                        dataPointIndex: undefined, // 应用于所有点
+                        fillColor: s.color,
+                        strokeColor: s.color,
+                        size: markerSize,
+                        // 使用CSS样式增加点击区域
+                        shape: 'circle'
+                    };
+                }
+                return null;
+            }).filter(Boolean)
         },
         dataLabels: {
             enabled: false
@@ -283,7 +310,7 @@ function generateOptimizedScatterConfig(params) {
         tooltip: {
             enabled: true,
             shared: false,
-            intersect: true,  // 必须精确交叉才显示tooltip
+            intersect: false,  // 改为false，不需要精确交叉，靠近即可显示
             followCursor: false,  // 不跟随鼠标，固定在数据点附近
             custom: undefined,  // 使用默认tooltip
             fillSeriesColor: false,
@@ -297,6 +324,12 @@ function generateOptimizedScatterConfig(params) {
             marker: {
                 show: true  // 在tooltip中显示标记
             },
+            // 增加触发延迟，让用户有时间将鼠标稳定在散点上
+            hideDelay: 200,  // 延迟隐藏tooltip
+            // 增大tooltip的触发范围
+            inverseOrder: false,
+            // 优化：增加触发距离阈值
+            intersectThreshold: hitRadius,  // 使用hitRadius作为触发阈值
             x: {
                 format: 'yyyy年MM月dd日'
             },

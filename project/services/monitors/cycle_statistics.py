@@ -448,7 +448,17 @@ class CycleStatisticsService:
 
         # 转换为散点数据格式
         scatter_data = []
+        seen_ids = set()  # 使用集合追踪已处理的记录ID，防止重复
+        
         for item in queryset:
+            # 获取记录的唯一标识符（主键）
+            record_id = item.pk
+            
+            # 如果这条记录已经被处理过，跳过
+            if record_id in seen_ids:
+                continue
+            seen_ids.add(record_id)
+            
             # 正确获取结束日期字段值
             if '__' in end_field:
                 # 处理关联字段（如 procurement__result_publicity_release_date）
@@ -467,23 +477,27 @@ class CycleStatisticsService:
                 
             cycle_days = item.work_cycle.days if item.work_cycle else 0
             
-            # 获取业务编码和名称
+            # 获取业务编码和名称，规范化经办人名称
             if model == Procurement:
                 code = getattr(item, 'procurement_code', '')
                 name = getattr(item, 'project_name', '')
-                person = getattr(item, 'procurement_officer', '')
+                person_raw = getattr(item, 'procurement_officer', '')
             else:  # Contract
                 code = getattr(item, 'contract_code', '')
                 name = getattr(item, 'contract_name', '')
-                person = getattr(item, 'contract_officer', '')
+                person_raw = getattr(item, 'contract_officer', '')
+            
+            # 规范化经办人名称：去除前后空白
+            person = person_raw.strip() if person_raw else ''
             
             scatter_data.append({
                 'date': end_date_value.isoformat(),
                 'cycle_days': cycle_days,
                 'code': code,
                 'name': name,
-                'person': person,
-                'project_code': item.project_id if hasattr(item, 'project_id') else ''
+                'person': person,  # 使用规范化后的名称
+                'project_code': item.project_id if hasattr(item, 'project_id') else '',
+                'record_id': record_id  # 添加唯一标识符，便于前端调试
             })
 
         # 按日期排序
@@ -941,6 +955,8 @@ class CycleStatisticsService:
           'procurement': [{'name': '张三', 'points': [{date, cycle_days, ...}]}, ...],
           'contract': [{'name': '张三', 'points': [{date, cycle_days, ...}]}, ...]
         }
+        
+        注意：确保每个经办人只出现一次
         """
         # 选人（按业务量排序取前N名）
         person_list = self.get_person_list(year_filter=year_filter, global_project=project_filter, procurement_method=procurement_method)
@@ -948,44 +964,56 @@ class CycleStatisticsService:
 
         # 逐人计算散点数据
         result = {'procurement': [], 'contract': []}
+        
+        # 用于跟踪已添加的人名，防止重复
+        added_proc_names = set()
+        added_cont_names = set()
+        
         for name in person_names:
-            t_p = self._calculate_trend(
-                model=Procurement,
-                person_name=name,
-                year_filter=year_filter,
-                global_project=project_filter,
-                procurement_method=procurement_method,
-                start_field='requirement_approval_date',
-                end_field='result_publicity_release_date',
-                person_field='procurement_officer'
-            )
-            t_c = self._calculate_trend(
-                model=Contract,
-                person_name=name,
-                year_filter=year_filter,
-                global_project=project_filter,
-                start_field='procurement__result_publicity_release_date',
-                end_field='signing_date',
-                person_field='contract_officer'
-            )
+            # 采购数据
+            if name not in added_proc_names:
+                t_p = self._calculate_trend(
+                    model=Procurement,
+                    person_name=name,
+                    year_filter=year_filter,
+                    global_project=project_filter,
+                    procurement_method=procurement_method,
+                    start_field='requirement_approval_date',
+                    end_field='result_publicity_release_date',
+                    person_field='procurement_officer'
+                )
+                if t_p:
+                    result['procurement'].append({
+                        'name': name,
+                        'points': t_p
+                    })
+                    added_proc_names.add(name)
             
-            # 只添加有数据的人
-            if t_p:
-                result['procurement'].append({
-                    'name': name,
-                    'points': t_p
-                })
-            if t_c:
-                result['contract'].append({
-                    'name': name,
-                    'points': t_c
-                })
+            # 合同数据
+            if name not in added_cont_names:
+                t_c = self._calculate_trend(
+                    model=Contract,
+                    person_name=name,
+                    year_filter=year_filter,
+                    global_project=project_filter,
+                    start_field='procurement__result_publicity_release_date',
+                    end_field='signing_date',
+                    person_field='contract_officer'
+                )
+                if t_c:
+                    result['contract'].append({
+                        'name': name,
+                        'points': t_c
+                    })
+                    added_cont_names.add(name)
         
         return result
 
     def get_projects_multi_trend(self, year_filter=None, procurement_method=None, top_n=10):
         """
         获取多项目趋势：按项目分别计算采购/合同的散点数据（取前N个项目）
+        
+        注意：确保每个项目只出现一次
         """
         from project.models import Project
         projects = list(Project.objects.all())
@@ -1000,34 +1028,44 @@ class CycleStatisticsService:
 
         # 计算散点数据
         result = {'procurement': [], 'contract': []}
+        
+        # 用于跟踪已添加的项目，防止重复
+        added_proc_projects = set()
+        added_cont_projects = set()
+        
         for code in top_projects:
-            t_p = self._calculate_trend(
-                model=Procurement,
-                project_code=code,
-                year_filter=year_filter,
-                procurement_method=procurement_method,
-                start_field='requirement_approval_date',
-                end_field='result_publicity_release_date'
-            )
-            t_c = self._calculate_trend(
-                model=Contract,
-                project_code=code,
-                year_filter=year_filter,
-                start_field='procurement__result_publicity_release_date',
-                end_field='signing_date'
-            )
+            # 采购数据
+            if code not in added_proc_projects:
+                t_p = self._calculate_trend(
+                    model=Procurement,
+                    project_code=code,
+                    year_filter=year_filter,
+                    procurement_method=procurement_method,
+                    start_field='requirement_approval_date',
+                    end_field='result_publicity_release_date'
+                )
+                if t_p:
+                    result['procurement'].append({
+                        'name': code,
+                        'points': t_p
+                    })
+                    added_proc_projects.add(code)
             
-            # 只添加有数据的项目
-            if t_p:
-                result['procurement'].append({
-                    'name': code,
-                    'points': t_p
-                })
-            if t_c:
-                result['contract'].append({
-                    'name': code,
-                    'points': t_c
-                })
+            # 合同数据
+            if code not in added_cont_projects:
+                t_c = self._calculate_trend(
+                    model=Contract,
+                    project_code=code,
+                    year_filter=year_filter,
+                    start_field='procurement__result_publicity_release_date',
+                    end_field='signing_date'
+                )
+                if t_c:
+                    result['contract'].append({
+                        'name': code,
+                        'points': t_c
+                    })
+                    added_cont_projects.add(code)
         
         return result
 
@@ -1036,20 +1074,33 @@ class CycleStatisticsService:
         获取单个项目下经办人维度的散点数据：
         - 采购tab：各采购经办人的采购散点
         - 合同tab：各合同经办人的合同散点
+        
+        注意：确保每个经办人只出现一次，通过规范化名称去重
         """
         # 选人：该项目内前N名经办人
         p_qs = Procurement.objects.filter(project_id=project_code)
         if procurement_method and procurement_method != 'all':
             p_qs = p_qs.filter(procurement_method=procurement_method)
-        p_names = list(p_qs.values_list('procurement_officer', flat=True).distinct())
+        p_names_raw = list(p_qs.values_list('procurement_officer', flat=True).distinct())
         
-        c_names = list(
+        c_names_raw = list(
             Contract.objects.filter(project_id=project_code, file_positioning=FilePositioning.MAIN_CONTRACT.value)
             .values_list('contract_officer', flat=True).distinct()
         )
-        # 去空
-        p_names = [x for x in p_names if x]
-        c_names = [x for x in c_names if x]
+        
+        # 规范化并去重：去除空白、统一格式
+        def normalize_names(names):
+            """规范化名称列表：去空、去除前后空白、去重"""
+            normalized = set()
+            for name in names:
+                if name:
+                    cleaned = name.strip()
+                    if cleaned:
+                        normalized.add(cleaned)
+            return list(normalized)
+        
+        p_names = normalize_names(p_names_raw)
+        c_names = normalize_names(c_names_raw)
 
         # 排序（依据业务量）
         def sort_by_volume(names, is_proc):
@@ -1067,7 +1118,16 @@ class CycleStatisticsService:
         c_names = sort_by_volume(c_names, False)
 
         result = {'procurement': [], 'contract': []}
+        
+        # 用于跟踪已添加的人名，防止重复
+        added_proc_names = set()
+        added_cont_names = set()
+        
         for n in p_names:
+            # 二次确认：确保不会添加重复的人名
+            if n in added_proc_names:
+                continue
+                
             t = self._calculate_trend(
                 model=Procurement,
                 person_name=n,
@@ -1080,8 +1140,13 @@ class CycleStatisticsService:
             )
             if t:
                 result['procurement'].append({'name': n, 'points': t})
+                added_proc_names.add(n)
         
         for n in c_names:
+            # 二次确认：确保不会添加重复的人名
+            if n in added_cont_names:
+                continue
+                
             t = self._calculate_trend(
                 model=Contract,
                 person_name=n,
@@ -1093,5 +1158,6 @@ class CycleStatisticsService:
             )
             if t:
                 result['contract'].append({'name': n, 'points': t})
+                added_cont_names.add(n)
         
         return result

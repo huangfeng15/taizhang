@@ -37,9 +37,39 @@ class BaseModel(AuditBaseModel):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        """保存前统一执行完整校验"""
+        """保存前统一执行完整校验和数据清洗"""
+        # 自动清洗所有字符串字段：去除前后空白、换行符等
+        self._clean_string_fields()
         self.full_clean()
         super().save(*args, **kwargs)
+    
+    def _clean_string_fields(self):
+        """
+        清洗所有字符串字段，去除：
+        1. 前后空白字符（空格、制表符等）
+        2. 换行符、回车符
+        3. 其他不可见字符
+        """
+        for field in self._meta.get_fields():
+            # 只处理CharField和TextField
+            if isinstance(field, (models.CharField, models.TextField)):
+                field_name = field.name
+                value = getattr(self, field_name, None)
+                
+                if value and isinstance(value, str):
+                    # 1. 去除前后空白
+                    cleaned = value.strip()
+                    # 2. 替换所有类型的换行符为空格
+                    cleaned = cleaned.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+                    # 3. 合并多个连续空格为单个空格
+                    import re
+                    cleaned = re.sub(r'\s+', ' ', cleaned)
+                    # 4. 再次去除前后空白（处理替换后可能产生的空白）
+                    cleaned = cleaned.strip()
+                    
+                    # 只在值确实改变时才设置
+                    if cleaned != value:
+                        setattr(self, field_name, cleaned)
 
 
 class Procurement(BaseModel):
@@ -296,6 +326,34 @@ class Procurement(BaseModel):
         '应招未招说明（由公开转单一或邀请的情况）',
         blank=True,
         help_text='如从公开招标调整为单一来源或邀请招标需说明原因'
+    )
+    
+    # ===== 周报系统相关字段 =====
+    current_stage = models.CharField(
+        '当前阶段',
+        max_length=20,
+        blank=True,
+        help_text='采购项目当前所处的生命周期阶段(1-7)'
+    )
+    
+    stage_history = models.JSONField(
+        '阶段历史',
+        default=dict,
+        blank=True,
+        help_text='记录各阶段的进入时间和完成情况'
+    )
+    
+    is_from_weekly_report = models.BooleanField(
+        '来自周报',
+        default=False,
+        help_text='标识该采购记录是否从周报系统转入'
+    )
+    
+    weekly_report_sync_date = models.DateTimeField(
+        '周报同步时间',
+        null=True,
+        blank=True,
+        help_text='从周报系统同步到台账的时间'
     )
 
     class Meta(BaseModel.Meta):

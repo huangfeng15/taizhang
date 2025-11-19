@@ -216,6 +216,30 @@ class Contract(BaseModel):
         help_text='合同资料归档的日期'
     )
     
+    # ===== 周报系统相关字段 =====
+    is_from_weekly_report = models.BooleanField(
+        '来自周报',
+        default=False,
+        help_text='标识该合同记录是否从周报系统转入'
+    )
+    
+    weekly_report_sync_date = models.DateTimeField(
+        '周报同步时间',
+        null=True,
+        blank=True,
+        help_text='从周报系统同步到台账的时间'
+    )
+    
+    related_progress = models.ForeignKey(
+        'weekly_report.ProcurementProgress',
+        on_delete=models.SET_NULL,
+        verbose_name='关联进度记录',
+        null=True,
+        blank=True,
+        related_name='contracts',
+        help_text='关联的周报进度记录'
+    )
+    
     if TYPE_CHECKING:
         # 类型提示：Django 反向关系
         payments: 'RelatedManager[Payment]'
@@ -238,6 +262,40 @@ class Contract(BaseModel):
     
     def __str__(self):
         return f"{self.contract_code} - {self.contract_name}"
+    
+    def save(self, *args, **kwargs):
+        """保存前统一执行完整校验和数据清洗"""
+        # 自动清洗所有字符串字段：去除前后空白、换行符等
+        self._clean_string_fields()
+        super().save(*args, **kwargs)
+    
+    def _clean_string_fields(self):
+        """
+        清洗所有字符串字段，去除：
+        1. 前后空白字符（空格、制表符等）
+        2. 换行符、回车符
+        3. 其他不可见字符
+        """
+        for field in self._meta.get_fields():
+            # 只处理CharField和TextField
+            if isinstance(field, (models.CharField, models.TextField)):
+                field_name = field.name
+                value = getattr(self, field_name, None)
+                
+                if value and isinstance(value, str):
+                    # 1. 去除前后空白
+                    cleaned = value.strip()
+                    # 2. 替换所有类型的换行符为空格
+                    cleaned = cleaned.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+                    # 3. 合并多个连续空格为单个空格
+                    import re
+                    cleaned = re.sub(r'\s+', ' ', cleaned)
+                    # 4. 再次去除前后空白（处理替换后可能产生的空白）
+                    cleaned = cleaned.strip()
+                    
+                    # 只在值确实改变时才设置
+                    if cleaned != value:
+                        setattr(self, field_name, cleaned)
     
     def clean(self):
         """业务规则验证"""
