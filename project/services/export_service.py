@@ -641,12 +641,22 @@ def generate_project_excel(
             df_supplier_eval = pd.DataFrame(columns=supplier_eval_headers)
         df_supplier_eval.to_excel(writer, sheet_name='供应商管理表', index=False)
 
-        # 美化样式
-        for sheet in writer.book.sheetnames:
-            beautify_worksheet(writer.sheets[sheet])
-
+    # 在 ExcelWriter 上下文内美化样式
     output.seek(0)
-    return output
+    from openpyxl import load_workbook
+    wb = load_workbook(output)
+    
+    # 确保至少有一个工作表可见
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        ws.sheet_state = 'visible'  # 显式设置为可见
+        beautify_worksheet(ws)
+    
+    # 保存美化后的工作簿
+    final_output = BytesIO()
+    wb.save(final_output)
+    final_output.seek(0)
+    return final_output
 
 
 
