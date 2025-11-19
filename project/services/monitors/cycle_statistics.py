@@ -348,6 +348,91 @@ class CycleStatisticsService:
             }
         }
 
+    def get_contract_completeness_detail(self, year_filter=None, project_filter=None):
+        """
+        获取合同周期统计的纳入/排除明细（仅主合同）。
+
+        说明：
+        - 周期定义：结果公示发布时间 → 合同签订日期；
+        - 年度维度：
+          已完成记录按「合同签订日期」归属年度；
+          未完成记录（尚未签订）按「结果公示发布时间」归属年度。
+        """
+        queryset = Contract.objects.select_related('project', 'procurement').filter(
+            file_positioning=FilePositioning.MAIN_CONTRACT.value
+        )
+
+        if project_filter:
+            queryset = queryset.filter(project_id=project_filter)
+
+        # 年度筛选：已完成按 signing_date，未完成按结果公示时间
+        if year_filter and year_filter != 'all':
+            year_int = int(year_filter)
+            queryset = queryset.filter(
+                Q(signing_date__year=year_int)
+                | Q(
+                    signing_date__isnull=True,
+                    procurement__result_publicity_release_date__year=year_int,
+                )
+            )
+
+        included_qs = queryset.filter(
+            procurement__result_publicity_release_date__isnull=False,
+            signing_date__isnull=False,
+        )
+        missing_start_qs = queryset.filter(
+            procurement__result_publicity_release_date__isnull=True,
+            signing_date__isnull=False,
+        )
+        missing_end_qs = queryset.filter(
+            procurement__result_publicity_release_date__isnull=False,
+            signing_date__isnull=True,
+        )
+
+        included_count = included_qs.count()
+        missing_start_count = missing_start_qs.count()
+        missing_end_count = missing_end_qs.count()
+
+        limit = 200
+
+        def _serialize_record(item, reason):
+            return {
+                'code': getattr(item, 'contract_code', ''),
+                'contract_sequence': getattr(item, 'contract_sequence', '') or '',
+                'name': getattr(item, 'contract_name', ''),
+                'project_code': getattr(item.project, 'project_code', '') if item.project_id else '',
+                'project_name': getattr(item.project, 'project_name', '') if item.project_id else '',
+                'responsible_person': getattr(item, 'contract_officer', '') or '',
+                'start_date': item.procurement.result_publicity_release_date if item.procurement else None,
+                'end_date': item.signing_date,
+                'reason': reason,
+            }
+
+        included = [
+            _serialize_record(c, '字段完整，已纳入统计')
+            for c in included_qs[:limit]
+        ]
+        missing_start = [
+            _serialize_record(c, '缺少结果公示发布时间，未纳入统计')
+            for c in missing_start_qs[:limit]
+        ]
+        missing_end = [
+            _serialize_record(c, '缺少合同签订日期，未纳入统计')
+            for c in missing_end_qs[:limit]
+        ]
+
+        return {
+            'contract': {
+                'included_count': included_count,
+                'missing_start_count': missing_start_count,
+                'missing_end_count': missing_end_count,
+                'total_excluded_count': missing_start_count + missing_end_count,
+                'included': included,
+                'missing_start': missing_start,
+                'missing_end': missing_end,
+            }
+        }
+
     def _calculate_procurement_cycle_statistics(self, project_code=None, person_name=None,
                                                 year_filter=None, global_project=None, procurement_method=None):
         """计算采购周期统计"""

@@ -120,19 +120,23 @@
     </div>
 
     <!-- 排除数据提示：统计范围与完整性说明 -->
-    {% if completeness_data.procurement.total_excluded_count > 0 %}
+    {% if completeness_data.procurement.total_excluded_count > 0 or completeness_data.contract.total_excluded_count > 0 %}
     <div class="excluded-notice d-flex justify-content-between align-items-center">
         <div>
             <i class="fas fa-exclamation-triangle"></i>
             <strong>数据说明：</strong>
-            当前有 <strong>{{ completeness_data.procurement.total_excluded_count }}</strong> 条采购记录因关键字段缺失未纳入采购周期统计：
+            {% if completeness_data.procurement.total_excluded_count > 0 %}
+            采购部分有 <strong>{{ completeness_data.procurement.total_excluded_count }}</strong> 条记录因关键字段缺失未纳入采购周期统计：
             {% if completeness_data.procurement.missing_start_count > 0 %}
             其中 <strong>{{ completeness_data.procurement.missing_start_count }}</strong> 条缺少需求书审批完成日期（OA）；
             {% endif %}
             {% if completeness_data.procurement.missing_end_count > 0 %}
             <strong>{{ completeness_data.procurement.missing_end_count }}</strong> 条缺少结果公示发布时间。
             {% endif %}
-            这些记录不影响合同周期统计。
+            {% endif %}
+            {% if completeness_data.contract.total_excluded_count > 0 %}
+            合同部分有 <strong>{{ completeness_data.contract.total_excluded_count }}</strong> 条主合同记录因缺少结果公示或合同签订日期未纳入合同周期统计。
+            {% endif %}
         </div>
         <button type="button"
                 class="btn btn-sm btn-outline-warning"
@@ -328,16 +332,17 @@
     </div>
     {% endif %}
 
-    <!-- 统计范围说明模态框（采购） -->
-    {% if completeness_data.procurement %}
+    <!-- 统计范围说明模态框（采购+合同） -->
+    {% if completeness_data.procurement or completeness_data.contract %}
     <div class="modal fade" id="completenessModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">工作周期统计范围说明（采购）</h5>
+            <h5 class="modal-title">工作周期统计范围说明</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
           </div>
           <div class="modal-body">
+            {% if completeness_data.procurement %}
             <p class="mb-3">
                 当前筛选条件下，共有
                 <strong>{{ completeness_data.procurement.included_count|default:0 }}</strong> 条采购记录
@@ -463,6 +468,138 @@
             </div>
             {% else %}
             <div class="alert alert-secondary">当前条件下暂无因缺少结果公示发布时间而被排除的记录。</div>
+            {% endif %}
+            {% endif %}
+
+            {% if completeness_data.contract %}
+            <hr class="my-4" />
+            <h6 class="mt-3">四、合同周期统计范围（仅主合同）</h6>
+            <p class="mb-2">
+                当前筛选条件下，共有
+                <strong>{{ completeness_data.contract.included_count|default:0 }}</strong> 条主合同记录
+                已纳入合同周期统计，
+                <strong>{{ completeness_data.contract.total_excluded_count|default:0 }}</strong> 条因缺少结果公示或合同签订日期未纳入统计。
+            </p>
+
+            <h6 class="mt-2">（一）已纳入统计的合同记录（示例，最多展示 200 条）</h6>
+            {% if completeness_data.contract.included %}
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>合同编号</th>
+                            <th>合同序号</th>
+                            <th>项目</th>
+                            <th>经办人</th>
+                            <th>结果公示发布时间</th>
+                            <th>合同签订日期</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in completeness_data.contract.included %}
+                        <tr>
+                            <td>{{ r.code }}</td>
+                            <td>{{ r.contract_sequence }}</td>
+                            <td>
+                                {% if r.project_code %}
+                                {{ r.project_code }} - {{ r.project_name }}
+                                {% else %}
+                                <span class="text-muted">未关联项目</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ r.responsible_person }}</td>
+                            <td>{% if r.start_date %}{{ r.start_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                            <td>{% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                            <td><span class="text-success">{{ r.reason }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">当前条件下暂无纳入统计的主合同记录。</div>
+            {% endif %}
+
+            <h6 class="mt-3">（二）未纳入统计的合同记录（缺少结果公示发布时间）</h6>
+            {% if completeness_data.contract.missing_start %}
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>合同编号</th>
+                            <th>合同序号</th>
+                            <th>项目</th>
+                            <th>经办人</th>
+                            <th>结果公示发布时间</th>
+                            <th>合同签订日期</th>
+                            <th>未纳入原因</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in completeness_data.contract.missing_start %}
+                        <tr>
+                            <td>{{ r.code }}</td>
+                            <td>{{ r.contract_sequence }}</td>
+                            <td>
+                                {% if r.project_code %}
+                                {{ r.project_code }} - {{ r.project_name }}
+                                {% else %}
+                                <span class="text-muted">未关联项目</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ r.responsible_person }}</td>
+                            <td><span class="text-danger">缺失</span></td>
+                            <td>{% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                            <td><span class="text-danger">{{ r.reason }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">当前条件下暂无因缺少结果公示发布时间而被排除的合同记录。</div>
+            {% endif %}
+
+            <h6 class="mt-3">（三）未纳入统计的合同记录（缺少合同签订日期）</h6>
+            {% if completeness_data.contract.missing_end %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>合同编号</th>
+                            <th>合同序号</th>
+                            <th>项目</th>
+                            <th>经办人</th>
+                            <th>结果公示发布时间</th>
+                            <th>合同签订日期</th>
+                            <th>未纳入原因</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in completeness_data.contract.missing_end %}
+                        <tr>
+                            <td>{{ r.code }}</td>
+                            <td>{{ r.contract_sequence }}</td>
+                            <td>
+                                {% if r.project_code %}
+                                {{ r.project_code }} - {{ r.project_name }}
+                                {% else %}
+                                <span class="text-muted">未关联项目</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ r.responsible_person }}</td>
+                            <td>{% if r.start_date %}{{ r.start_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                            <td><span class="text-danger">缺失</span></td>
+                            <td><span class="text-danger">{{ r.reason }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">当前条件下暂无因缺少合同签订日期而被排除的合同记录。</div>
+            {% endif %}
             {% endif %}
           </div>
           <div class="modal-footer">

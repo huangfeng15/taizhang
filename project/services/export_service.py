@@ -147,9 +147,9 @@ def generate_project_excel(
             '采购经办人', '需求部门', '申请人联系电话（需求部门）',
             '采购需求书审批完成日期（OA）', '采购平台', '资格审查方式',
             '评标谈判方式', '定标方法', '公告发布时间', '报名截止时间',
-            '开标时间', '资料归档日期', '评标委员会成员', '投标担保形式及金额（元）',
+            '开标时间', '评标委员会成员', '投标担保形式及金额（元）',
             '投标担保退回日期', '履约担保形式及金额（元）', '候选人公示期质疑情况',
-            '应招未招说明（由公开转单一或邀请的情况）'
+            '应招未招说明（由公开转单一或邀请的情况）', '资料归档日期'
         ]
         procurement_rows = []
         # 使用 iterator 分批获取记录，降低大项目导出时的内存占用
@@ -195,13 +195,13 @@ def generate_project_excel(
                 '公告发布时间': procurement.announcement_release_date.strftime('%Y-%m-%d') if procurement.announcement_release_date else '',
                 '报名截止时间': procurement.registration_deadline.strftime('%Y-%m-%d') if procurement.registration_deadline else '',
                 '开标时间': procurement.bid_opening_date.strftime('%Y-%m-%d') if procurement.bid_opening_date else '',
-                '资料归档日期': procurement.archive_date.strftime('%Y-%m-%d') if procurement.archive_date else '',
                 '评标委员会成员': procurement.evaluation_committee or '',
                 '投标担保形式及金额（元）': procurement.bid_guarantee or '',
                 '投标担保退回日期': procurement.bid_guarantee_return_date.strftime('%Y-%m-%d') if procurement.bid_guarantee_return_date else '',
                 '履约担保形式及金额（元）': procurement.performance_guarantee or '',
                 '候选人公示期质疑情况': procurement.candidate_publicity_issue or '',
                 '应招未招说明（由公开转单一或邀请的情况）': procurement.non_bidding_explanation or '',
+                '资料归档日期': procurement.archive_date.strftime('%Y-%m-%d') if procurement.archive_date else '',
             })
 
         # 如果没有数据，创建空DataFrame但保留表头

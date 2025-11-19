@@ -649,12 +649,17 @@ def cycle_monitor(request):
             procurement_method=procurement_method if procurement_method else None,
         )
 
-    # 统计完整性明细（当前筛选范围内的“纳入/未纳入统计”采购记录）
+    # 统计完整性明细（当前筛选范围内的“纳入/未纳入统计”采购与合同记录）
     completeness_data = stats_service.get_procurement_completeness_detail(
         year_filter=global_filters['year_value'],
         project_filter=global_filters['project'],
         procurement_method=procurement_method if procurement_method else None,
     )
+    contract_completeness = stats_service.get_contract_completeness_detail(
+        year_filter=global_filters['year_value'],
+        project_filter=global_filters['project'],
+    )
+    completeness_data.update(contract_completeness)
 
     detail_data = None
     if target_code:
