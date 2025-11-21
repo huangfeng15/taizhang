@@ -1,0 +1,134 @@
+# 爬虫服务配置文件
+
+# 浏览器配置
+browser:
+  headless: false  # 是否无头模式运行
+  timeout: 30000  # 默认超时时间(毫秒)
+  slow_mo: 100  # 操作延迟(毫秒)，用于调试
+  viewport:
+    width: 1920
+    height: 1080
+
+# 目标网站配置
+target_sites:
+  # 主数据源：深圳市阳光采购平台
+  primary:
+    name: "深圳市阳光采购平台"
+    base_url: "https://www.szzfcg.cn"
+    search_url: "https://www.szzfcg.cn/jyxx/index.html"
+    detail_url_pattern: "https://www.szzfcg.cn/jyxx/detail/{id}.html"
+    
+  # 备用数据源
+  fallback:
+    name: "备用采购平台"
+    base_url: ""
+    search_url: ""
+
+# API拦截配置
+api_intercept:
+  enabled: true
+  patterns:
+    - "**/api/procurement/**"
+    - "**/api/bidding/**"
+    - "**/api/result/**"
+  timeout: 10000
+
+# 字段提取配置
+field_extraction:
+  # 采购项目基本信息
+  project_name:
+    selector: ".project-name"
+    required: true
+    
+  procurement_code:
+    selector: ".procurement-code"
+    required: true
+    
+  procurement_method:
+    selector: ".procurement-method"
+    required: false
+    
+  # 金额信息
+  budget_amount:
+    selector: ".budget-amount"
+    required: false
+    parser: "amount"
+    
+  control_price:
+    selector: ".control-price"
+    required: false
+    parser: "amount"
+    
+  winning_amount:
+    selector: ".winning-amount"
+    required: false
+    parser: "amount"
+    
+  # 中标信息
+  winning_bidder:
+    selector: ".winning-bidder"
+    required: false
+    multiple: true  # 支持多中标人
+    
+  # 时间信息
+  announcement_release_date:
+    selector: ".announcement-date"
+    required: false
+    parser: "date"
+    
+  bid_opening_date:
+    selector: ".bid-opening-date"
+    required: false
+    parser: "date"
+    
+  result_publicity_release_date:
+    selector: ".result-date"
+    required: false
+    parser: "date"
+
+# 多中标人识别配置
+multiple_winners:
+  enabled: true
+  patterns:
+    - "第一中标候选人"
+    - "第二中标候选人"
+    - "第三中标候选人"
+    - "中标候选人一"
+    - "中标候选人二"
+    - "中标候选人三"
+  max_winners: 3
+
+# 重试配置
+retry:
+  max_attempts: 3
+  delay: 2000  # 重试延迟(毫秒)
+  backoff_factor: 2  # 退避因子
+
+# 日志配置
+logging:
+  level: "INFO"
+  file: "logs/crawler.log"
+  max_size: 10485760  # 10MB
+  backup_count: 5
+
+# 数据清洗规则
+data_cleaning:
+  # 金额清洗
+  amount:
+    remove_chars: ["元", "￥", ",", "，"]
+    unit_conversion:
+      "万元": 10000
+      "千元": 1000
+      
+  # 日期清洗
+  date:
+    formats:
+      - "%Y-%m-%d"
+      - "%Y年%m月%d日"
+      - "%Y/%m/%d"
+      
+  # 文本清洗
+  text:
+    strip: true
+    remove_extra_spaces: true
+    remove_newlines: true
