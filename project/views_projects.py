@@ -6,8 +6,6 @@ from django.db.models import (
     Count,
     Sum,
     Q,
-    OuterRef,
-    Subquery,
     Value,
     DecimalField,
 )
@@ -72,19 +70,14 @@ def project_list(request):
     if created_at_end:
         projects = projects.filter(created_at__lte=created_at_end)
 
-    contract_total_subquery = Contract.objects.filter(
-        project=OuterRef('pk')
-    ).values('project').annotate(
-        total=Sum('contract_amount')
-    ).values('total')
-
+    # 优化查询：移除子查询，使用简单聚合（性能提升显著）
     projects = projects.annotate(
         procurement_count=Count('procurements', distinct=True),
         contract_count=Count('contracts', distinct=True),
         contract_total=Coalesce(
-            Subquery(contract_total_subquery),
-            Value(0, output_field=DecimalField(max_digits=15, decimal_places=2)),
-        ),
+            Sum('contracts__contract_amount'),
+            Value(0, output_field=DecimalField(max_digits=15, decimal_places=2))
+        )
     ).order_by('-created_at')
 
     # 分页
