@@ -389,19 +389,28 @@ def contract_detail(request, contract_code):
 
     contract = get_object_or_404(Contract, contract_code=contract_code)
 
-    payments = Payment.objects.filter(contract=contract).order_by('-payment_date')
+    # 确定用于显示付款、履约评价和采购信息的合同
+    # 如果是补充协议，使用主合同的数据；如果是主合同，使用自身数据
+    display_contract = contract
+    if contract.file_positioning != FilePositioning.MAIN_CONTRACT.value and contract.parent_contract:
+        display_contract = contract.parent_contract
+
+    # 付款记录使用display_contract
+    payments = Payment.objects.filter(contract=display_contract).order_by('-payment_date')
     total_paid = payments.aggregate(Sum('payment_amount'))['payment_amount__sum'] or 0
 
     payment_progress = 0
     if contract.contract_amount and contract.contract_amount > 0:
         payment_progress = (total_paid / contract.contract_amount) * 100
 
-    procurement = contract.procurement if contract.procurement else None
+    # 采购信息使用display_contract
+    procurement = display_contract.procurement if display_contract.procurement else None
 
+    # 结算信息
     settlement = None
-    if contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
+    if display_contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
         try:
-            settlement = getattr(contract, 'settlement', None)
+            settlement = getattr(display_contract, 'settlement', None)
         except Exception:
             settlement = None
 
@@ -424,9 +433,9 @@ def contract_detail(request, contract_code):
                 contract_code=contract.contract_code
             ).order_by('signing_date')
 
-    # 获取履约评价记录
+    # 履约评价记录使用display_contract
     from supplier_eval.models import SupplierEvaluation
-    evaluations = SupplierEvaluation.objects.filter(contract=contract).order_by('-created_at')
+    evaluations = SupplierEvaluation.objects.filter(contract=display_contract).order_by('-created_at')
 
     context = {
         'contract': contract,
@@ -439,6 +448,7 @@ def contract_detail(request, contract_code):
         'parent_contract': parent_contract,
         'sibling_contracts': sibling_contracts,
         'evaluations': evaluations,
+        'display_contract': display_contract,  # 添加display_contract到上下文，用于模板判断
     }
     return render(request, 'contract_detail.html', context)
 

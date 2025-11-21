@@ -218,6 +218,9 @@
         <h2 class="card-title">
             <i class="fas fa-shopping-cart"></i>
             关联采购信息
+            {% if contract.parent_contract %}
+                <span style="font-size: 12px; color: #856404; margin-left: 10px;">（继承自主合同 {{ contract.parent_contract.contract_code }}）</span>
+            {% endif %}
         </h2>
     </div>
     <div style="padding: 20px;">
@@ -263,6 +266,9 @@
         <h2 class="card-title">
             <i class="fas fa-money-bill-wave"></i>
             付款记录
+            {% if contract.parent_contract %}
+                <span style="font-size: 12px; color: #856404; margin-left: 10px;">（与主合同 {{ contract.parent_contract.contract_code }} 共用）</span>
+            {% endif %}
         </h2>
         <div>
             <button type="button" class="btn btn-primary" data-create-url="{% url 'payment_create' %}?contract={{ contract.contract_code }}" data-title="新增付款记录">
@@ -295,18 +301,26 @@
         <div class="detail-item" style="margin-bottom: 20px; padding: 10px; background: #fff3cd; border-radius: 4px;">
             <label style="color: #856404;">付款比例说明：</label>
             <span style="color: #856404;">
-                {% if contract.file_positioning == '主合同' %}
+                {% if display_contract.file_positioning == '主合同' %}
                     {% if settlement %}
                         按结算价 ¥{{ settlement.final_amount|floatformat:2 }} 计算
                     {% else %}
-                        按合同价
-                        {% if contract.get_contract_with_supplements_amount > contract.contract_amount %}
-                            （含补充协议）
+                        按合同价 ¥{{ display_contract.get_contract_with_supplements_amount|floatformat:2 }} 计算
+                        {% if display_contract.get_contract_with_supplements_amount > display_contract.contract_amount %}
+                            （已考虑补充协议金额作为计算基数）
                         {% endif %}
-                        ¥{{ contract.get_contract_with_supplements_amount|floatformat:2 }} 计算
                     {% endif %}
                 {% else %}
-                    按本协议金额 ¥{{ contract.contract_amount|floatformat:2 }} 计算
+                    {% if contract.parent_contract %}
+                        此补充协议的付款记录与主合同 {{ contract.parent_contract.contract_code }} 共用，
+                        {% if settlement %}
+                            按结算价 ¥{{ settlement.final_amount|floatformat:2 }} 计算
+                        {% else %}
+                            按合同价 ¥{{ display_contract.get_contract_with_supplements_amount|floatformat:2 }} 计算（已考虑所有补充协议金额作为计算基数）
+                        {% endif %}
+                    {% else %}
+                        按本协议金额 ¥{{ contract.contract_amount|floatformat:2 }} 计算
+                    {% endif %}
                 {% endif %}
             </span>
         </div>
@@ -383,6 +397,9 @@
         <h2 class="card-title">
             <i class="fas fa-star"></i>
             履约评价
+            {% if contract.parent_contract %}
+                <span style="font-size: 12px; color: #856404; margin-left: 10px;">（与主合同 {{ contract.parent_contract.contract_code }} 共用）</span>
+            {% endif %}
         </h2>
         <div>
             <button type="button" class="btn btn-primary" data-create-url="{% url 'supplier_eval:supplier_evaluation_create' %}?contract={{ contract.contract_code }}" data-title="新增履约评价">
