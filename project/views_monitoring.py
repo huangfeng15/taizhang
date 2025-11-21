@@ -449,7 +449,11 @@ def completeness_check(request):
     参照归档监控的成功设计模式
     """
     from project.services.monitors.completeness_statistics import CompletenessStatisticsService
-    from project.services.completeness import get_completeness_overview, get_project_completeness_ranking
+    from project.services.completeness import (
+        get_completeness_overview,
+        get_project_completeness_ranking,
+        check_procurement_completeness_by_method
+    )
     from django.core.paginator import Paginator
 
     # 1. 解析全局筛选参数（与归档监控完全一致）
@@ -498,8 +502,14 @@ def completeness_check(request):
         year=int(global_filters['year_value']) if global_filters['year_value'] and global_filters['year_value'] != 'all' else None,
         project_codes=[global_filters['project']] if global_filters['project'] else None
     )
+    
+    # 7. 获取按采购方式分类的齐全性统计
+    procurement_method_completeness = check_procurement_completeness_by_method(
+        year=int(global_filters['year_value']) if global_filters['year_value'] and global_filters['year_value'] != 'all' else None,
+        project_codes=[global_filters['project']] if global_filters['project'] else None
+    )
 
-    # 7. 分页处理
+    # 8. 分页处理
     # 排行榜分页
     ranking_page = request.GET.get('ranking_page', 1)
     ranking_paginator = Paginator(ranking_data, 20)
@@ -515,13 +525,13 @@ def completeness_check(request):
     contract_paginator = Paginator(completeness_overview['contract_field_check']['field_stats'], 10)
     contract_page_obj = contract_paginator.get_page(contract_page)
 
-    # 8. 构建分页查询字符串
+    # 9. 构建分页查询字符串
     from project.views_helpers import _build_pagination_querystring
     ranking_pagination_query = _build_pagination_querystring(request, excluded_keys=['ranking_page'])
     procurement_pagination_query = _build_pagination_querystring(request, excluded_keys=['procurement_page'])
     contract_pagination_query = _build_pagination_querystring(request, excluded_keys=['contract_page'])
 
-    # 9. 构建上下文
+    # 10. 构建上下文
     year_context, project_codes, project_filter_config, filter_config = _extract_monitoring_filters(request)
     
     context = {
@@ -531,6 +541,7 @@ def completeness_check(request):
         'overview_data': overview_data,
         'detail_data': detail_data,
         'overview': completeness_overview,
+        'procurement_method_completeness': procurement_method_completeness,
         'ranking_page_obj': ranking_page_obj,
         'procurement_page_obj': procurement_page_obj,
         'contract_page_obj': contract_page_obj,
@@ -546,38 +557,65 @@ def completeness_check(request):
 def completeness_field_config(request):
     """齐全性字段配置页面。"""
     from project.models_completeness_config import CompletenessFieldConfig
+    from project.models_procurement_method_config import ProcurementMethodFieldConfig
     from project.services.completeness import get_default_procurement_fields, get_default_contract_fields
     from procurement.models import Procurement
     from contract.models import Contract
 
     model_type = request.GET.get('model_type', 'procurement')
+    method_type = request.GET.get('method_type', 'strategic_procurement')  # 默认战采结果应用
 
     if model_type == 'procurement':
+        # 采购模式：按采购方式分类配置
         default_fields = get_default_procurement_fields()
         model_class = Procurement
+
+        # 初始化采购方式字段配置（如果不存在）
+        for idx, field_name in enumerate(default_fields):
+            try:
+                field = model_class._meta.get_field(field_name)
+                field_label = field.verbose_name
+            except Exception:
+                field_label = field_name
+
+            # 为每种采购方式创建配置
+            for mt_value, mt_label in ProcurementMethodFieldConfig.METHOD_TYPE_CHOICES:
+                ProcurementMethodFieldConfig.objects.get_or_create(
+                    method_type=mt_value,
+                    field_name=field_name,
+                    defaults={'field_label': field_label, 'is_required': True, 'sort_order': idx},
+                )
+
+        # 获取当前采购方式的配置
+        configs = ProcurementMethodFieldConfig.objects.filter(
+            method_type=method_type
+        ).order_by('sort_order', 'field_name')
+
     else:
+        # 合同模式：使用原有配置
         default_fields = get_default_contract_fields()
         model_class = Contract
 
-    for idx, field_name in enumerate(default_fields):
-        try:
-            field = model_class._meta.get_field(field_name)
-            field_label = field.verbose_name
-        except Exception:
-            field_label = field_name
+        for idx, field_name in enumerate(default_fields):
+            try:
+                field = model_class._meta.get_field(field_name)
+                field_label = field.verbose_name
+            except Exception:
+                field_label = field_name
 
-        CompletenessFieldConfig.objects.get_or_create(
-            model_type=model_type,
-            field_name=field_name,
-            defaults={'field_label': field_label, 'is_enabled': True, 'sort_order': idx},
-        )
+            CompletenessFieldConfig.objects.get_or_create(
+                model_type=model_type,
+                field_name=field_name,
+                defaults={'field_label': field_label, 'is_enabled': True, 'sort_order': idx},
+            )
 
-    configs = CompletenessFieldConfig.objects.filter(model_type=model_type).order_by('sort_order', 'field_name')
+        configs = CompletenessFieldConfig.objects.filter(model_type=model_type).order_by('sort_order', 'field_name')
 
     context = {
         'model_type': model_type,
+        'method_type': method_type,
         'configs': configs,
-        'procurement_count': CompletenessFieldConfig.objects.filter(model_type='procurement').count(),
+        'procurement_count': len(get_default_procurement_fields()),
         'contract_count': CompletenessFieldConfig.objects.filter(model_type='contract').count(),
     }
     return render(request, 'monitoring/completeness_field_config.html', context)
@@ -588,20 +626,43 @@ def completeness_field_config(request):
 def update_completeness_field_config(request):
     """更新齐全性字段配置。"""
     from project.models_completeness_config import CompletenessFieldConfig
+    from project.models_procurement_method_config import ProcurementMethodFieldConfig
 
     try:
         data = json.loads(request.body)
         model_type = data.get('model_type')
         field_configs = data.get('fields', [])
 
-        for config_data in field_configs:
-            field_name = config_data.get('field_name')
-            is_enabled = config_data.get('is_enabled', True)
-            CompletenessFieldConfig.objects.filter(model_type=model_type, field_name=field_name).update(
-                is_enabled=is_enabled
-            )
+        if model_type == 'procurement':
+            # 采购模式：按采购方式保存
+            method_type = data.get('method_type', 'strategic_procurement')
+            
+            for config_data in field_configs:
+                field_name = config_data.get('field_name')
+                is_required = config_data.get('is_required', True)
+                
+                ProcurementMethodFieldConfig.objects.filter(
+                    method_type=method_type,
+                    field_name=field_name
+                ).update(is_required=is_required)
 
-        return JsonResponse({'success': True, 'message': '配置已更新'})
+            return JsonResponse({
+                'success': True,
+                'message': f'配置已更新（{dict(ProcurementMethodFieldConfig.METHOD_TYPE_CHOICES).get(method_type)}）'
+            })
+        else:
+            # 合同模式：使用原有逻辑
+            for config_data in field_configs:
+                field_name = config_data.get('field_name')
+                is_enabled = config_data.get('is_enabled', True)
+                
+                CompletenessFieldConfig.objects.filter(
+                    model_type=model_type,
+                    field_name=field_name
+                ).update(is_enabled=is_enabled)
+
+            return JsonResponse({'success': True, 'message': '配置已更新'})
+            
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'更新失败: {str(e)}'}, status=400)
 

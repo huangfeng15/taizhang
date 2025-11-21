@@ -1,0 +1,80 @@
+# 采购记录齐全性字段配置
+# 按采购方式分类配置必填字段
+
+procurement_completeness:
+  # 战采结果应用
+  strategic_procurement:
+    label: "战采结果应用"
+    procurement_method_values:
+      - "战采结果应用"
+      - "战略采购结果应用"
+    required_fields:
+      - procurement_code        # 招采编号
+      - project_name           # 采购项目名称
+      - procurement_officer    # 采购经办人
+      - procurement_category   # 采购类别
+      - procurement_method     # 采购方式
+      - winning_amount         # 中标金额
+      - winning_bidder         # 中标单位
+      - result_publicity_release_date  # 结果公示发布时间
+      
+  # 直接委托
+  direct_commission:
+    label: "直接委托"
+    procurement_method_values:
+      - "直接采购"
+    required_fields:
+      - procurement_code
+      - project_name
+      - procurement_officer
+      - procurement_category
+      - procurement_method
+      - winning_amount
+      - winning_bidder
+      - result_publicity_release_date
+      
+  # 单一来源采购
+  single_source:
+    label: "单一来源采购"
+    procurement_method_values:
+      - "单一来源采购"
+      - "单一来源"
+    required_fields:
+      - procurement_code
+      - project_name
+      - procurement_officer
+      - procurement_category
+      - procurement_method
+      - winning_amount
+      - winning_bidder
+      - bid_evaluation_method  # 评标谈判方式
+      - result_publicity_release_date
+      
+  # 其他采购方式（招标、询价、竞价等）
+  other_methods:
+    label: "其他采购方式"
+    procurement_method_values:
+      - "公开招标"
+      - "邀请招标"
+      - "公开询价"
+      - "邀请询价"
+      - "公开竞价"
+      - "邀请竞价"
+      - "公开比选"
+      - "邀请比选"
+      - "公开竞争性谈判"
+      - "公开竞争性磋商"
+      - "邀请竞争性谈判"
+      - "邀请竞争性磋商"
+    required_fields:
+      - procurement_code
+      - project_name
+      - procurement_officer
+      - procurement_category
+      - procurement_method
+      - budget_amount          # 采购预算金额
+      - winning_amount
+      - winning_bidder
+      - bid_evaluation_method
+      - bid_opening_date       # 开标时间
+      - result_publicity_release_date

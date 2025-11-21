@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import views as auth_views
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from project import views
+from project import views_api
 from project.views_workload import workload_statistics_view
 from project.views_logs import operation_logs_list, delete_operation_log
 
@@ -57,6 +58,7 @@ urlpatterns = [
     # 级联选择器数据API
     path('api/projects/', views.api_projects_list, name='api_projects_list'),
     path('api/procurements/', views.api_procurements_list, name='api_procurements_list'),
+    path('api/procurements/<str:procurement_code>/detail/', views_api.api_procurement_detail, name='api_procurement_detail'),
     path('api/contracts/', views.api_contracts_list, name='api_contracts_list'),
 
     # 统计数据详情查看API

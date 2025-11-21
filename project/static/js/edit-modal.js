@@ -167,6 +167,53 @@ class EditModal {
         const projectContainer = document.querySelector('[data-smart-selector="project"]');
         if (!projectContainer) return;
 
+        // 获取全局筛选状态
+        const globalFilters = window.GlobalFilterStore ? window.GlobalFilterStore.getState() : {};
+        const globalProject = globalFilters.project || '';
+        const globalYear = globalFilters.year || '';
+
+        // 如果全局筛选器选中了单个具体项目，项目字段应被锁定
+        const isProjectLocked = globalProject && globalProject !== '' && globalProject !== 'all';
+
+        if (isProjectLocked) {
+            // 锁定模式：显示为灰色禁用状态
+            projectContainer.innerHTML = `
+                <input type="text"
+                       class="form-control"
+                       value="正在加载项目名称..."
+                       disabled
+                       style="background-color: #e9ecef; cursor: not-allowed;">
+            `;
+            
+            // 异步获取项目名称并更新显示
+            fetch(`/api/projects/?search=${globalProject}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        const project = data.data[0];
+                        projectContainer.innerHTML = `
+                            <input type="text"
+                                   class="form-control"
+                                   value="${project.display_text}"
+                                   disabled
+                                   style="background-color: #e9ecef; cursor: not-allowed;">
+                        `;
+                        
+                        // 更新隐藏字段
+                        const hiddenInput = document.getElementById('id_project');
+                        if (hiddenInput) {
+                            hiddenInput.value = project.id;
+                        }
+                        
+                        // 注意：不调用 onProjectChange，因为采购/合同选择器已经在初始化时应用了全局筛选
+                        // 避免覆盖初始设置的全局筛选条件（包括年度筛选）
+                    }
+                });
+            
+            return;
+        }
+
+        // 非锁定模式：显示可交互下拉选择器
         this.smartSelectors.project = new SmartSelector({
             container: projectContainer,
             apiUrl: '/api/projects/',
@@ -224,9 +271,23 @@ class EditModal {
     }
 
     initContractSelectors() {
+        // 获取全局筛选状态
+        const globalFilters = window.GlobalFilterStore ? window.GlobalFilterStore.getState() : {};
+        const globalProject = globalFilters.project || '';
+        const globalYear = globalFilters.year || '';
+
         // 采购项目名称选择器（用于关联）
         const procurementContainer = document.querySelector('[data-smart-selector="procurement"]');
         if (procurementContainer) {
+            // 构建级联筛选参数：应用全局筛选条件
+            const cascadeFilters = {};
+            if (globalProject && globalProject !== '' && globalProject !== 'all') {
+                cascadeFilters.project = globalProject;
+            }
+            if (globalYear && globalYear !== '' && globalYear !== 'all') {
+                cascadeFilters.year = globalYear;
+            }
+
             this.smartSelectors.procurement = new SmartSelector({
                 container: procurementContainer,
                 apiUrl: '/api/procurements/',
@@ -234,7 +295,7 @@ class EditModal {
                 searchPlaceholder: '搜索采购项目名称...',
                 displayField: 'display_text',
                 valueField: 'id',
-                cascadeFilters: {},
+                cascadeFilters: cascadeFilters,
                 onChange: (value, text) => {
                     const hiddenInput = document.getElementById('id_procurement');
                     if (hiddenInput) {
@@ -278,9 +339,23 @@ class EditModal {
     }
 
     initPaymentSelectors() {
+        // 获取全局筛选状态
+        const globalFilters = window.GlobalFilterStore ? window.GlobalFilterStore.getState() : {};
+        const globalProject = globalFilters.project || '';
+        const globalYear = globalFilters.year || '';
+
         // 合同选择器
         const contractContainer = document.querySelector('[data-smart-selector="contract"]');
         if (contractContainer) {
+            // 构建级联筛选参数：应用全局筛选条件
+            const cascadeFilters = {};
+            if (globalProject && globalProject !== '' && globalProject !== 'all') {
+                cascadeFilters.project = globalProject;
+            }
+            if (globalYear && globalYear !== '' && globalYear !== 'all') {
+                cascadeFilters.year = globalYear;
+            }
+
             this.smartSelectors.contract = new SmartSelector({
                 container: contractContainer,
                 apiUrl: '/api/contracts/',
@@ -288,7 +363,7 @@ class EditModal {
                 searchPlaceholder: '搜索合同名称或编号...',
                 displayField: 'display_text',
                 valueField: 'id',
-                cascadeFilters: {},
+                cascadeFilters: cascadeFilters,
                 onChange: (value, text) => {
                     const hiddenInput = document.getElementById('id_contract');
                     if (hiddenInput) {
@@ -362,8 +437,25 @@ class EditModal {
     }
 
     onProjectChange(projectId) {
+        // 获取全局筛选状态
+        const globalFilters = window.GlobalFilterStore ? window.GlobalFilterStore.getState() : {};
+        const globalYear = globalFilters.year || '';
+        const globalProject = globalFilters.project || '';
+
         // 当项目变更时，更新所有依赖项目的选择器的级联筛选
-        const filters = projectId ? { project_id: projectId } : {};
+        const filters = {};
+        
+        // 优先使用全局项目筛选，如果没有则使用手动选择的项目
+        if (globalProject && globalProject !== '' && globalProject !== 'all') {
+            filters.project = globalProject;
+        } else if (projectId) {
+            filters.project_id = projectId;
+        }
+        
+        // 同时应用全局年度筛选
+        if (globalYear && globalYear !== '' && globalYear !== 'all') {
+            filters.year = globalYear;
+        }
 
         // 更新采购选择器
         if (this.smartSelectors.procurement) {
@@ -377,9 +469,15 @@ class EditModal {
         
         // 更新关联主合同选择器（只显示主合同且属于该项目）
         if (this.smartSelectors.parent_contract) {
-            const parentFilters = projectId
-                ? { project_id: projectId, file_positioning: '主合同' }
-                : { file_positioning: '主合同' };
+            const parentFilters = { file_positioning: '主合同' };
+            if (globalProject && globalProject !== '' && globalProject !== 'all') {
+                parentFilters.project = globalProject;
+            } else if (projectId) {
+                parentFilters.project_id = projectId;
+            }
+            if (globalYear && globalYear !== '' && globalYear !== 'all') {
+                parentFilters.year = globalYear;
+            }
             this.smartSelectors.parent_contract.updateCascadeFilters(parentFilters);
         }
     }

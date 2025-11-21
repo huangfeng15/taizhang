@@ -11,6 +11,7 @@ from contract.models import Contract
 from payment.models import Payment
 from settlement.models import Settlement
 from project.enums import FilePositioning, ContractSource
+from project.utils.completeness_checker import ProcurementCompletenessChecker
 
 
 def get_enabled_fields(model_type):
@@ -760,3 +761,132 @@ def get_project_completeness_ranking(year=None, project_codes=None):
         item['rank'] = i
     
     return rankings
+
+
+def check_procurement_completeness_by_method(year=None, project_codes=None):
+    """
+    按采购方式分类检查采购记录齐全性
+    
+    Args:
+        year: 年份筛选(None表示全部年份)
+        project_codes: 项目编码列表(None表示全部项目)
+    
+    Returns:
+        dict: 按采购方式分类的齐全性统计
+        {
+            'by_procurement_method': {
+                'strategic_procurement': {...},
+                'direct_commission': {...},
+                'single_source': {...},
+                'other_methods': {...}
+            },
+            'overall': {...},
+            'summary': {...}
+        }
+    """
+    # 初始化检查器
+    checker = ProcurementCompletenessChecker()
+    
+    # 获取采购数据
+    procurements = Procurement.objects.all()
+    if year:
+        procurements = procurements.filter(result_publicity_release_date__year=year)
+    if project_codes:
+        procurements = procurements.filter(project__project_code__in=project_codes)
+    
+    # 使用检查器计算分类统计
+    stats_by_method = checker.calculate_type_statistics(procurements)
+    
+    # 构造返回结果
+    result = {
+        'by_procurement_method': {},
+        'overall': stats_by_method.pop('overall', {}),
+        'summary': {
+            'total_procurement_count': stats_by_method.get('overall', {}).get('total_count', 0),
+            'total_required_fields': stats_by_method.get('overall', {}).get('total_required', 0),
+            'total_filled_fields': stats_by_method.get('overall', {}).get('total_filled', 0),
+            'overall_completeness_rate': stats_by_method.get('overall', {}).get('completeness_rate', 0.0),
+        }
+    }
+    
+    # 重新获取overall（因为上面pop掉了）
+    if 'overall' not in result or not result['overall']:
+        procurements = Procurement.objects.all()
+        if year:
+            procurements = procurements.filter(result_publicity_release_date__year=year)
+        if project_codes:
+            procurements = procurements.filter(project__project_code__in=project_codes)
+        stats_by_method = checker.calculate_type_statistics(procurements)
+        result['overall'] = stats_by_method.get('overall', {})
+    
+    # 添加各类型统计
+    for type_key, type_stats in stats_by_method.items():
+        if type_key != 'overall':
+            result['by_procurement_method'][type_key] = type_stats
+    
+    return result
+
+
+def get_procurement_method_completeness_detail(year=None, project_codes=None, method_type=None):
+    """
+    获取特定采购方式类型的详细齐全性信息
+    
+    Args:
+        year: 年份筛选
+        project_codes: 项目编码列表
+        method_type: 采购方式类型 (strategic_procurement, direct_commission, single_source, other_methods)
+    
+    Returns:
+        dict: 详细的齐全性信息，包括不齐全的记录列表
+    """
+    checker = ProcurementCompletenessChecker()
+    
+    # 获取采购数据
+    procurements = Procurement.objects.all()
+    if year:
+        procurements = procurements.filter(result_publicity_release_date__year=year)
+    if project_codes:
+        procurements = procurements.filter(project__project_code__in=project_codes)
+    
+    # 如果指定了方式类型，只获取该类型的记录
+    if method_type:
+        type_config = checker.config.get(method_type, {})
+        method_values = type_config.get('procurement_method_values', [])
+        if method_values:
+            procurements = procurements.filter(procurement_method__in=method_values)
+    
+    # 检查每条记录的齐全性
+    incomplete_records = []
+    complete_records = []
+    
+    for procurement in procurements:
+        result = checker.check_completeness(procurement)
+        
+        record_info = {
+            'procurement_code': procurement.procurement_code,
+            'project_name': procurement.project_name,
+            'project_code': procurement.project.project_code if procurement.project else '',
+            'procurement_method': procurement.procurement_method,
+            'type_label': result['type_label'],
+            'required_count': result['required_count'],
+            'filled_count': result['filled_count'],
+            'completeness_rate': result['completeness_rate'],
+            'missing_fields': result['missing_fields'],
+            'missing_count': len(result['missing_fields'])
+        }
+        
+        if result['completeness_rate'] < 100:
+            incomplete_records.append(record_info)
+        else:
+            complete_records.append(record_info)
+    
+    # 按齐全率排序（从低到高）
+    incomplete_records.sort(key=lambda x: x['completeness_rate'])
+    
+    return {
+        'total_count': len(incomplete_records) + len(complete_records),
+        'complete_count': len(complete_records),
+        'incomplete_count': len(incomplete_records),
+        'incomplete_records': incomplete_records[:100],  # 最多返回100条
+        'complete_records': complete_records[:20],  # 完整的只返回前20条示例
+    }

@@ -3,6 +3,8 @@ from django.urls import reverse
 from django.http import HttpResponseRedirect
 
 from .models import Project, Role, UserProfile
+from .models_completeness_config import CompletenessFieldConfig
+from .models_procurement_method_config import ProcurementMethodFieldConfig
 
 
 @admin.register(Project)
@@ -125,3 +127,39 @@ class UserProfileAdmin(admin.ModelAdmin):
         return "、".join(names) if names else "（无角色）"
 
     get_roles_display.short_description = "角色"
+
+
+@admin.register(CompletenessFieldConfig)
+class CompletenessFieldConfigAdmin(admin.ModelAdmin):
+    """完整率字段配置管理"""
+    list_display = ['model_type', 'field_name', 'field_label', 'is_enabled', 'sort_order']
+    list_filter = ['model_type', 'is_enabled']
+    search_fields = ['field_name', 'field_label']
+    list_editable = ['is_enabled', 'sort_order']
+    ordering = ['model_type', 'sort_order', 'field_name']
+    list_per_page = 50
+
+
+@admin.register(ProcurementMethodFieldConfig)
+class ProcurementMethodFieldConfigAdmin(admin.ModelAdmin):
+    """采购方式字段配置管理"""
+    list_display = ['method_type', 'field_name', 'field_label', 'is_required', 'sort_order']
+    list_filter = ['method_type', 'is_required']
+    search_fields = ['field_name', 'field_label']
+    list_editable = ['is_required', 'sort_order']
+    ordering = ['method_type', 'sort_order', 'field_name']
+    list_per_page = 50
+    
+    fieldsets = (
+        ('基本信息', {
+            'fields': ('method_type', 'field_name', 'field_label')
+        }),
+        ('配置选项', {
+            'fields': ('is_required', 'sort_order')
+        }),
+        ('审计信息', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    readonly_fields = ['created_at', 'updated_at']

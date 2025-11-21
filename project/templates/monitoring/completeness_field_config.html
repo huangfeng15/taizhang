@@ -6,12 +6,28 @@
 {% block extra_css %}
 <style>
     .config-container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 20px;
     }
     .model-tabs {
         margin-bottom: 20px;
+    }
+    .method-type-tabs {
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .method-type-tabs .nav-link {
+        color: #495057;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 20px;
+        margin-bottom: -2px;
+    }
+    .method-type-tabs .nav-link.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+        background: none;
     }
     .field-list {
         background: white;
@@ -66,6 +82,19 @@
         border-radius: 4px;
         margin-bottom: 10px;
     }
+    .method-description {
+        background: #fff3cd;
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        border-left: 4px solid #ffc107;
+    }
+    .method-description strong {
+        color: #856404;
+    }
+    .tab-content {
+        min-height: 400px;
+    }
 </style>
 {% endblock %}
 
@@ -80,11 +109,8 @@
 
     <div class="stats-info">
         <div class="row">
-            <div class="col-md-6">
-                <strong>采购字段数量：</strong> {{ procurement_count }} 个
-            </div>
-            <div class="col-md-6">
-                <strong>合同字段数量：</strong> {{ contract_count }} 个
+            <div class="col-md-12">
+                <strong>说明：</strong>不同采购方式要求填写的字段不同。请为每种采购方式分别配置必填字段，系统将根据配置计算齐全率。
             </div>
         </div>
     </div>
@@ -94,7 +120,7 @@
         <li class="nav-item" role="presentation">
             <a class="nav-link {% if model_type == 'procurement' %}active{% endif %}"
                href="{% url 'completeness_field_config' %}?model_type=procurement">
-                采购字段配置
+                采购字段配置（按采购方式）
             </a>
         </li>
         <li class="nav-item" role="presentation">
@@ -105,6 +131,54 @@
         </li>
     </ul>
 
+    {% if model_type == 'procurement' %}
+    <!-- 采购方式类型切换（仅采购模式显示） -->
+    <ul class="nav method-type-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if not method_type or method_type == 'strategic_procurement' %}active{% endif %}"
+               href="{% url 'completeness_field_config' %}?model_type=procurement&method_type=strategic_procurement"
+               data-method-type="strategic_procurement">
+                战采结果应用
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if method_type == 'direct_commission' %}active{% endif %}"
+               href="{% url 'completeness_field_config' %}?model_type=procurement&method_type=direct_commission"
+               data-method-type="direct_commission">
+                直接采购
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if method_type == 'single_source' %}active{% endif %}"
+               href="{% url 'completeness_field_config' %}?model_type=procurement&method_type=single_source"
+               data-method-type="single_source">
+                单一来源采购
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if method_type == 'other_methods' %}active{% endif %}"
+               href="{% url 'completeness_field_config' %}?model_type=procurement&method_type=other_methods"
+               data-method-type="other_methods">
+                其他采购方式
+            </a>
+        </li>
+    </ul>
+
+    <!-- 当前采购方式说明 -->
+    <div class="method-description">
+        <strong>当前配置：</strong>
+        {% if not method_type or method_type == 'strategic_procurement' %}
+            战采结果应用（包括：战采结果应用、战略采购结果应用）
+        {% elif method_type == 'direct_commission' %}
+            直接采购
+        {% elif method_type == 'single_source' %}
+            单一来源采购（包括：单一来源采购、单一来源）
+        {% elif method_type == 'other_methods' %}
+            其他采购方式（包括：公开招标、邀请招标、公开询价、邀请询价、公开竞价、邀请竞价等）
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- 字段列表 -->
     <div class="field-list">
         <div class="select-all-container">
@@ -112,12 +186,21 @@
                 <input type="checkbox" id="selectAll" class="field-checkbox">
                 <strong>全选/取消全选</strong>
             </label>
-            <span class="text-muted ms-3">勾选的字段将纳入完整率统计</span>
+            <span class="text-muted ms-3">
+                {% if model_type == 'procurement' %}
+                    勾选的字段将作为该采购方式的必填字段纳入齐全率统计
+                {% else %}
+                    勾选的字段将纳入合同齐全率统计
+                {% endif %}
+            </span>
         </div>
 
         <form id="configForm">
             {% csrf_token %}
             <input type="hidden" name="model_type" value="{{ model_type }}">
+            {% if model_type == 'procurement' %}
+            <input type="hidden" name="method_type" value="{{ method_type|default:'strategic_procurement' }}">
+            {% endif %}
 
             {% for config in configs %}
             <div class="field-item">
@@ -125,7 +208,11 @@
                        class="field-checkbox field-enable-checkbox"
                        name="field_{{ config.field_name }}"
                        data-field-name="{{ config.field_name }}"
-                       {% if config.is_enabled %}checked{% endif %}>
+                       {% if model_type == 'procurement' %}
+                           {% if config.is_required %}checked{% endif %}
+                       {% else %}
+                           {% if config.is_enabled %}checked{% endif %}
+                       {% endif %}>
                 <span class="field-label">
                     {{ config.field_label }}
                     <span class="field-name">({{ config.field_name }})</span>
@@ -155,6 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveBtn = document.getElementById('saveBtn');
     const resetBtn = document.getElementById('resetBtn');
     const modelType = '{{ model_type }}';
+    const methodType = '{{ method_type|default:"strategic_procurement" }}';
 
     // 全选/取消全选
     selectAllCheckbox.addEventListener('change', function() {
@@ -184,9 +272,20 @@ document.addEventListener('DOMContentLoaded', function() {
         fieldCheckboxes.forEach(checkbox => {
             fields.push({
                 field_name: checkbox.dataset.fieldName,
-                is_enabled: checkbox.checked
+                is_enabled: checkbox.checked,
+                is_required: checkbox.checked  // 对于采购方式配置，使用is_required
             });
         });
+
+        const postData = {
+            model_type: modelType,
+            fields: fields
+        };
+
+        // 如果是采购模式，添加method_type
+        if (modelType === 'procurement') {
+            postData.method_type = methodType;
+        }
 
         try {
             const response = await fetch('{% url "update_completeness_field_config" %}', {
@@ -195,17 +294,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: JSON.stringify({
-                    model_type: modelType,
-                    fields: fields
-                })
+                body: JSON.stringify(postData)
             });
 
             const result = await response.json();
 
             if (result.success) {
                 alert('配置保存成功！');
-                // 可选：刷新页面或显示成功提示
+                location.reload();
             } else {
                 alert('保存失败：' + result.message);
             }

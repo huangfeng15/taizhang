@@ -118,12 +118,21 @@ def api_procurements_list(request):
     """采购列表API - 支持项目筛选与搜索。"""
     search = request.GET.get('search', '')
     project = request.GET.get('project', '')
+    year = request.GET.get('year', '')
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
 
     procurements = Procurement.objects.select_related('project')
+    
+    # 年度筛选
+    if year and year.isdigit():
+        procurements = procurements.filter(announcement_release_date__year=int(year))
+    
+    # 项目筛选
     if project:
         procurements = procurements.filter(project__project_code=project)
+    
+    # 搜索筛选
     if search:
         procurements = procurements.filter(Q(procurement_code__icontains=search) | Q(project_name__icontains=search))
 
@@ -216,16 +225,29 @@ def api_contracts_list(request):
     project = request.GET.get('project_id', '') or request.GET.get('project', '')
     procurement = request.GET.get('procurement', '')
     file_positioning = request.GET.get('file_positioning', '')
+    year = request.GET.get('year', '')
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
 
     contracts = Contract.objects.select_related('project', 'procurement')
+    
+    # 年度筛选
+    if year and year.isdigit():
+        contracts = contracts.filter(signing_date__year=int(year))
+    
+    # 项目筛选
     if project:
         contracts = contracts.filter(project__project_code=project)
+    
+    # 采购筛选
     if procurement:
         contracts = contracts.filter(procurement__procurement_code=procurement)
+    
+    # 文件定位筛选
     if file_positioning:
         contracts = contracts.filter(file_positioning=file_positioning)
+    
+    # 搜索筛选
     if search:
         contracts = contracts.filter(
             Q(contract_code__icontains=search)
@@ -262,6 +284,44 @@ def api_contracts_list(request):
             },
         }
     )
+
+@extend_schema(
+    summary="获取采购项目详情",
+    description="根据采购编号获取采购项目的详细信息，用于合同表单自动填充。",
+    parameters=[
+        OpenApiParameter(
+            name="procurement_code",
+            type=str,
+            location=OpenApiParameter.PATH,
+            description="采购编号",
+            required=True,
+        ),
+    ],
+    tags=["基础数据"],
+)
+def api_procurement_detail(request, procurement_code):
+    """获取采购项目详情API - 用于合同表单自动填充"""
+    try:
+        procurement = get_object_or_404(Procurement, procurement_code=procurement_code)
+        
+        data = {
+            'success': True,
+            'data': {
+                'procurement_code': procurement.procurement_code,
+                'project_name': procurement.project_name,
+                'procurement_category': procurement.procurement_category or '',
+                'procurement_unit': procurement.procurement_unit or '',
+                'winning_bidder': procurement.winning_bidder or '',
+                'winning_amount': float(procurement.winning_amount) if procurement.winning_amount else None,
+            }
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'获取采购详情失败: {str(e)}'
+        }, status=400)
+
 
 
 # ==================== 齐全性检查快速编辑API ====================

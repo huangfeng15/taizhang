@@ -680,11 +680,27 @@ def supplier_evaluation_create(request):
     # GET请求 - 返回表单HTML
     form = SupplierEvaluationForm()
     
+    # 如果URL参数中有contract，预填充合同信息
+    initial_display = {}
+    contract_code = request.GET.get('contract', '')
+    if contract_code:
+        try:
+            contract = Contract.objects.get(contract_code=contract_code)
+            form.initial['contract'] = contract.contract_code
+            initial_display['contract'] = f"{contract.contract_sequence or contract.contract_code} - {contract.contract_name}"
+            
+            # 自动预填充供应商名称
+            if contract.party_b:
+                form.initial['supplier_name'] = contract.party_b
+        except Contract.DoesNotExist:
+            pass
+    
     return render(request, 'components/edit_form.html', {
         'form': form,
         'title': '新增履约评价',
         'submit_url': '/supplier/evaluations/create/',
         'module_type': 'supplier_eval',
+        'initial_display': initial_display,
     })
 
 

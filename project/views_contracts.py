@@ -405,9 +405,24 @@ def contract_detail(request, contract_code):
         except Exception:
             settlement = None
 
+    # 关联合同逻辑优化
     supplements = []
+    parent_contract = None
+    sibling_contracts = []
+    
     if contract.file_positioning == FilePositioning.MAIN_CONTRACT.value:
+        # 如果是主合同，获取所有补充协议和解除协议
         supplements = getattr(contract, 'supplements', Contract.objects.none()).all().order_by('signing_date')
+    else:
+        # 如果是补充协议或解除协议
+        if contract.parent_contract:
+            parent_contract = contract.parent_contract
+            # 获取主合同下的所有其他补充协议和解除协议（排除当前合同）
+            sibling_contracts = Contract.objects.filter(
+                parent_contract=parent_contract
+            ).exclude(
+                contract_code=contract.contract_code
+            ).order_by('signing_date')
 
     # 获取履约评价记录
     from supplier_eval.models import SupplierEvaluation
@@ -421,6 +436,8 @@ def contract_detail(request, contract_code):
         'procurement': procurement,
         'settlement': settlement,
         'supplements': supplements,
+        'parent_contract': parent_contract,
+        'sibling_contracts': sibling_contracts,
         'evaluations': evaluations,
     }
     return render(request, 'contract_detail.html', context)

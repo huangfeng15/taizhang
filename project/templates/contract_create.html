@@ -3,6 +3,14 @@
 
 {% block title %}新增合同 - 项目采购与成本管理系统{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/contract-autofill.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/contract-autofill.js' %}"></script>
+{% endblock %}
+
 {% block content %}
 {% include 'components/content_header_simple.html' with title='新增合同' section='合同管理' %}
 

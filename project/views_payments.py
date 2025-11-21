@@ -145,11 +145,29 @@ def payment_create(request):
     form.fields['payment_code'].required = False
     form.fields['payment_code'].widget.attrs['placeholder'] = '可留空自动生成'
 
+    # 如果URL参数中有contract，预填充合同信息
+    initial_display = {}
+    contract_code = request.GET.get('contract', '')
+    if contract_code:
+        try:
+            from contract.models import Contract
+            contract = Contract.objects.get(contract_code=contract_code)
+            form.initial['contract'] = contract.contract_code
+            initial_display['contract'] = f"{contract.contract_sequence or contract.contract_code} - {contract.contract_name}"
+            
+            # 同时预填充项目信息
+            if contract.project:
+                form.initial['project'] = contract.project.project_code
+                initial_display['project'] = f"{contract.project.project_code} - {contract.project.project_name}"
+        except Contract.DoesNotExist:
+            pass
+
     return render(request, 'components/edit_form.html', {
         'form': form,
         'title': '新增付款记录',
         'submit_url': '/payments/create/',
         'module_type': 'payment',
+        'initial_display': initial_display,
     })
 
 
