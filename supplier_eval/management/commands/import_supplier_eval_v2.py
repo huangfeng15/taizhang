@@ -302,7 +302,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f'行 {row_num}: 仅模板说明/未知列非空，跳过'))
             return 'skip'
 
-        # C：序号与合同序号皆空且评分列均空 → 跳过
+        # C：识别并跳过无有效数据的行
         numeric_like_fields = set()
         if basic_fields.get('comprehensive_score'):
             numeric_like_fields.add(basic_fields['comprehensive_score'])
@@ -310,11 +310,20 @@ class Command(BaseCommand):
             numeric_like_fields.add(basic_fields['last_evaluation_score'])
         numeric_like_fields |= set(header_info.get('annual_fields', {}).values())
         numeric_like_fields |= set(header_info.get('irregular_fields', {}).values())
+        
         seq_val = (row.get(sequence_key, '') or '').strip()
         contract_seq_val = (row.get(contract_seq_key, '') or '').strip()
-        if not seq_val and not contract_seq_val:
-            if all(not (str(row.get(col, '') or '').strip()) for col in numeric_like_fields):
-                self.stdout.write(self.style.WARNING(f'行 {row_num}: 模板/说明行或无有效数据，跳过'))
+        
+        # 合同序号为空则直接跳过（合同序号是必填字段）
+        if not contract_seq_val:
+            self.stdout.write(self.style.WARNING(f'行 {row_num}: 合同序号为空，跳过'))
+            return 'skip'
+        
+        # 序号为空且所有评分字段都为空则跳过
+        if not seq_val:
+            has_any_score = any((str(row.get(col, '') or '').strip()) for col in numeric_like_fields)
+            if not has_any_score:
+                self.stdout.write(self.style.WARNING(f'行 {row_num}: 序号为空且无评价数据，跳过'))
                 return 'skip'
 
         # 正常解析必填字段
@@ -392,6 +401,11 @@ class Command(BaseCommand):
             computed_comprehensive = process_avg
 
         comprehensive_score = csv_comprehensive_score if csv_comprehensive_score is not None else computed_comprehensive
+        
+        # D：跳过没有任何有效评价数据的行
+        if comprehensive_score is None and last_evaluation_score is None and not annual_scores and not irregular_scores:
+            self.stdout.write(self.style.WARNING(f'行 {row_num}: 没有任何有效评价数据（末次评价、年度评价、不定期评价均为空），跳过'))
+            return 'skip'
 
         # dry-run 仍返回预期操作类型
         op_type = 'updated' if existing else 'created'

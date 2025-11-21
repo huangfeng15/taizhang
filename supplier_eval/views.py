@@ -3,12 +3,13 @@
 供应商管理模块 - 视图层
 提供供应商履约评价、承接项目、约谈记录的展示和管理
 """
+import json
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, ProtectedError
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
 from decimal import Decimal
 
@@ -16,6 +17,8 @@ from supplier_eval.models import SupplierEvaluation, SupplierInterview
 from supplier_eval.services import SupplierAnalysisService
 from contract.models import Contract
 from project.utils.filters import apply_text_filter, apply_multi_field_search
+from project.models_operation_log import OperationLog
+from project.utils.operation_log_helpers import get_client_ip
 
 
 def _get_page_size(request, default=20, max_size=200):
@@ -758,3 +761,93 @@ def supplier_evaluation_edit(request, evaluation_code):
         'module_type': 'supplier_eval',
         'initial_display': initial_display,
     })
+
+
+@login_required
+@require_POST
+def batch_delete_supplier_evaluations(request):
+    """
+    批量删除供应商履约评价记录
+    
+    功能说明：
+    - 接收评价编号列表
+    - 获取这些评价对应的供应商名称
+    - 删除这些供应商的所有历史评价记录（而不仅仅是选中的记录）
+    - 这样可以确保彻底删除，避免因为显示"最新评价"而导致的重复删除问题
+    """
+    try:
+        data = json.loads(request.body)
+        evaluation_codes = data.get('ids', [])
+        
+        if not evaluation_codes:
+            return JsonResponse({
+                'success': False,
+                'message': '未选择要删除的评价记录'
+            })
+        
+        try:
+            # 第1步：根据选中的evaluation_code获取对应的供应商名称
+            selected_evaluations = SupplierEvaluation.objects.filter(
+                evaluation_code__in=evaluation_codes
+            ).values_list('supplier_name', flat=True).distinct()
+            
+            supplier_names = list(selected_evaluations)
+            
+            if not supplier_names:
+                return JsonResponse({
+                    'success': False,
+                    'message': '未找到要删除的评价记录'
+                })
+            
+            # 第2步：获取这些供应商的所有历史评价记录（用于日志）
+            all_evaluations_to_delete = SupplierEvaluation.objects.filter(
+                supplier_name__in=supplier_names
+            )
+            targets = list(all_evaluations_to_delete)
+            
+            # 第3步：删除这些供应商的所有评价记录
+            deleted_count, _ = all_evaluations_to_delete.delete()
+            
+            # 第4步：为非超级用户记录删除操作日志
+            if deleted_count and request.user.is_authenticated and not request.user.is_superuser:
+                try:
+                    ip = get_client_ip(request)
+                    logs = [
+                        OperationLog(
+                            user=request.user,
+                            operation_type="delete",
+                            object_type="supplier_evaluation",
+                            object_id=obj.evaluation_code,
+                            object_repr=str(obj),
+                            description=f"用户 {request.user.username} 批量删除了供应商 {obj.supplier_name} 的履约评价: {obj}",
+                            ip_address=ip,
+                            changes=None,
+                        )
+                        for obj in targets
+                    ]
+                    OperationLog.objects.bulk_create(logs)
+                except Exception:
+                    pass
+            
+            # 提示信息
+            supplier_count = len(supplier_names)
+            message = f'成功删除 {supplier_count} 个供应商的所有评价记录（共 {deleted_count} 条）'
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'deleted_count': deleted_count,
+                'supplier_count': supplier_count
+            })
+            
+        except ProtectedError:
+            return JsonResponse({
+                'success': False,
+                'message': '无法删除该评价记录，因为存在关联的数据引用。\n\n建议操作：\n1. 检查是否有其他记录依赖此评价\n2. 先处理关联数据后再删除\n\n如需帮助，请联系系统管理员。'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'删除失败: {str(e)}'
+        })

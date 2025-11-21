@@ -427,8 +427,10 @@ class SupplierAnalysisService:
                 - last_evaluation_score (Decimal): 末次评价得分
                 - evaluation_type (str): 评价类型（自动判断）
                 - evaluation_result (str): 综合评价结果（优秀/良好/合格/不合格）
+                - total_evaluations (int): 该供应商的评价总数
+                - evaluation_count (int): 该供应商的评价记录数（同total_evaluations，为了向后兼容）
         """
-        from django.db.models import Q
+        from django.db.models import Q, Count
         
         # 基础查询
         evaluations = SupplierEvaluation.objects.filter(
@@ -438,6 +440,18 @@ class SupplierAnalysisService:
         # 如果指定年度，则筛选该年度；否则获取所有年度
         if year is not None:
             evaluations = evaluations.filter(created_at__year=year)
+        
+        # 先统计每个供应商的评价总数
+        supplier_counts = {}
+        all_evaluations_query = SupplierEvaluation.objects.filter(comprehensive_score__isnull=False)
+        if year is not None:
+            all_evaluations_query = all_evaluations_query.filter(created_at__year=year)
+        
+        count_result = all_evaluations_query.values('supplier_name').annotate(
+            total=Count('evaluation_code')
+        )
+        for item in count_result:
+            supplier_counts[item['supplier_name']] = item['total']
         
         # 按供应商分组，获取每个供应商的最新评价
         supplier_latest = {}
@@ -458,6 +472,7 @@ class SupplierAnalysisService:
         result = []
         for supplier_name, data in supplier_latest.items():
             evaluation = data['evaluation']
+            total_evals = supplier_counts.get(supplier_name, 1)
             result.append({
                 'supplier_name': supplier_name,
                 'evaluation': evaluation,
@@ -466,6 +481,8 @@ class SupplierAnalysisService:
                 'last_evaluation_score': evaluation.last_evaluation_score,
                 'evaluation_type': data['evaluation_type'],
                 'evaluation_result': evaluation.get_score_level(),
+                'total_evaluations': total_evals,
+                'evaluation_count': total_evals,  # 向后兼容
             })
         
         # 按综合评分降序排序

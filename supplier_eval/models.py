@@ -61,14 +61,16 @@ class SupplierEvaluation(BaseModel):
     
     EVAL_TYPE_CHOICES = [
         ('末次评价', '末次评价'),
-        ('履约过程评价', '履约过程评价'),
+        ('定期履约评价', '定期履约评价'),
+        ('不定期履约评价', '不定期履约评价'),
+        ('未分类', '未分类'),
     ]
     evaluation_type = models.CharField(
         '评价类型',
-        max_length=20,
+        max_length=30,
         choices=EVAL_TYPE_CHOICES,
         blank=True,
-        help_text='区分末次评价和过程评价'
+        help_text='区分末次评价、定期履约评价、不定期履约评价和履约过程评价'
     )
     
     # ===== 新增字段（对应CSV列）=====

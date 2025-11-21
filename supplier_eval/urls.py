@@ -12,6 +12,7 @@ urlpatterns = [
     path('evaluations/detail/<str:supplier_name>/', views.supplier_evaluation_detail, name='supplier_evaluation_detail'),
     path('evaluations/create/', views.supplier_evaluation_create, name='supplier_evaluation_create'),
     path('evaluations/<str:evaluation_code>/edit/', views.supplier_evaluation_edit, name='supplier_evaluation_edit'),
+    path('evaluations/batch-delete/', views.batch_delete_supplier_evaluations, name='batch_delete_supplier_evaluations'),
     
     # 供应商承接项目查询
     path('contracts/', views.supplier_contract_list, name='supplier_contract_list'),

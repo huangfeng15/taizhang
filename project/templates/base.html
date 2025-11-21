@@ -1366,14 +1366,19 @@
                 if (selectAllCheckbox) {
                     selectAllCheckbox.addEventListener('change', function() {
                         const checkboxes = document.querySelectorAll('.row-checkbox');
-                        checkboxes.forEach(cb => {
-                            cb.checked = this.checked;
-                            if (this.checked) {
+                        if (this.checked) {
+                            // 全选：添加所有ID
+                            checkboxes.forEach(cb => {
+                                cb.checked = true;
                                 self.selectedIds.add(cb.value);
-                            } else {
-                                self.selectedIds.clear();
-                            }
-                        });
+                            });
+                        } else {
+                            // 取消全选：清空所有ID
+                            checkboxes.forEach(cb => {
+                                cb.checked = false;
+                            });
+                            self.selectedIds.clear();
+                        }
                         self.updateBatchButtons();
                     });
                 }

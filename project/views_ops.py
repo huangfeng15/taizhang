@@ -370,9 +370,13 @@ def import_data(request):
     - payment: 付款
     - supplier_eval: 供应商评价
     """
+    # 权限检查：确保用户已登录且有权限
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': '请先登录'}, status=401)
+    
     try:
         if 'file' not in request.FILES:
-            return JsonResponse({'success': False, 'message': '未找到上传文件'})
+            return JsonResponse({'success': False, 'message': '未找到上传文件'}, status=400)
         uploaded_file = request.FILES['file']
         module = request.POST.get('module', 'project')
         

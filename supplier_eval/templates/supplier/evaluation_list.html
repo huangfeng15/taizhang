@@ -129,6 +129,10 @@
             履约评价列表{{ page_title_suffix }}
         </h2>
         <div style="display: flex; gap: 12px;">
+            <button id="batchDeleteBtn" class="btn btn-secondary" style="background: #ff4d4f; color: white;" disabled onclick="batchDeleteEvaluations()">
+                <i class="fas fa-trash"></i>
+                批量删除 (<span id="selectedCount">0</span>)
+            </button>
             <button type="button" class="btn btn-primary"
                     data-create-url="{% url 'supplier_eval:supplier_evaluation_create' %}"
                     data-title="新增履约评价">
@@ -144,12 +148,12 @@
     
     {% if evaluations %}
     <div class="table-container">
-        <table class="data-table">
+        <table class="data-table" id="evaluationTable">
             <thead>
                 <tr>
                     <th data-column="row_number">序号</th>
                     <th data-column="supplier_name">供应商名称</th>
-                    <th data-column="contract">评价合同名称</th>
+                    <th data-column="contract">最新评价合同</th>
                     <th data-column="comprehensive_score">当前评价得分</th>
                     <th data-column="evaluation_type">评价类别</th>
                     <th data-column="evaluation_result">综合评价结果</th>
@@ -158,10 +162,15 @@
             </thead>
             <tbody>
                 {% for item in evaluations %}
-                <tr>
+                <tr data-id="{{ item.evaluation.evaluation_code }}">
                     <td data-column="row_number">{{ forloop.counter }}</td>
                     <td data-column="supplier_name" style="font-weight: 600;">
                         {{ item.supplier_name }}
+                        {% if item.total_evaluations > 1 %}
+                        <span class="badge" style="background: #1890ff; color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 6px;" title="该供应商有{{ item.total_evaluations }}条评价记录">
+                            {{ item.total_evaluations }}条
+                        </span>
+                        {% endif %}
                     </td>
                     <td data-column="contract">
                         {% if item.evaluation.contract %}
@@ -249,30 +258,29 @@
     {% endif %}
     
     <!-- 分页 -->
-    {% if evaluations %}
-    <div class="pagination">
-        <span class="pagination-info">
-            共 {{ page_obj.paginator.count }} 条记录
-        </span>
-        {% if page_obj.has_previous %}
-        <a href="?page=1{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">首页</a>
-        <a href="?page={{ page_obj.previous_page_number }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">上一页</a>
-        {% endif %}
-        
-        <span class="current">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
-        
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">下一页</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% if year_value %}&global_year={{ year_value }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if score_level_filter %}&score_level={{ score_level_filter }}{% endif %}">尾页</a>
-        {% endif %}
-    </div>
-    {% endif %}
+    {% include 'pagination.html' with module_type='supplier_eval' %}
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// 初始化批量操作
+document.addEventListener('DOMContentLoaded', function() {
+    var hasEvaluations = {{ evaluations|yesno:"true,false" }};
+    if (hasEvaluations) {
+        BatchOperations.init('#evaluationTable', 'data-id');
+    }
+});
+
+// 批量删除供应商履约评价
+function batchDeleteEvaluations() {
+    BatchOperations.batchDelete(
+        '{% url "supplier_eval:batch_delete_supplier_evaluations" %}',
+        `确定要删除选中的 ${BatchOperations.getSelectedIds().length} 条评价记录吗？\n此操作不可恢复！`
+    );
+}
+
 // 显示导入对话框
 function showImportDialog() {
     const html = `
@@ -390,32 +398,118 @@ function startImport() {
     
     fetch('/api/import/', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
+        const stats = data.stats || {};
+        const errors = data.errors || [];
+        const hasErrors = stats.error_rows > 0 || errors.length > 0;
+        
+        if (data.success && !hasErrors) {
+            // 完全成功，没有任何错误
             modalBody.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-check-circle" style="font-size: 64px; color: var(--success-color); margin-bottom: 20px;"></i>
                     <h3 style="font-size: 20px; margin-bottom: 16px;">导入完成!</h3>
                     <p style="color: var(--text-secondary);">${data.message}</p>
+                    ${stats.created ? `<p style="margin-top: 8px;">成功导入 <strong>${stats.created}</strong> 条记录</p>` : ''}
                     <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 20px;">
                         <i class="fas fa-sync"></i>
                         刷新页面
                     </button>
                 </div>
             `;
-        } else {
+        } else if (data.success && hasErrors) {
+            // 部分成功，有错误
+            let errorHtml = '';
+            if (errors.length > 0) {
+                errorHtml = `
+                    <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin-top: 20px; text-align: left; max-height: 300px; overflow-y: auto;">
+                        <h4 style="font-size: 16px; color: #cf1322; margin-bottom: 12px;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            错误详情 (共 ${errors.length} 条${data.has_more_errors ? '+' : ''})
+                        </h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #8c0000; font-size: 14px; line-height: 1.8;">
+                            ${errors.map(err => `<li>${err}</li>`).join('')}
+                        </ul>
+                        ${data.has_more_errors ? `<p style="margin-top: 12px; color: #ff4d4f; font-style: italic;">提示：错误过多，仅显示前${errors.length}条</p>` : ''}
+                    </div>
+                `;
+            }
+            
             modalBody.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
-                    <h3 style="font-size: 20px; margin-bottom: 16px;">导入失败</h3>
-                    <p style="color: var(--error-color);">${data.message}</p>
-                    <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary" style="margin-top: 20px;">
-                        <i class="fas fa-redo"></i>
-                        重新尝试
-                    </button>
+                <div style="padding: 30px;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 64px; color: var(--warning-color); margin-bottom: 20px;"></i>
+                        <h3 style="font-size: 20px; margin-bottom: 16px;">导入部分成功</h3>
+                        <p style="color: var(--text-secondary);">${data.message}</p>
+                    </div>
+                    
+                    <div style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 16px; margin-top: 20px;">
+                        <h4 style="font-size: 16px; color: #389e0d; margin-bottom: 12px;">
+                            <i class="fas fa-check-circle"></i>
+                            导入统计
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 14px;">
+                            <div><span style="color: #595959;">总行数：</span><strong>${stats.total_rows || 0}</strong></div>
+                            <div><span style="color: #595959;">成功：</span><strong style="color: #52c41a;">${stats.created || 0}</strong></div>
+                            <div><span style="color: #595959;">更新：</span><strong style="color: #1890ff;">${stats.updated || 0}</strong></div>
+                            <div><span style="color: #595959;">失败：</span><strong style="color: #ff4d4f;">${stats.error_rows || 0}</strong></div>
+                            <div><span style="color: #595959;">跳过：</span><strong>${stats.skipped || 0}</strong></div>
+                        </div>
+                    </div>
+                    
+                    ${errorHtml}
+                    
+                    <div style="text-align: center; margin-top: 24px; display: flex; gap: 12px; justify-content: center;">
+                        <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-secondary">
+                            <i class="fas fa-redo"></i>
+                            修正后重试
+                        </button>
+                        <button onclick="window.location.reload()" class="btn btn-primary">
+                            <i class="fas fa-sync"></i>
+                            刷新页面
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // 完全失败
+            let errorHtml = '';
+            if (errors.length > 0) {
+                errorHtml = `
+                    <div style="background: #fff1f0; border: 1px solid #ffa39e; border-radius: 6px; padding: 16px; margin-top: 20px; text-align: left; max-height: 300px; overflow-y: auto;">
+                        <h4 style="font-size: 16px; color: #cf1322; margin-bottom: 12px;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            错误详情
+                        </h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #8c0000; font-size: 14px; line-height: 1.8;">
+                            ${errors.map(err => `<li>${err}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            modalBody.innerHTML = `
+                <div style="padding: 30px;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-times-circle" style="font-size: 64px; color: var(--error-color); margin-bottom: 20px;"></i>
+                        <h3 style="font-size: 20px; margin-bottom: 16px;">导入失败</h3>
+                        <p style="color: var(--error-color);">${data.message || '未知错误'}</p>
+                    </div>
+                    
+                    ${errorHtml}
+                    
+                    <div style="text-align: center; margin-top: 24px;">
+                        <button onclick="closeImportDialog(); showImportDialog();" class="btn btn-primary">
+                            <i class="fas fa-redo"></i>
+                            修正后重试
+                        </button>
+                    </div>
                 </div>
             `;
         }
